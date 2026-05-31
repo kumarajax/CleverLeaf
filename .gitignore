@@ -1,0 +1,6 @@
+.DS_Store
+.env
+target/
+.next/
+node_modules/
+*.log

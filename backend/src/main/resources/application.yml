@@ -1,0 +1,49 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: clearleaf-api
+  mail:
+    host: ${SPRING_MAIL_HOST:localhost}
+    port: ${SPRING_MAIL_PORT:1025}
+    username: ${SPRING_MAIL_USERNAME:}
+    password: ${SPRING_MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: ${SPRING_MAIL_SMTP_AUTH:false}
+          starttls:
+            enable: ${SPRING_MAIL_SMTP_STARTTLS_ENABLE:false}
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/clearleaf}
+    username: ${SPRING_DATASOURCE_USERNAME:clearleaf}
+    password: ${SPRING_DATASOURCE_PASSWORD:local-dev-change-me}
+  flyway:
+    enabled: true
+
+app:
+  public-base-url: ${APP_PUBLIC_BASE_URL:http://localhost:3000}
+  legal:
+    current-version: ${APP_LEGAL_CURRENT_VERSION:2026-05-30}
+  signup:
+    approval-required: ${USER_CREATION_APPROVAL_REQUIRED:Y}
+    approval-email-to: ${APP_SIGNUP_APPROVAL_EMAIL_TO:admin@clearleaf.local}
+    password-encryption-key: ${APP_SIGNUP_PASSWORD_ENCRYPTION_KEY:local-dev-change-me}
+    token-days: ${APP_SIGNUP_APPROVAL_TOKEN_DAYS:7}
+  keycloak:
+    base-url: ${KEYCLOAK_INTERNAL_URL:http://localhost:8080}
+    realm: ${KEYCLOAK_REALM:clearleaf}
+    admin-user: ${KEYCLOAK_ADMIN_USER:admin}
+    admin-password: ${KEYCLOAK_ADMIN_PASSWORD:local-dev-change-me}
+    jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:http://localhost:8080/realms/clearleaf/protocol/openid-connect/certs}
+  storage:
+    minio:
+      endpoint: ${APP_STORAGE_MINIO_ENDPOINT:http://localhost:9000}
+      access-key: ${APP_STORAGE_MINIO_ACCESS_KEY:admin}
+      secret-key: ${APP_STORAGE_MINIO_SECRET_KEY:admin1234}
+      bucket: ${APP_STORAGE_MINIO_BUCKET:clearleaf-media}
+  security:
+    oauth2:
+      jwt:
+        issuer: ${KEYCLOAK_ISSUER:http://localhost:8080/realms/clearleaf}

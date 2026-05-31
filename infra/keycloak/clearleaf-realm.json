@@ -1,0 +1,25 @@
+{
+  "realm": "clearleaf",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "resetPasswordAllowed": false,
+  "roles": {
+    "realm": [
+      { "name": "student" },
+      { "name": "content_creator" },
+      { "name": "reviewer" },
+      { "name": "administrator" }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "clearleaf-web",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "redirectUris": ["http://localhost:3000/*"],
+      "webOrigins": ["http://localhost:3000"]
+    }
+  ]
+}
