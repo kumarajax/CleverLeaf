@@ -1,0 +1,18 @@
+INSERT INTO lookup (id, lookup_type, lookup_code, lookup_meaning, lookup_description, sort_order, active) VALUES
+('00000000-0000-0000-0001-000000000001', 'QUESTION_TYPE', 'SINGLE_SELECT', 'Single select', 'Question with exactly one correct option', 1, TRUE),
+('00000000-0000-0000-0001-000000000002', 'QUESTION_TYPE', 'MULTIPLE_SELECT', 'Multiple select', 'Question with one or more correct options', 2, TRUE),
+('00000000-0000-0000-0001-000000000003', 'QUESTION_TYPE', 'TRUE_FALSE', 'True or false', 'Question answered with true or false', 3, TRUE),
+('00000000-0000-0000-0001-000000000004', 'QUESTION_TYPE', 'FILL_BLANK', 'Fill in the blank', 'Question answered with text', 4, TRUE),
+('00000000-0000-0000-0001-000000000005', 'QUESTION_TYPE', 'NUMERICAL', 'Numerical', 'Question answered with a number', 5, TRUE),
+('00000000-0000-0000-0002-000000000001', 'QUESTION_DIFFICULTY', 'EASY', 'Easy', 'Introductory difficulty', 1, TRUE),
+('00000000-0000-0000-0002-000000000002', 'QUESTION_DIFFICULTY', 'MEDIUM', 'Medium', 'Intermediate difficulty', 2, TRUE),
+('00000000-0000-0000-0002-000000000003', 'QUESTION_DIFFICULTY', 'HARD', 'Hard', 'Advanced difficulty', 3, TRUE),
+('00000000-0000-0000-0003-000000000001', 'QUESTION_WORKFLOW_STATUS', 'DRAFT', 'Draft', 'Question is being authored', 1, TRUE),
+('00000000-0000-0000-0003-000000000002', 'QUESTION_WORKFLOW_STATUS', 'MISSING_ANSWER', 'Missing answer', 'Question needs an answer', 2, TRUE),
+('00000000-0000-0000-0003-000000000003', 'QUESTION_WORKFLOW_STATUS', 'MISSING_EXPLANATION', 'Missing explanation', 'Question needs an explanation', 3, TRUE),
+('00000000-0000-0000-0003-000000000004', 'QUESTION_WORKFLOW_STATUS', 'AI_GENERATED', 'AI generated', 'Question was generated with AI assistance', 4, TRUE),
+('00000000-0000-0000-0003-000000000005', 'QUESTION_WORKFLOW_STATUS', 'PENDING_REVIEW', 'Pending review', 'Question is waiting for review', 5, TRUE),
+('00000000-0000-0000-0003-000000000006', 'QUESTION_WORKFLOW_STATUS', 'APPROVED', 'Approved', 'Question was approved', 6, TRUE),
+('00000000-0000-0000-0003-000000000007', 'QUESTION_WORKFLOW_STATUS', 'READY_FOR_TEST', 'Ready for test', 'Question is ready for tests', 7, TRUE),
+('00000000-0000-0000-0003-000000000008', 'QUESTION_WORKFLOW_STATUS', 'ARCHIVED', 'Archived', 'Question is archived', 8, TRUE),
+('00000000-0000-0000-0003-000000000009', 'QUESTION_WORKFLOW_STATUS', 'REJECTED', 'Rejected', 'Question was rejected during review', 9, TRUE);

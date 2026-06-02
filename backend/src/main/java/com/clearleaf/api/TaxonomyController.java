@@ -1,7 +1,10 @@
 package com.clearleaf.api;
 
-import java.util.List;
+import jakarta.validation.Valid;
 import java.util.UUID;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -23,46 +26,33 @@ public class TaxonomyController {
         this.taxonomy = taxonomy;
     }
 
-    @GetMapping("/level-types")
-    public List<TaxonomyLevelType> levelTypes() {
-        return taxonomy.listLevelTypes();
-    }
-
-    @PostMapping("/level-types")
-    @ResponseStatus(HttpStatus.CREATED)
-    public TaxonomyLevelType createLevelType(@RequestBody CreateTaxonomyLevelTypeRequest request) {
-        return taxonomy.createLevelType(request);
-    }
-
-    @PostMapping("/level-types/{levelKey}/deactivate")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deactivateLevelType(@PathVariable("levelKey") String levelKey) {
-        taxonomy.deactivateLevelType(levelKey);
-    }
-
     @GetMapping("/nodes")
-    public List<TaxonomyNode> nodes(@RequestParam(value = "status", required = false) String status) {
-        return taxonomy.listNodes(status);
+    public Page<TaxonomyNode> nodes(
+            @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "parentNodeId", required = false) UUID parentNodeId,
+            @RequestParam(value = "includeDescendants", required = false, defaultValue = "false") boolean includeDescendants,
+            @PageableDefault(sort = {"sortOrder", "displayName"}) Pageable pageable) {
+        return taxonomy.listNodes(status, parentNodeId, includeDescendants, pageable);
     }
 
     @PostMapping("/nodes")
     @ResponseStatus(HttpStatus.CREATED)
-    public TaxonomyNode create(@RequestBody CreateTaxonomyNodeRequest request) {
+    public TaxonomyNode create(@Valid @RequestBody CreateTaxonomyNodeRequest request) {
         return taxonomy.createNode(request);
     }
 
     @PutMapping("/nodes/{id}")
-    public TaxonomyNode update(@PathVariable("id") UUID id, @RequestBody UpdateTaxonomyNodeRequest request) {
+    public TaxonomyNode update(@PathVariable("id") UUID id, @Valid @RequestBody UpdateTaxonomyNodeRequest request) {
         return taxonomy.updateNode(id, request);
     }
 
-    @PostMapping("/editions/clone")
+    @PostMapping("/taxonomyVersions/clone")
     @ResponseStatus(HttpStatus.CREATED)
     public TaxonomyCloneResponse cloneEdition(@RequestBody CloneTaxonomyEditionRequest request) {
         return taxonomy.cloneEdition(request);
     }
 
-    @PostMapping("/editions/{id}/activate")
+    @PostMapping("/taxonomyVersions/{id}/activate")
     public TaxonomyCloneResponse activateEdition(@PathVariable("id") UUID id) {
         return taxonomy.activateEdition(id);
     }

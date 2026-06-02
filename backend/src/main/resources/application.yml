@@ -21,6 +21,11 @@ spring:
     password: ${SPRING_DATASOURCE_PASSWORD:local-dev-change-me}
   flyway:
     enabled: true
+  data:
+    web:
+      pageable:
+        default-page-size: 100
+        max-page-size: 500
 
 app:
   public-base-url: ${APP_PUBLIC_BASE_URL:http://localhost:3000}

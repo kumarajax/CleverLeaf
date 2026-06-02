@@ -15,5 +15,8 @@ public record QuestionAdminRecord(
         String explanation,
         String sourceReference,
         String licenseCategory,
-        List<QuestionOption> options) {
+        List<QuestionOption> options,
+        List<QuestionTaxonomyAssignment> taxonomyAssignments,
+        List<QuestionAnswer> answers,
+        List<String> tags) {
 }

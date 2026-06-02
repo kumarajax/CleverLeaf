@@ -42,10 +42,31 @@ type TaxonomyLevelType = {
   active: boolean;
 };
 
+type LookupResponse = {
+  id: string;
+  lookupType: string;
+  lookupCode: string;
+  lookupMeaning: string;
+  sortOrder: number;
+  active: boolean;
+};
+
 type QuestionOption = {
   key: string;
   text: string;
   correct: boolean;
+};
+
+type QuestionAnswer = {
+  answerValue: string;
+  answerType: string;
+  toleranceValue?: number | null;
+  caseSensitive?: boolean | null;
+};
+
+type QuestionTaxonomyAssignment = {
+  taxonomyNodeId: string;
+  primary: boolean;
 };
 
 type AdminQuestion = {
@@ -61,6 +82,9 @@ type AdminQuestion = {
   sourceReference?: string | null;
   licenseCategory?: string | null;
   options: QuestionOption[];
+  taxonomyAssignments: QuestionTaxonomyAssignment[];
+  answers: QuestionAnswer[];
+  tags: string[];
 };
 
 type CsvRow = {
@@ -88,6 +112,22 @@ type CsvImportSummary = {
   rows: CsvRow[];
 };
 
+type PageMetadata = {
+  number: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+};
+
+type SpringPage<T> = {
+  content: T[];
+  page?: PageMetadata;
+  number?: number;
+  size?: number;
+  totalElements?: number;
+  totalPages?: number;
+};
+
 type TreeNode = TaxonomyNode & { children: TreeNode[] };
 
 type TaxonomyFormState = {
@@ -103,6 +143,7 @@ type TaxonomyFormState = {
 type QuestionFormState = {
   id: string;
   taxonomyNodeId: string;
+  secondaryTaxonomyNodeIds: string[];
   actor: string;
   questionType: string;
   difficulty: string;
@@ -112,12 +153,36 @@ type QuestionFormState = {
   sourceReference: string;
   licenseCategory: string;
   options: QuestionOption[];
+  answersText: string;
+  tagsText: string;
 };
 
-const questionTypes = ["SINGLE_SELECT", "MULTIPLE_SELECT", "TRUE_FALSE", "FILL_BLANK", "NUMERICAL"];
-const difficulties = ["EASY", "MEDIUM", "HARD"];
-const workflowStatuses = ["DRAFT", "MISSING_ANSWER", "MISSING_EXPLANATION", "AI_GENERATED", "PENDING_REVIEW", "APPROVED", "READY_FOR_TEST", "ARCHIVED", "REJECTED"];
 const taxonomyStatuses = ["ACTIVE", "INACTIVE", "ALL"];
+const requestTimeoutMs = 10000;
+const taxonomyPageSize = 100;
+const allTaxonomyPageSize = 500;
+const questionPageSize = 25;
+const nodeKeyPattern = /^[A-Z0-9]+(?:_[A-Z0-9]+)*$/;
+const taxonomyParentKeys: Record<string, string | null> = {
+  CURRICULUM: null,
+  EDITION: "CURRICULUM",
+  GRADE: "EDITION",
+  SUBJECT: "GRADE",
+  CHAPTER: "SUBJECT",
+  TOPIC: "CHAPTER",
+};
+
+function getLovDisplayName(value: string) {
+  return value
+    .toLowerCase()
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
+function getLookupMeaning(lookups: LookupResponse[], value: string) {
+  return lookups.find((lookup) => lookup.lookupCode === value)?.lookupMeaning ?? getLovDisplayName(value);
+}
 
 function decodePayload(token: string): JwtPayload | null {
   const segment = token.split(".")[1];
@@ -137,6 +202,13 @@ function blankOptions(): QuestionOption[] {
     { key: "B", text: "", correct: false },
     { key: "C", text: "", correct: false },
     { key: "D", text: "", correct: false },
+  ];
+}
+
+function trueFalseOptions(): QuestionOption[] {
+  return [
+    { key: "A", text: "", correct: true },
+    { key: "B", text: "", correct: false },
   ];
 }
 
@@ -176,22 +248,34 @@ async function readMessage(response: Response) {
 }
 
 function readStoredSession() {
-  const current = localStorage.getItem("clearleaf.auth");
-  if (current) return current;
-  const accessToken = localStorage.getItem("owl_access_token");
-  const idToken = localStorage.getItem("owl_id_token");
-  if (!accessToken && !idToken) return null;
-  return JSON.stringify({
-    email: "",
-    accessToken: accessToken ?? "",
-    refreshToken: idToken ?? "",
-  });
+  return localStorage.getItem("clearleaf.auth");
 }
 
 function removeStoredSession() {
   localStorage.removeItem("clearleaf.auth");
-  localStorage.removeItem("owl_access_token");
-  localStorage.removeItem("owl_id_token");
+}
+
+function readPage<T>(body: unknown): { content: T[]; page: PageMetadata } {
+  if (Array.isArray(body)) {
+    return {
+      content: body as T[],
+      page: {
+        number: 0,
+        size: body.length,
+        totalElements: body.length,
+        totalPages: body.length ? 1 : 0,
+      },
+    };
+  }
+  const candidate = body as SpringPage<T>;
+  const content = Array.isArray(candidate?.content) ? candidate.content : [];
+  const page = candidate?.page ?? {
+    number: candidate?.number ?? 0,
+    size: candidate?.size ?? content.length,
+    totalElements: candidate?.totalElements ?? content.length,
+    totalPages: candidate?.totalPages ?? (content.length ? 1 : 0),
+  };
+  return { content, page };
 }
 
 export default function AdminPage() {
@@ -203,13 +287,19 @@ export default function AdminPage() {
   const [me, setMe] = useState<MeResponse | null>(null);
   const [roles, setRoles] = useState<string[]>([]);
   const [levelTypes, setLevelTypes] = useState<TaxonomyLevelType[]>([]);
+  const [questionTypeLookups, setQuestionTypeLookups] = useState<LookupResponse[]>([]);
+  const [difficultyLookups, setDifficultyLookups] = useState<LookupResponse[]>([]);
+  const [workflowStatusLookups, setWorkflowStatusLookups] = useState<LookupResponse[]>([]);
   const [allNodes, setAllNodes] = useState<TaxonomyNode[]>([]);
   const [taxonomyNodes, setTaxonomyNodes] = useState<TaxonomyNode[]>([]);
+  const [taxonomyPage, setTaxonomyPage] = useState<PageMetadata>({ number: 0, size: taxonomyPageSize, totalElements: 0, totalPages: 0 });
+  const [taxonomyPageIndex, setTaxonomyPageIndex] = useState(0);
   const [taxonomyFilter, setTaxonomyFilter] = useState("ACTIVE");
   const [selectedTaxonomyNodeId, setSelectedTaxonomyNodeId] = useState("");
+  const [taxonomyFormVisible, setTaxonomyFormVisible] = useState(false);
   const [taxonomyForm, setTaxonomyForm] = useState<TaxonomyFormState>({
     id: "",
-    levelKey: "GRADE",
+    levelKey: "CURRICULUM",
     parentId: "",
     nodeKey: "",
     displayName: "",
@@ -217,10 +307,18 @@ export default function AdminPage() {
     status: "ACTIVE",
   });
   const [questions, setQuestions] = useState<AdminQuestion[]>([]);
+  const [questionPage, setQuestionPage] = useState<PageMetadata>({ number: 0, size: questionPageSize, totalElements: 0, totalPages: 0 });
+  const [questionPageIndex, setQuestionPageIndex] = useState(0);
+  const [questionsLoading, setQuestionsLoading] = useState(false);
   const [questionSearch, setQuestionSearch] = useState("");
+  const [questionNodeFilterId, setQuestionNodeFilterId] = useState("");
+  const [questionTypeFilter, setQuestionTypeFilter] = useState("");
+  const [questionDifficultyFilter, setQuestionDifficultyFilter] = useState("");
+  const [questionWorkflowFilter, setQuestionWorkflowFilter] = useState("");
   const [questionForm, setQuestionForm] = useState<QuestionFormState>({
     id: "",
     taxonomyNodeId: "",
+    secondaryTaxonomyNodeIds: [],
     actor: "",
     questionType: "SINGLE_SELECT",
     difficulty: "MEDIUM",
@@ -230,48 +328,84 @@ export default function AdminPage() {
     sourceReference: "",
     licenseCategory: "CC-BY",
     options: blankOptions(),
+    answersText: "",
+    tagsText: "",
   });
   const [preview, setPreview] = useState<CsvPreviewResponse | null>(null);
   const [csvObjectKey, setCsvObjectKey] = useState("");
   const [csvImportSummary, setCsvImportSummary] = useState<CsvImportSummary | null>(null);
   const [csvError, setCsvError] = useState("");
-  const [scoreResult, setScoreResult] = useState("");
-  const [validationResult, setValidationResult] = useState("");
-  const [activeTab, setActiveTab] = useState<"taxonomy" | "manual" | "csv" | "score">("taxonomy");
+  const [activeTab, setActiveTab] = useState<"taxonomy" | "manual" | "csv">("taxonomy");
   const [expandedTaxonomyIds, setExpandedTaxonomyIds] = useState<string[]>([]);
+  const [expandedQuestionTaxonomyIds, setExpandedQuestionTaxonomyIds] = useState<string[]>([]);
   const [expandedQuestionIds, setExpandedQuestionIds] = useState<string[]>([]);
 
   const currentToken = session?.accessToken ?? "";
+  const questionTypes = questionTypeLookups.filter((lookup) => lookup.lookupCode !== "ALL").map((lookup) => lookup.lookupCode);
+  const difficulties = difficultyLookups.filter((lookup) => lookup.lookupCode !== "ALL").map((lookup) => lookup.lookupCode);
+  const workflowStatuses = workflowStatusLookups.filter((lookup) => lookup.lookupCode !== "ALL").map((lookup) => lookup.lookupCode);
   const levelTypeById = useMemo(() => new Map(levelTypes.map((level) => [level.id, level])), [levelTypes]);
   const nodeById = useMemo(() => new Map(allNodes.map((node) => [node.id, node])), [allNodes]);
   const tree = useMemo(() => buildTree(taxonomyNodes), [taxonomyNodes]);
   const expandedTaxonomySet = useMemo(() => new Set(expandedTaxonomyIds), [expandedTaxonomyIds]);
   const expandedQuestionSet = useMemo(() => new Set(expandedQuestionIds), [expandedQuestionIds]);
   const selectedTaxonomyNode = allNodes.find((node) => node.id === selectedTaxonomyNodeId) ?? null;
+  const selectedRootTaxonomyNode = selectedTaxonomyNode
+    ? getAncestorChain(selectedTaxonomyNode.id)[0] ?? null
+    : null;
+  const leafNodeIds = useMemo(() => {
+    const parentIds = new Set(allNodes.map((node) => node.parentId).filter((id): id is string => Boolean(id)));
+    return new Set(allNodes.filter((node) => !parentIds.has(node.id)).map((node) => node.id));
+  }, [allNodes]);
   const questionTaxonomyOptions = useMemo(() => {
     const contextNodeId = selectedTaxonomyNodeId || questionForm.taxonomyNodeId;
     const rootId = contextNodeId ? getBranchRootId(contextNodeId) : "";
     return [...allNodes]
-      .filter((node) => node.status === "ACTIVE")
+      .filter((node) => isActiveTaxonomyBranch(node.id))
+      .filter((node) => leafNodeIds.has(node.id))
       .filter((node) => {
         if (!rootId) return true;
         return getBranchRootId(node.id) === rootId;
       })
       .sort((left, right) => left.displayName.localeCompare(right.displayName));
-  }, [allNodes, questionForm.taxonomyNodeId, selectedTaxonomyNodeId]);
+  }, [allNodes, leafNodeIds, questionForm.taxonomyNodeId, selectedTaxonomyNodeId]);
+  const questionNodeFilterOptions = useMemo(() => {
+    const branchRootId = selectedRootTaxonomyNode?.id ?? "";
+    if (!branchRootId) return [];
+    return [...allNodes]
+      .filter((node) => isActiveTaxonomyBranch(node.id))
+      .filter((node) => getBranchRootId(node.id) === branchRootId)
+      .sort((left, right) => left.displayName.localeCompare(right.displayName));
+  }, [allNodes, selectedRootTaxonomyNode?.id]);
   const filteredQuestions = useMemo(() => {
     const search = questionSearch.trim().toLowerCase();
-    if (!search) return questions;
-    return questions.filter((question) =>
-      [
+    return questions.filter((question) => {
+      if (!search) return true;
+      return [
         question.taxonomyNodeLabel,
         question.questionType,
         question.difficulty,
         question.workflowStatus,
         question.questionText,
-      ].some((value) => (value ?? "").toLowerCase().includes(search))
-    );
+      ].some((value) => (value ?? "").toLowerCase().includes(search));
+    });
   }, [questionSearch, questions]);
+  const groupedQuestions = useMemo(() => {
+    const groups = new Map<string, { taxonomyNodeId: string; taxonomyNodeLabel: string; questions: AdminQuestion[] }>();
+    filteredQuestions.forEach((question) => {
+      const group = groups.get(question.taxonomyNodeId);
+      if (group) {
+        group.questions.push(question);
+      } else {
+        groups.set(question.taxonomyNodeId, {
+          taxonomyNodeId: question.taxonomyNodeId,
+          taxonomyNodeLabel: question.taxonomyNodeLabel,
+          questions: [question],
+        });
+      }
+    });
+    return [...groups.values()].sort((left, right) => left.taxonomyNodeLabel.localeCompare(right.taxonomyNodeLabel));
+  }, [filteredQuestions]);
 
   function authHeaders(token = currentToken): Record<string, string> {
     return token ? { Authorization: `Bearer ${token}` } : {};
@@ -281,49 +415,80 @@ export default function AdminPage() {
     return payloadRoles.includes("administrator");
   }
 
-  async function loadTaxonomy(filter: string, token = currentToken) {
-    const response = await fetch(`${apiBaseUrl}/api/admin/taxonomy/nodes?status=${encodeURIComponent(filter)}`, {
+  async function loadTaxonomy(filter: string, token = currentToken, page = taxonomyPageIndex) {
+    const parameters = new URLSearchParams({
+      status: filter,
+      page: String(page),
+      size: String(taxonomyPageSize),
+    });
+    parameters.append("sort", "sortOrder,asc");
+    parameters.append("sort", "displayName,asc");
+    const response = await fetch(`${apiBaseUrl}/api/admin/taxonomy/nodes?${parameters.toString()}`, {
       headers: authHeaders(token),
     });
     const body = await response.json().catch(() => []);
     if (!response.ok) {
       throw new Error(body.error || `Request failed with ${response.status}`);
     }
-    setTaxonomyNodes(body);
-    setSelectedTaxonomyNodeId((current) => (body.some((node: TaxonomyNode) => node.id === current) ? current : (body.length > 0 ? body[0].id : "")));
+    const result = readPage<TaxonomyNode>(body);
+    setTaxonomyNodes(result.content);
+    setTaxonomyPage(result.page);
+    setTaxonomyPageIndex(result.page.number);
+    setSelectedTaxonomyNodeId((current) => (result.content.some((node) => node.id === current) ? current : (result.content.length > 0 ? result.content[0].id : "")));
   }
 
   async function loadAllTaxonomy(token = currentToken) {
-    const response = await fetch(`${apiBaseUrl}/api/admin/taxonomy/nodes?status=ALL`, {
+    const parameters = new URLSearchParams({
+      status: "ALL",
+      page: "0",
+      size: String(allTaxonomyPageSize),
+    });
+    parameters.append("sort", "sortOrder,asc");
+    parameters.append("sort", "displayName,asc");
+    const response = await fetch(`${apiBaseUrl}/api/admin/taxonomy/nodes?${parameters.toString()}`, {
       headers: authHeaders(token),
     });
     const body = await response.json().catch(() => []);
     if (!response.ok) {
       throw new Error(body.error || `Request failed with ${response.status}`);
     }
-    setAllNodes(body);
+    setAllNodes(readPage<TaxonomyNode>(body).content);
   }
 
-  async function loadLevelTypes(token = currentToken) {
-    const response = await fetch(`${apiBaseUrl}/api/admin/taxonomy/level-types`, {
-      headers: authHeaders(token),
-    });
-    const body = await response.json().catch(() => []);
-    if (!response.ok) {
-      throw new Error(body.error || `Request failed with ${response.status}`);
+  async function loadQuestions(token = currentToken, page = questionPageIndex) {
+    setQuestionsLoading(true);
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), requestTimeoutMs);
+    try {
+      const parameters = new URLSearchParams({
+        page: String(page),
+        size: String(questionPageSize),
+      });
+      parameters.append("sort", "createdAt,desc");
+      const taxonomyNodeId = questionNodeFilterId || selectedTaxonomyNodeId;
+      if (taxonomyNodeId) {
+        parameters.set("taxonomyNodeId", taxonomyNodeId);
+        parameters.set("includeDescendants", "true");
+      }
+      if (questionTypeFilter) parameters.set("questionType", questionTypeFilter);
+      if (questionDifficultyFilter) parameters.set("difficulty", questionDifficultyFilter);
+      if (questionWorkflowFilter) parameters.set("workflowStatus", questionWorkflowFilter);
+      const response = await fetch(`${apiBaseUrl}/api/admin/questions?${parameters.toString()}`, {
+        headers: authHeaders(token),
+        signal: controller.signal,
+      });
+      const body = await response.json().catch(() => []);
+      if (!response.ok) {
+        throw new Error(body.error || `Request failed with ${response.status}`);
+      }
+      const result = readPage<AdminQuestion>(body);
+      setQuestions(result.content);
+      setQuestionPage(result.page);
+      setQuestionPageIndex(result.page.number);
+    } finally {
+      window.clearTimeout(timeout);
+      setQuestionsLoading(false);
     }
-    setLevelTypes(body);
-  }
-
-  async function loadQuestions(token = currentToken) {
-    const response = await fetch(`${apiBaseUrl}/api/admin/questions`, {
-      headers: authHeaders(token),
-    });
-    const body = await response.json().catch(() => []);
-    if (!response.ok) {
-      throw new Error(body.error || `Request failed with ${response.status}`);
-    }
-    setQuestions(body);
   }
 
   async function bootstrap() {
@@ -347,25 +512,53 @@ export default function AdminPage() {
       }
       setRoles(payloadRoles);
       setQuestionForm((current) => ({ ...current, actor: parsed.email ?? payload?.email ?? current.actor }));
-      const [meResponse, levelResponse] = await Promise.all([
+      const [meResponse, levelResponse, questionTypeResponse, difficultyResponse, workflowStatusResponse] = await Promise.all([
         fetch(`${apiBaseUrl}/api/me`, { headers: { Authorization: `Bearer ${parsed.accessToken}` } }),
-        fetch(`${apiBaseUrl}/api/admin/taxonomy/level-types`, { headers: { Authorization: `Bearer ${parsed.accessToken}` } }),
+        fetch(`${apiBaseUrl}/api/common/lookups?lookupType=TAXONOMY_TYPE&status=ACTIVE`, { headers: { Authorization: `Bearer ${parsed.accessToken}` } }),
+        fetch(`${apiBaseUrl}/api/common/lookups?lookupType=QUESTION_TYPE&status=ACTIVE`, { headers: { Authorization: `Bearer ${parsed.accessToken}` } }),
+        fetch(`${apiBaseUrl}/api/common/lookups?lookupType=QUESTION_DIFFICULTY&status=ACTIVE`, { headers: { Authorization: `Bearer ${parsed.accessToken}` } }),
+        fetch(`${apiBaseUrl}/api/common/lookups?lookupType=QUESTION_WORKFLOW_STATUS&status=ACTIVE`, { headers: { Authorization: `Bearer ${parsed.accessToken}` } }),
       ]);
       const meBody = await meResponse.json().catch(() => ({}));
       const levelBody = await levelResponse.json().catch(() => []);
+      const questionTypeBody = await questionTypeResponse.json().catch(() => []);
+      const difficultyBody = await difficultyResponse.json().catch(() => []);
+      const workflowStatusBody = await workflowStatusResponse.json().catch(() => []);
       if (!meResponse.ok) {
         throw new Error(meBody.error || `Request failed with ${meResponse.status}`);
       }
       if (!levelResponse.ok) {
         throw new Error(levelBody.error || `Request failed with ${levelResponse.status}`);
       }
+      if (!questionTypeResponse.ok) {
+        throw new Error(questionTypeBody.error || `Request failed with ${questionTypeResponse.status}`);
+      }
+      if (!difficultyResponse.ok) {
+        throw new Error(difficultyBody.error || `Request failed with ${difficultyResponse.status}`);
+      }
+      if (!workflowStatusResponse.ok) {
+        throw new Error(workflowStatusBody.error || `Request failed with ${workflowStatusResponse.status}`);
+      }
       setMe(meBody);
       setRoles(meBody.roles ?? payloadRoles);
-      setLevelTypes(levelBody);
+      const levelLookups = readPage<LookupResponse>(levelBody).content;
+      const questionTypeLookups = readPage<LookupResponse>(questionTypeBody).content;
+      const difficultyLookups = readPage<LookupResponse>(difficultyBody).content;
+      const workflowStatusLookups = readPage<LookupResponse>(workflowStatusBody).content;
+      setLevelTypes(levelLookups.map((lookup) => ({
+        id: lookup.id,
+        levelKey: lookup.lookupCode,
+        displayName: lookup.lookupMeaning,
+        allowedParentKey: taxonomyParentKeys[lookup.lookupCode] ?? null,
+        sortOrder: lookup.sortOrder,
+        active: lookup.active,
+      })));
+      setQuestionTypeLookups(questionTypeLookups);
+      setDifficultyLookups(difficultyLookups);
+      setWorkflowStatusLookups(workflowStatusLookups);
       const initialLoads = await Promise.allSettled([
         loadAllTaxonomy(parsed.accessToken),
         loadTaxonomy("ACTIVE", parsed.accessToken),
-        loadQuestions(parsed.accessToken),
       ]);
       const failures = initialLoads.filter((result): result is PromiseRejectedResult => result.status === "rejected");
       if (failures.length > 0) {
@@ -390,13 +583,27 @@ export default function AdminPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  function signOut() {
+    removeStoredSession();
+    router.replace("/account");
+  }
+
   useEffect(() => {
     if (!currentToken) return;
     loadTaxonomy(taxonomyFilter).catch((exception) =>
       setError(exception instanceof Error ? exception.message : "Unable to load taxonomy.")
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [taxonomyFilter, currentToken]);
+  }, [taxonomyFilter, taxonomyPageIndex, currentToken]);
+
+  useEffect(() => {
+    if (activeTab !== "manual") return;
+    if (!currentToken) return;
+    loadQuestions(currentToken).catch((exception) =>
+      setError(exception instanceof Error ? exception.message : "Unable to load questions.")
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, currentToken, questionPageIndex, questionNodeFilterId, selectedTaxonomyNodeId, questionTypeFilter, questionDifficultyFilter, questionWorkflowFilter]);
 
   useEffect(() => {
     if (!questionForm.taxonomyNodeId && selectedTaxonomyNodeId) {
@@ -406,26 +613,51 @@ export default function AdminPage() {
   }, [selectedTaxonomyNodeId]);
 
   useEffect(() => {
-    if (taxonomyForm.id) return;
-    const defaultParentId = getDefaultParentId(taxonomyForm.levelKey, selectedTaxonomyNodeId);
-    setTaxonomyForm((current) => {
-      if (current.parentId === defaultParentId) return current;
-      return { ...current, parentId: defaultParentId };
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [taxonomyForm.levelKey, selectedTaxonomyNodeId, allNodes, levelTypes]);
-
-  useEffect(() => {
     if (!tree.length) return;
     setExpandedTaxonomyIds((current) => (current.length ? current : tree.map((node) => node.id)));
   }, [tree]);
 
+  useEffect(() => {
+    if (!groupedQuestions.length) return;
+    setExpandedQuestionTaxonomyIds((current) => (
+      current.length ? current : groupedQuestions.map((group) => group.taxonomyNodeId)
+    ));
+  }, [groupedQuestions]);
+
   function resetTaxonomyForm() {
-    const defaultParentId = getDefaultParentId("GRADE", selectedTaxonomyNodeId);
+    setTaxonomyFormVisible(false);
     setTaxonomyForm({
       id: "",
-      levelKey: "GRADE",
-      parentId: defaultParentId,
+      levelKey: "CURRICULUM",
+      parentId: "",
+      nodeKey: "",
+      displayName: "",
+      sortOrder: 1,
+      status: "ACTIVE",
+    });
+  }
+
+  function startRootTaxonomyForm() {
+    resetTaxonomyForm();
+    setTaxonomyFormVisible(true);
+  }
+
+  function startChildTaxonomyForm() {
+    if (!selectedTaxonomyNode) return;
+    const parentLevelKey = levelTypeById.get(selectedTaxonomyNode.levelTypeId)?.levelKey;
+    const childLevel = levelTypes.find((level) => level.allowedParentKey === parentLevelKey);
+    if (!childLevel) {
+      setStatus("");
+      setError(`${selectedTaxonomyNode.displayName} is already a leaf topic and cannot have child nodes.`);
+      return;
+    }
+    setError("");
+    setStatus("");
+    setTaxonomyFormVisible(true);
+    setTaxonomyForm({
+      id: "",
+      levelKey: childLevel.levelKey,
+      parentId: selectedTaxonomyNode.id,
       nodeKey: "",
       displayName: "",
       sortOrder: 1,
@@ -449,6 +681,14 @@ export default function AdminPage() {
     ));
   }
 
+  function toggleExpandedQuestionTaxonomy(taxonomyNodeId: string) {
+    setExpandedQuestionTaxonomyIds((current) => (
+      current.includes(taxonomyNodeId)
+        ? current.filter((value) => value !== taxonomyNodeId)
+        : [...current, taxonomyNodeId]
+    ));
+  }
+
   function loadTaxonomyIntoForm(node: TaxonomyNode) {
     const levelKey = levelTypeById.get(node.levelTypeId)?.levelKey ?? "GRADE";
     setTaxonomyForm({
@@ -460,13 +700,16 @@ export default function AdminPage() {
       sortOrder: node.sortOrder,
       status: node.status,
     });
+    setTaxonomyFormVisible(true);
     setSelectedTaxonomyNodeId(node.id);
   }
 
   function getAncestorChain(nodeId: string) {
     const chain: TaxonomyNode[] = [];
+    const visited = new Set<string>();
     let current = nodeById.get(nodeId) ?? null;
-    while (current) {
+    while (current && !visited.has(current.id)) {
+      visited.add(current.id);
       chain.unshift(current);
       current = current.parentId ? nodeById.get(current.parentId) ?? null : null;
     }
@@ -475,6 +718,11 @@ export default function AdminPage() {
 
   function getBranchRootId(contextNodeId: string) {
     return getAncestorChain(contextNodeId)[0]?.id ?? "";
+  }
+
+  function isActiveTaxonomyBranch(nodeId: string) {
+    const chain = getAncestorChain(nodeId);
+    return chain.length > 0 && chain.every((node) => node.status === "ACTIVE");
   }
 
   function getDefaultParentOptions(levelKey: string, contextNodeId: string) {
@@ -497,6 +745,7 @@ export default function AdminPage() {
     setQuestionForm({
       id: "",
       taxonomyNodeId: defaultNodeId,
+      secondaryTaxonomyNodeIds: [],
       actor: me?.email ?? session?.email ?? "",
       questionType: "SINGLE_SELECT",
       difficulty: "MEDIUM",
@@ -506,15 +755,18 @@ export default function AdminPage() {
       sourceReference: "",
       licenseCategory: "CC-BY",
       options: blankOptions(),
+      answersText: "",
+      tagsText: "",
     });
-    setScoreResult("");
-    setValidationResult("");
   }
 
   function loadQuestionIntoForm(question: AdminQuestion) {
     setQuestionForm({
       id: question.id,
       taxonomyNodeId: question.taxonomyNodeId,
+      secondaryTaxonomyNodeIds: question.taxonomyAssignments
+        .filter((assignment) => !assignment.primary)
+        .map((assignment) => assignment.taxonomyNodeId),
       actor: me?.email ?? session?.email ?? "",
       questionType: question.questionType,
       difficulty: question.difficulty,
@@ -524,10 +776,20 @@ export default function AdminPage() {
       sourceReference: question.sourceReference ?? "",
       licenseCategory: question.licenseCategory ?? "",
       options: question.options.length ? question.options : blankOptions(),
+      answersText: question.answers.map((answer) => answer.answerValue).join("\n"),
+      tagsText: question.tags.join(", "),
     });
     setActiveTab("manual");
     setSelectedTaxonomyNodeId(question.taxonomyNodeId);
+    setQuestionNodeFilterId(question.taxonomyNodeId);
   }
+
+  useEffect(() => {
+    if (activeTab === "manual" && selectedTaxonomyNodeId) {
+      setQuestionPageIndex(0);
+      setQuestionNodeFilterId(selectedTaxonomyNodeId);
+    }
+  }, [activeTab, selectedTaxonomyNodeId]);
 
   useEffect(() => {
     if (activeTab !== "manual") return;
@@ -578,6 +840,31 @@ export default function AdminPage() {
     }
   }
 
+  async function deleteTaxonomyNode(node: TaxonomyNode) {
+    if (!window.confirm(`Delete taxonomy node "${node.displayName}"? Only unused nodes can be deleted.`)) return;
+    setError("");
+    setStatus("");
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/admin/taxonomy/nodes/${node.id}`, {
+        method: "DELETE",
+        headers: authHeaders(),
+      });
+      if (!response.ok && response.status !== 204) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.error || body.message || `Request failed with ${response.status}`);
+      }
+      if (selectedTaxonomyNodeId === node.id || taxonomyForm.id === node.id) {
+        setSelectedTaxonomyNodeId("");
+        resetTaxonomyForm();
+      }
+      setExpandedTaxonomyIds((current) => current.filter((id) => id !== node.id));
+      setStatus("Taxonomy node deleted.");
+      await Promise.all([loadAllTaxonomy(), loadTaxonomy(taxonomyFilter)]);
+    } catch (exception) {
+      setError(exception instanceof Error ? exception.message : "Unable to delete taxonomy node.");
+    }
+  }
+
   function renderTaxonomyTree(nodes: TreeNode[], depth = 0): ReactNode[] {
     return nodes.flatMap((node) => {
       const hasChildren = node.children.length > 0;
@@ -597,17 +884,30 @@ export default function AdminPage() {
           >
             {hasChildren ? (isExpanded ? "−" : "+") : "•"}
           </button>
-          <button
-            type="button"
-            className={selectedTaxonomyNodeId === node.id ? "taxonomy-row active" : "taxonomy-row"}
-            onClick={() => loadTaxonomyIntoForm(node)}
-          >
+          <div className={selectedTaxonomyNodeId === node.id ? "taxonomy-row active" : "taxonomy-row"}>
             <span className="taxonomy-label">
-              <strong>{node.displayName}</strong>
-              <span>{node.nodeKey}</span>
+              <button
+                type="button"
+                className="taxonomy-select-button"
+                onClick={() => loadTaxonomyIntoForm(node)}
+              >
+                <strong>{node.displayName}</strong>
+              </button>
+              <button
+                type="button"
+                className="taxonomy-delete-button"
+                aria-label={`Delete ${node.displayName}`}
+                title={`Delete ${node.displayName}`}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  deleteTaxonomyNode(node);
+                }}
+              >
+                −
+              </button>
             </span>
             <span className="taxonomy-meta">{node.status}</span>
-          </button>
+          </div>
         </div>,
         ...children,
       ];
@@ -618,6 +918,10 @@ export default function AdminPage() {
     event.preventDefault();
     setError("");
     setStatus("");
+    if (!nodeKeyPattern.test(taxonomyForm.nodeKey)) {
+      setError("Node key must contain only uppercase letters, numbers, and single underscores between words.");
+      return;
+    }
     try {
       const payload = {
         levelKey: taxonomyForm.levelKey,
@@ -650,117 +954,38 @@ export default function AdminPage() {
     }
   }
 
-  async function createSampleCaaspp() {
-    setError("");
-    setStatus("");
-    try {
-      if (allNodes.some((node) => node.nodeKey === "CAASPP" && node.displayName === "California CAASPP")) {
-        setStatus("California CAASPP sample already exists.");
-        return;
-      }
-      const response = await fetch(`${apiBaseUrl}/api/admin/taxonomy/nodes`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...authHeaders(),
-        },
-        body: JSON.stringify({
-          levelKey: "CURRICULUM",
-          parentId: null,
-          nodeKey: "CAASPP",
-          displayName: "California CAASPP",
-          sortOrder: 2,
-        }),
-      });
-      const curriculum = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(curriculum.error || `Request failed with ${response.status}`);
-      }
-      const edition = await fetch(`${apiBaseUrl}/api/admin/taxonomy/nodes`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...authHeaders(),
-        },
-        body: JSON.stringify({
-          levelKey: "EDITION",
-          parentId: curriculum.id,
-          nodeKey: "2026",
-          displayName: "2026 Edition",
-          sortOrder: 1,
-        }),
-      }).then((res) => res.json());
-      const grade = await fetch(`${apiBaseUrl}/api/admin/taxonomy/nodes`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...authHeaders(),
-        },
-        body: JSON.stringify({
-          levelKey: "GRADE",
-          parentId: edition.id,
-          nodeKey: "5",
-          displayName: "Grade 5",
-          sortOrder: 1,
-        }),
-      }).then((res) => res.json());
-      const subject = await fetch(`${apiBaseUrl}/api/admin/taxonomy/nodes`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...authHeaders(),
-        },
-        body: JSON.stringify({
-          levelKey: "SUBJECT",
-          parentId: grade.id,
-          nodeKey: "MATH",
-          displayName: "Math",
-          sortOrder: 1,
-        }),
-      }).then((res) => res.json());
-      const chapter = await fetch(`${apiBaseUrl}/api/admin/taxonomy/nodes`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...authHeaders(),
-        },
-        body: JSON.stringify({
-          levelKey: "CHAPTER",
-          parentId: subject.id,
-          nodeKey: "FRACTIONS",
-          displayName: "Fractions",
-          sortOrder: 1,
-        }),
-      }).then((res) => res.json());
-      await fetch(`${apiBaseUrl}/api/admin/taxonomy/nodes`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...authHeaders(),
-        },
-        body: JSON.stringify({
-          levelKey: "TOPIC",
-          parentId: chapter.id,
-          nodeKey: "FRACTION_ADDITION",
-          displayName: "Fraction Addition",
-          sortOrder: 1,
-        }),
-      });
-      setStatus("California CAASPP taxonomy created.");
-      await Promise.all([loadAllTaxonomy(), loadTaxonomy(taxonomyFilter), loadQuestions()]);
-    } catch (exception) {
-      setError(exception instanceof Error ? exception.message : "Unable to create CAASPP taxonomy.");
-    }
-  }
-
   async function submitQuestion(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
     setStatus("");
     try {
+      const usesOptions = ["SINGLE_SELECT", "MULTIPLE_SELECT", "TRUE_FALSE"].includes(questionForm.questionType);
+      const answers = questionForm.answersText
+        .split("\n")
+        .map((answer) => answer.trim())
+        .filter(Boolean)
+        .map((answerValue) => ({
+          answerValue,
+          answerType: "EXACT_TEXT",
+          caseSensitive: false,
+        }));
+      const tags = questionForm.tagsText
+        .split(",")
+        .map((tag) => tag.trim())
+        .filter(Boolean);
       const payload = {
-        taxonomyNodeId: questionForm.taxonomyNodeId,
         actor: questionForm.actor,
+        taxonomyAssignments: [
+          {
+            taxonomyNodeId: questionForm.taxonomyNodeId,
+            primary: true,
+          },
+          ...questionForm.secondaryTaxonomyNodeIds
+            .filter((taxonomyNodeId) => taxonomyNodeId !== questionForm.taxonomyNodeId)
+            .map((taxonomyNodeId) => ({ taxonomyNodeId, primary: false })),
+        ],
+        answers,
+        tags,
         question: {
           type: questionForm.questionType,
           difficulty: questionForm.difficulty,
@@ -769,7 +994,7 @@ export default function AdminPage() {
           explanation: questionForm.explanation || null,
           sourceReference: questionForm.sourceReference || null,
           licenseCategory: questionForm.licenseCategory || null,
-          options: questionForm.options,
+          options: usesOptions ? questionForm.options : [],
         },
       };
       const response = await fetch(
@@ -793,61 +1018,6 @@ export default function AdminPage() {
     } catch (exception) {
       setError(exception instanceof Error ? exception.message : "Unable to save question.");
     }
-  }
-
-  async function validateQuestion() {
-    setError("");
-    const response = await fetch(`${apiBaseUrl}/api/questions/validate`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...authHeaders(),
-      },
-      body: JSON.stringify({
-        type: questionForm.questionType,
-        difficulty: questionForm.difficulty,
-        workflowStatus: questionForm.workflowStatus,
-        questionText: questionForm.questionText,
-        explanation: questionForm.explanation,
-        sourceReference: questionForm.sourceReference,
-        licenseCategory: questionForm.licenseCategory,
-        options: questionForm.options,
-      }),
-    });
-    const body = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      throw new Error(body.error || `Request failed with ${response.status}`);
-    }
-    setValidationResult(body.valid ? "Question is valid." : `Validation errors: ${(body.errors ?? []).join("; ")}`);
-  }
-
-  async function scoreQuestion() {
-    setError("");
-    const response = await fetch(`${apiBaseUrl}/api/questions/score`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...authHeaders(),
-      },
-      body: JSON.stringify({
-        question: {
-          type: questionForm.questionType,
-          difficulty: questionForm.difficulty,
-          workflowStatus: questionForm.workflowStatus,
-          questionText: questionForm.questionText,
-          explanation: questionForm.explanation,
-          sourceReference: questionForm.sourceReference,
-          licenseCategory: questionForm.licenseCategory,
-          options: questionForm.options,
-        },
-        submittedOptionKeys: questionForm.options.filter((option) => option.correct).map((option) => option.key),
-      }),
-    });
-    const body = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      throw new Error(body.error || `Request failed with ${response.status}`);
-    }
-    setScoreResult(body.correct ? "Correct answer." : "Incorrect answer.");
   }
 
   async function uploadCsv(file: File) {
@@ -930,51 +1100,103 @@ export default function AdminPage() {
 
   const allowedParentKey = levelTypes.find((level) => level.levelKey === taxonomyForm.levelKey)?.allowedParentKey ?? null;
   const parentOptions = allowedParentKey ? getDefaultParentOptions(taxonomyForm.levelKey, selectedTaxonomyNodeId) : [];
+  const visibleParentOptions = !taxonomyForm.id && taxonomyForm.parentId
+    ? allNodes.filter((node) => node.id === taxonomyForm.parentId)
+    : parentOptions;
+  const selectedLevelKey = selectedTaxonomyNode ? levelTypeById.get(selectedTaxonomyNode.levelTypeId)?.levelKey : null;
+  const nextChildLevel = levelTypes.find((level) => level.allowedParentKey === selectedLevelKey) ?? null;
+  const createFormTitle = taxonomyForm.parentId ? "Create child node" : "Create root taxonomy";
 
   return (
     <main className="admin-shell">
       <section className="admin-panel">
+        <div className="admin-topbar">
+          <div className="admin-topbar-actions">
+            <a className="secondary-button compact-button admin-action-button" href="/dashboard">Dashboard</a>
+            <button type="button" className="secondary-button compact-button admin-action-button" onClick={signOut}>Log out</button>
+          </div>
+        </div>
         <div className="account-tabs">
           <button type="button" className={activeTab === "taxonomy" ? "tab active" : "tab"} onClick={() => setActiveTab("taxonomy")}>Taxonomy</button>
           <button type="button" className={activeTab === "manual" ? "tab active" : "tab"} onClick={() => setActiveTab("manual")}>Manual question</button>
           <button type="button" className={activeTab === "csv" ? "tab active" : "tab"} onClick={() => setActiveTab("csv")}>CSV import</button>
-          <button type="button" className={activeTab === "score" ? "tab active" : "tab"} onClick={() => setActiveTab("score")}>Score sandbox</button>
         </div>
 
-        <div className="session-card">
-          <div><strong>Root taxonomy</strong><span>{selectedTaxonomyNode ? getAncestorChain(selectedTaxonomyNode.id)[0]?.displayName ?? "None selected" : "None selected"}</span></div>
-          <div><strong>Selected node</strong><span>{selectedTaxonomyNode ? selectedTaxonomyNode.displayName : "None selected"}</span></div>
+        <div className="admin-taxonomy-context">
+          <strong>Root taxonomy:</strong>
+          <span>{selectedRootTaxonomyNode?.displayName ?? "None selected"}</span>
+          <span className="admin-taxonomy-context-separator">|</span>
+          <strong>Selected node:</strong>
+          <span>{selectedTaxonomyNode?.displayName ?? "None selected"}</span>
         </div>
 
         {activeTab === "taxonomy" ? (
           <section className="section">
             <div className="section-header">
               <h2>Taxonomy explorer</h2>
-              <p>Show active nodes by default. Use the filter to switch between active, inactive, or all nodes.</p>
+              <p>Create a root taxonomy, or select an existing node and add its next valid child level.</p>
             </div>
             <div className="dashboard-actions">
               <label className="inline-select">
                 Filter
-                <select value={taxonomyFilter} onChange={(event) => setTaxonomyFilter(event.target.value)}>
+                <select value={taxonomyFilter} onChange={(event) => {
+                  setTaxonomyPageIndex(0);
+                  setTaxonomyFilter(event.target.value);
+                }}>
                   {taxonomyStatuses.map((value) => (
                     <option key={value} value={value}>{value}</option>
                   ))}
                 </select>
               </label>
-              <button type="button" className="secondary-button" onClick={createSampleCaaspp}>Create California CAASPP sample</button>
-              <button type="button" className="primary-button" onClick={resetTaxonomyForm}>New taxonomy node</button>
+              <button type="button" className="primary-button compact-button admin-action-button" onClick={startRootTaxonomyForm}>New root taxonomy</button>
+              <button
+                type="button"
+                className="secondary-button compact-button admin-action-button"
+                disabled={!selectedTaxonomyNode || !nextChildLevel}
+                title={selectedTaxonomyNode && !nextChildLevel ? "Topic nodes cannot have children" : "Create a child under the selected node"}
+                onClick={startChildTaxonomyForm}
+              >
+                Add child node
+              </button>
             </div>
             <div className="taxonomy-grid">
-              <div className="taxonomy-tree">
-                {renderTaxonomyTree(tree)}
+              <div className="taxonomy-tree-panel">
+                <div className="taxonomy-tree">
+                  {renderTaxonomyTree(tree)}
+                </div>
+                <div className="pagination-bar">
+                  <span>
+                    Page {taxonomyPage.totalPages ? taxonomyPage.number + 1 : 0} of {taxonomyPage.totalPages}
+                    {" "}({taxonomyPage.totalElements} node{taxonomyPage.totalElements === 1 ? "" : "s"})
+                  </span>
+                  <div className="pagination-actions">
+                    <button
+                      type="button"
+                      className="secondary-button compact-button"
+                      disabled={taxonomyPage.number <= 0}
+                      onClick={() => setTaxonomyPageIndex((current) => Math.max(0, current - 1))}
+                    >
+                      Previous
+                    </button>
+                    <button
+                      type="button"
+                      className="secondary-button compact-button"
+                      disabled={taxonomyPage.totalPages === 0 || taxonomyPage.number >= taxonomyPage.totalPages - 1}
+                      onClick={() => setTaxonomyPageIndex((current) => current + 1)}
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
               </div>
+              {taxonomyFormVisible ? (
               <div className="card">
-                <h3>{taxonomyForm.id ? "Edit taxonomy" : "Create taxonomy"}</h3>
+                <h3>{taxonomyForm.id ? "Edit taxonomy node" : createFormTitle}</h3>
                 <form className="account-form" onSubmit={submitTaxonomy}>
                   <div className="form-grid">
                     <label>
                       Level
-                      <select value={taxonomyForm.levelKey} onChange={(event) => setTaxonomyForm((current) => ({ ...current, levelKey: event.target.value, parentId: getDefaultParentId(event.target.value, selectedTaxonomyNodeId) }))}>
+                      <select value={taxonomyForm.levelKey} disabled={!taxonomyForm.id} onChange={(event) => setTaxonomyForm((current) => ({ ...current, levelKey: event.target.value, parentId: getDefaultParentId(event.target.value, selectedTaxonomyNodeId) }))}>
                         {levelTypes.map((level) => (
                           <option key={level.id} value={level.levelKey}>{level.displayName}</option>
                         ))}
@@ -982,7 +1204,7 @@ export default function AdminPage() {
                     </label>
                     <label>
                       Status
-                      <select value={taxonomyForm.status} onChange={(event) => setTaxonomyForm((current) => ({ ...current, status: event.target.value }))}>
+                      <select value={taxonomyForm.status} disabled={!taxonomyForm.id} onChange={(event) => setTaxonomyForm((current) => ({ ...current, status: event.target.value }))}>
                         {["ACTIVE", "INACTIVE", "DRAFT", "RETIRED", "ARCHIVED"].map((value) => (
                           <option key={value} value={value}>{value}</option>
                         ))}
@@ -992,9 +1214,9 @@ export default function AdminPage() {
                   <div className="form-grid">
                     <label>
                       Parent
-                      <select value={taxonomyForm.parentId} onChange={(event) => setTaxonomyForm((current) => ({ ...current, parentId: event.target.value }))} disabled={!allowedParentKey || parentOptions.length === 0}>
+                      <select value={taxonomyForm.parentId} onChange={(event) => setTaxonomyForm((current) => ({ ...current, parentId: event.target.value }))} disabled={!taxonomyForm.id || !allowedParentKey || visibleParentOptions.length === 0}>
                         <option value="">No parent</option>
-                        {parentOptions.map((node) => (
+                        {visibleParentOptions.map((node) => (
                           <option key={node.id} value={node.id}>{node.displayName}</option>
                         ))}
                       </select>
@@ -1006,20 +1228,26 @@ export default function AdminPage() {
                   </div>
                   <label>
                     Node key
-                    <input value={taxonomyForm.nodeKey} onChange={(event) => setTaxonomyForm((current) => ({ ...current, nodeKey: event.target.value }))} />
+                    <input
+                      value={taxonomyForm.nodeKey}
+                      pattern="[A-Z0-9]+(?:_[A-Z0-9]+)*"
+                      title="Use uppercase letters, numbers, and single underscores between words. Example: 2026_EDITION"
+                      placeholder="Example: 2026_EDITION"
+                      required
+                      onChange={(event) => setTaxonomyForm((current) => ({ ...current, nodeKey: event.target.value }))}
+                    />
                   </label>
                   <label>
                     Display name
                     <input value={taxonomyForm.displayName} onChange={(event) => setTaxonomyForm((current) => ({ ...current, displayName: event.target.value }))} />
                   </label>
                   <div className="dashboard-actions">
-                    <button type="submit" className="primary-button">{taxonomyForm.id ? "Save changes" : "Create node"}</button>
-                    {taxonomyForm.id ? (
-                      <button type="button" className="secondary-button" onClick={resetTaxonomyForm}>Cancel edit</button>
-                    ) : null}
+                    <button type="submit" className="primary-button compact-button admin-action-button">{taxonomyForm.id ? "Save" : taxonomyForm.parentId ? "Create child" : "Create root"}</button>
+                    <button type="button" className="secondary-button compact-button" onClick={resetTaxonomyForm}>Cancel</button>
                   </div>
                 </form>
               </div>
+              ) : null}
             </div>
           </section>
         ) : null}
@@ -1028,57 +1256,140 @@ export default function AdminPage() {
           <section className="section">
             <div className="section-header">
               <h2>Question bank</h2>
-              <p>See every question, then create a new one or edit an existing one. Use the selected taxonomy node as the default target.</p>
+              <p>See questions for the selected branch, or narrow them further with the node filter.</p>
             </div>
             <div className="dashboard-actions">
               <label className="inline-select">
                 Search
                 <input value={questionSearch} onChange={(event) => setQuestionSearch(event.target.value)} placeholder="Search questions" />
               </label>
-              <button type="button" className="primary-button" onClick={() => resetQuestionForm(selectedTaxonomyNodeId)}>New question</button>
+              <label className="inline-select">
+                Node filter
+                <select value={questionNodeFilterId || selectedTaxonomyNodeId || ""} onChange={(event) => {
+                  setQuestionPageIndex(0);
+                  setQuestionNodeFilterId(event.target.value);
+                  setQuestionSearch("");
+                }}>
+                  <option value="">Selected branch</option>
+                  {questionNodeFilterOptions.map((node) => (
+                    <option key={node.id} value={node.id}>
+                      {node.displayName}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="inline-select">
+                Type
+                <select value={questionTypeFilter} onChange={(event) => {
+                  setQuestionPageIndex(0);
+                  setQuestionTypeFilter(event.target.value);
+                }}>
+                  {questionTypeLookups.map((lookup) => <option key={lookup.id} value={lookup.lookupCode === "ALL" ? "" : lookup.lookupCode}>{lookup.lookupMeaning}</option>)}
+                </select>
+              </label>
+              <label className="inline-select">
+                Difficulty
+                <select value={questionDifficultyFilter} onChange={(event) => {
+                  setQuestionPageIndex(0);
+                  setQuestionDifficultyFilter(event.target.value);
+                }}>
+                  {difficultyLookups.map((lookup) => <option key={lookup.id} value={lookup.lookupCode === "ALL" ? "" : lookup.lookupCode}>{lookup.lookupMeaning}</option>)}
+                </select>
+              </label>
+              <label className="inline-select">
+                Workflow
+                <select value={questionWorkflowFilter} onChange={(event) => {
+                  setQuestionPageIndex(0);
+                  setQuestionWorkflowFilter(event.target.value);
+                }}>
+                  {workflowStatusLookups.map((lookup) => <option key={lookup.id} value={lookup.lookupCode === "ALL" ? "" : lookup.lookupCode}>{lookup.lookupMeaning}</option>)}
+                </select>
+              </label>
+              <button type="button" className="primary-button compact-button" onClick={() => resetQuestionForm(selectedTaxonomyNodeId)}>New question</button>
             </div>
             <div className="split-layout">
               <div className="card table-card">
-                <h3>All questions</h3>
+                <h3>Questions in scope</h3>
+                {questionsLoading ? <p className="muted">Loading questions...</p> : null}
+                <div className="pagination-bar">
+                  <span>
+                    Page {questionPage.totalPages ? questionPage.number + 1 : 0} of {questionPage.totalPages}
+                    {" "}({questionPage.totalElements} question{questionPage.totalElements === 1 ? "" : "s"})
+                  </span>
+                  <div className="pagination-actions">
+                    <button
+                      type="button"
+                      className="secondary-button compact-button"
+                      disabled={questionPage.number <= 0 || questionsLoading}
+                      onClick={() => setQuestionPageIndex((current) => Math.max(0, current - 1))}
+                    >
+                      Previous
+                    </button>
+                    <button
+                      type="button"
+                      className="secondary-button compact-button"
+                      disabled={questionPage.totalPages === 0 || questionPage.number >= questionPage.totalPages - 1 || questionsLoading}
+                      onClick={() => setQuestionPageIndex((current) => current + 1)}
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
                 <div className="question-list">
-                  {filteredQuestions.map((question) => {
-                    const expanded = expandedQuestionSet.has(question.id);
+                  {groupedQuestions.map((group) => {
+                    const groupExpanded = expandedQuestionTaxonomyIds.includes(group.taxonomyNodeId);
                     return (
-                      <div className="question-row-card" key={question.id}>
-                        <div className="question-row-summary">
-                          <button
-                            type="button"
-                            className="tree-toggle"
-                            aria-label={expanded ? "Collapse question" : "Expand question"}
-                            onClick={() => toggleExpandedQuestion(question.id)}
-                          >
-                            {expanded ? "▾" : "▸"}
-                          </button>
-                          <button type="button" className="question-summary-button" onClick={() => loadQuestionIntoForm(question)}>
-                            <span className="question-summary-line">
-                              <strong>{question.taxonomyNodeLabel}</strong>
-                              <span>{question.questionType} · {question.difficulty} · {question.workflowStatus}</span>
-                            </span>
-                            <span className="question-summary-text">{question.questionText}</span>
-                          </button>
-                          <button type="button" className="secondary-button compact-button" onClick={() => loadQuestionIntoForm(question)}>
-                            Edit
-                          </button>
-                          <button type="button" className="secondary-button compact-button" onClick={() => deleteQuestion(question.id)}>
-                            Delete
-                          </button>
-                        </div>
-                        {expanded ? (
-                          <div className="question-row-details">
-                            <div><strong>Question</strong><p>{question.questionText}</p></div>
-                            <div className="question-details-grid">
-                              <div><strong>Type</strong><span>{question.questionType}</span></div>
-                              <div><strong>Difficulty</strong><span>{question.difficulty}</span></div>
-                              <div><strong>Status</strong><span>{question.workflowStatus}</span></div>
-                              <div><strong>Taxonomy</strong><span>{question.taxonomyNodeLabel}</span></div>
+                      <div className="question-taxonomy-group" key={group.taxonomyNodeId}>
+                        <button
+                          type="button"
+                          className="question-taxonomy-group-header"
+                          aria-label={groupExpanded ? `Collapse ${group.taxonomyNodeLabel}` : `Expand ${group.taxonomyNodeLabel}`}
+                          onClick={() => toggleExpandedQuestionTaxonomy(group.taxonomyNodeId)}
+                        >
+                          <span>{groupExpanded ? "▾" : "▸"}</span>
+                          <strong>{group.taxonomyNodeLabel}</strong>
+                          <small>{group.questions.length} question{group.questions.length === 1 ? "" : "s"}</small>
+                        </button>
+                        {groupExpanded ? group.questions.map((question) => {
+                          const expanded = expandedQuestionSet.has(question.id);
+                          return (
+                          <div className="question-row-card" key={question.id}>
+                            <div className="question-row-summary">
+                              <button
+                                type="button"
+                                className="tree-toggle"
+                                aria-label={expanded ? "Collapse question" : "Expand question"}
+                                onClick={() => toggleExpandedQuestion(question.id)}
+                              >
+                                {expanded ? "▾" : "▸"}
+                              </button>
+                              <button type="button" className="question-summary-button" onClick={() => loadQuestionIntoForm(question)}>
+                                <span className="question-summary-line">
+                                  <span>{getLookupMeaning(workflowStatusLookups, question.workflowStatus)}</span>
+                                </span>
+                                <span className="question-summary-text">{question.questionText}</span>
+                              </button>
+                              <button type="button" className="secondary-button compact-button" onClick={() => loadQuestionIntoForm(question)}>
+                                Edit
+                              </button>
+                              <button type="button" className="secondary-button compact-button" onClick={() => deleteQuestion(question.id)}>
+                                Delete
+                              </button>
                             </div>
+                            {expanded ? (
+                              <div className="question-row-details">
+                                <div><strong>Question</strong><p>{question.questionText}</p></div>
+                                <div className="question-details-grid">
+                                  <div><strong>Type</strong><span>{getLookupMeaning(questionTypeLookups, question.questionType)}</span></div>
+                                  <div><strong>Difficulty</strong><span>{getLookupMeaning(difficultyLookups, question.difficulty)}</span></div>
+                                  <div><strong>Status</strong><span>{getLookupMeaning(workflowStatusLookups, question.workflowStatus)}</span></div>
+                                  <div><strong>Taxonomy</strong><span>{question.taxonomyNodeLabel}</span></div>
+                                </div>
+                              </div>
+                            ) : null}
                           </div>
-                        ) : null}
+                          );
+                        }) : null}
                       </div>
                     );
                   })}
@@ -1089,10 +1400,14 @@ export default function AdminPage() {
                 <form className="account-form" onSubmit={submitQuestion}>
                   <div className="form-grid">
                     <label>
-                      Taxonomy node
-                      <select value={questionForm.taxonomyNodeId} onChange={(event) => setQuestionForm((current) => ({ ...current, taxonomyNodeId: event.target.value }))}>
+                      Primary taxonomy leaf
+                      <select value={questionForm.taxonomyNodeId} onChange={(event) => setQuestionForm((current) => ({
+                        ...current,
+                        taxonomyNodeId: event.target.value,
+                        secondaryTaxonomyNodeIds: [],
+                      }))}>
                         {questionTaxonomyOptions.map((node) => (
-                          <option key={node.id} value={node.id}>{node.displayName} ({node.nodeKey}) [{node.status}]</option>
+                          <option key={node.id} value={node.id}>{node.displayName}</option>
                         ))}
                       </select>
                     </label>
@@ -1101,24 +1416,54 @@ export default function AdminPage() {
                       <input value={questionForm.actor} onChange={(event) => setQuestionForm((current) => ({ ...current, actor: event.target.value }))} />
                     </label>
                   </div>
+                  <label>
+                    Secondary taxonomy leaves
+                    <select
+                      multiple
+                      value={questionForm.secondaryTaxonomyNodeIds}
+                      onChange={(event) => setQuestionForm((current) => ({
+                        ...current,
+                        secondaryTaxonomyNodeIds: Array.from(event.target.selectedOptions, (option) => option.value),
+                      }))}
+                    >
+                      {questionTaxonomyOptions
+                        .filter((node) => node.id !== questionForm.taxonomyNodeId)
+                        .map((node) => (
+                          <option key={node.id} value={node.id}>{node.displayName}</option>
+                        ))}
+                    </select>
+                  </label>
                   <div className="form-grid">
                     <label>
                       Question type
-                      <select value={questionForm.questionType} onChange={(event) => setQuestionForm((current) => ({ ...current, questionType: event.target.value }))}>
-                        {questionTypes.map((value) => <option key={value} value={value}>{value}</option>)}
+                      <select
+                        value={questionForm.questionType}
+                        onChange={(event) => setQuestionForm((current) => {
+                          const nextType = event.target.value;
+                          const nextOptions = nextType === "TRUE_FALSE"
+                            ? trueFalseOptions()
+                            : current.options.length ? current.options : blankOptions();
+                          return {
+                            ...current,
+                            questionType: nextType,
+                            options: nextOptions,
+                          };
+                        })}
+                      >
+                        {questionTypeLookups.filter((lookup) => lookup.lookupCode !== "ALL").map((lookup) => <option key={lookup.id} value={lookup.lookupCode}>{lookup.lookupMeaning}</option>)}
                       </select>
                     </label>
                     <label>
                       Difficulty
                       <select value={questionForm.difficulty} onChange={(event) => setQuestionForm((current) => ({ ...current, difficulty: event.target.value }))}>
-                        {difficulties.map((value) => <option key={value} value={value}>{value}</option>)}
+                        {difficultyLookups.filter((lookup) => lookup.lookupCode !== "ALL").map((lookup) => <option key={lookup.id} value={lookup.lookupCode}>{lookup.lookupMeaning}</option>)}
                       </select>
                     </label>
                   </div>
                   <label>
                     Workflow status
                     <select value={questionForm.workflowStatus} onChange={(event) => setQuestionForm((current) => ({ ...current, workflowStatus: event.target.value }))}>
-                      {workflowStatuses.map((value) => <option key={value} value={value}>{value}</option>)}
+                      {workflowStatusLookups.filter((lookup) => lookup.lookupCode !== "ALL").map((lookup) => <option key={lookup.id} value={lookup.lookupCode}>{lookup.lookupMeaning}</option>)}
                     </select>
                   </label>
                   <label>
@@ -1139,71 +1484,88 @@ export default function AdminPage() {
                     License category
                     <input value={questionForm.licenseCategory} onChange={(event) => setQuestionForm((current) => ({ ...current, licenseCategory: event.target.value }))} />
                   </label>
-                  <div className="option-editor">
-                    {questionForm.options.map((option, index) => (
-                      <div className="option-row" key={`${questionForm.id || "new"}-${option.key}-${index}`}>
-                        <input
-                          className="option-key"
-                          value={option.key}
-                          onChange={(event) => {
-                            const next = questionForm.options.slice();
-                            next[index] = { ...option, key: event.target.value.toUpperCase() };
-                            updateQuestionOptions(next);
-                          }}
-                        />
-                        <input
-                          className="option-text"
-                          value={option.text}
-                          onChange={(event) => {
-                            const next = questionForm.options.slice();
-                            next[index] = { ...option, text: event.target.value };
-                            updateQuestionOptions(next);
-                          }}
-                        />
-                        <label className="check">
+                  {["SINGLE_SELECT", "MULTIPLE_SELECT", "TRUE_FALSE"].includes(questionForm.questionType) ? (
+                    <div className="option-editor">
+                      {questionForm.options.map((option, index) => (
+                        <div className="option-row" key={`${questionForm.id || "new"}-${option.key}-${index}`}>
                           <input
-                            type="checkbox"
-                            checked={option.correct}
+                            className="option-key"
+                            value={option.key}
                             onChange={(event) => {
                               const next = questionForm.options.slice();
-                              next[index] = { ...option, correct: event.target.checked };
+                              next[index] = { ...option, key: event.target.value.toUpperCase() };
                               updateQuestionOptions(next);
                             }}
                           />
-                          Correct
-                        </label>
-                        <button type="button" className="secondary-button compact-button" onClick={() => deleteQuestionOption(index)}>
-                          Delete option
-                        </button>
-                      </div>
-                    ))}
-                  </div>
+                          <input
+                            className="option-text"
+                            value={option.text}
+                            onChange={(event) => {
+                              const next = questionForm.options.slice();
+                              next[index] = { ...option, text: event.target.value };
+                              updateQuestionOptions(next);
+                            }}
+                          />
+                          <label className="check">
+                            <input
+                              type="checkbox"
+                              checked={option.correct}
+                              onChange={(event) => {
+                                const next = questionForm.options.slice();
+                                next[index] = { ...option, correct: event.target.checked };
+                                updateQuestionOptions(next);
+                              }}
+                            />
+                            Correct
+                          </label>
+                          <button type="button" className="secondary-button compact-button" onClick={() => deleteQuestionOption(index)}>
+                            Delete option
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <label>
+                      Accepted answers
+                      <textarea
+                        value={questionForm.answersText}
+                        onChange={(event) => setQuestionForm((current) => ({ ...current, answersText: event.target.value }))}
+                        placeholder="Enter one accepted answer per line"
+                      />
+                    </label>
+                  )}
+                  <label>
+                    Tags
+                    <input
+                      value={questionForm.tagsText}
+                      onChange={(event) => setQuestionForm((current) => ({ ...current, tagsText: event.target.value }))}
+                      placeholder="FRACTIONS, WORD_PROBLEM"
+                    />
+                  </label>
                   <div className="dashboard-actions">
-                    <button type="button" className="secondary-button" onClick={() => setQuestionForm((current) => ({ ...current, options: [...current.options, { key: String.fromCharCode(65 + current.options.length), text: "", correct: false }] }))}>
-                      Add option
-                    </button>
-                    <button type="button" className="secondary-button" onClick={() => validateQuestion().catch((exception) => setError(exception instanceof Error ? exception.message : "Unable to validate question."))}>
-                      Validate
-                    </button>
-                    <button type="submit" className="primary-button">{questionForm.id ? "Save changes" : "Create question"}</button>
-                    <button type="button" className="secondary-button" onClick={() => setQuestionForm((current) => ({ ...current, options: blankOptions() }))}>
-                      Reset options
-                    </button>
+                    {["SINGLE_SELECT", "MULTIPLE_SELECT", "TRUE_FALSE"].includes(questionForm.questionType) ? (
+                      <button
+                        type="button"
+                        className="secondary-button compact-button"
+                        disabled={questionForm.questionType === "TRUE_FALSE" && questionForm.options.length >= 2}
+                        title={questionForm.questionType === "TRUE_FALSE" ? "True/false questions can only have two options" : "Add another option"}
+                        onClick={() => setQuestionForm((current) => ({ ...current, options: [...current.options, { key: String.fromCharCode(65 + current.options.length), text: "", correct: false }] }))}
+                      >
+                        Add option
+                      </button>
+                    ) : null}
+                    <button type="submit" className="primary-button compact-button">{questionForm.id ? "Save" : "Create"}</button>
+                    <button type="button" className="secondary-button compact-button" onClick={() => resetQuestionForm(questionForm.taxonomyNodeId)}>Reset</button>
                     {questionForm.id ? (
-                      <button type="button" className="secondary-button" onClick={() => deleteQuestion(questionForm.id)}>
+                      <button type="button" className="secondary-button compact-button" onClick={() => deleteQuestion(questionForm.id)}>
                         Delete question
                       </button>
                     ) : null}
                   </div>
                 </form>
-                {validationResult ? <p className="notice success">{validationResult}</p> : null}
                 <div className="dashboard-actions">
-                  <button type="button" className="secondary-button" onClick={() => scoreQuestion().catch((exception) => setError(exception instanceof Error ? exception.message : "Unable to score question."))}>
-                    Score current answer
-                  </button>
-                  {questionForm.id ? <button type="button" className="secondary-button" onClick={() => resetQuestionForm(questionForm.taxonomyNodeId)}>New question</button> : null}
+                  {questionForm.id ? <button type="button" className="secondary-button compact-button" onClick={() => resetQuestionForm(questionForm.taxonomyNodeId)}>New question</button> : null}
                 </div>
-                {scoreResult ? <p className="notice success">{scoreResult}</p> : null}
               </div>
             </div>
           </section>
@@ -1216,7 +1578,7 @@ export default function AdminPage() {
               <p>Upload a CSV to MinIO, preview it, and import valid rows as draft questions.</p>
             </div>
             <div className="dashboard-actions">
-              <button type="button" className="secondary-button" onClick={downloadCsvTemplate}>Download template</button>
+              <button type="button" className="secondary-button compact-button" onClick={downloadCsvTemplate}>Template</button>
             </div>
             <label className="file-drop">
               Upload CSV
@@ -1261,28 +1623,13 @@ export default function AdminPage() {
                     </tbody>
                   </table>
                 </div>
-                <button type="button" className="primary-button" onClick={() => importCsv().catch((exception) => setCsvError(exception instanceof Error ? exception.message : "Unable to import CSV."))}>
+                <button type="button" className="primary-button compact-button" onClick={() => importCsv().catch((exception) => setCsvError(exception instanceof Error ? exception.message : "Unable to import CSV."))}>
                   Import valid rows
                 </button>
               </div>
             ) : null}
             {csvImportSummary ? <p className="notice success">Imported {csvImportSummary.importedRows} row(s), failed {csvImportSummary.failedRows} row(s).</p> : null}
             {csvError ? <p className="notice error">{csvError}</p> : null}
-          </section>
-        ) : null}
-
-        {activeTab === "score" ? (
-          <section className="section">
-            <div className="section-header">
-              <h2>Scoring sandbox</h2>
-              <p>Checks the exact-match scorer for the currently loaded question form.</p>
-            </div>
-            <div className="dashboard-actions">
-              <button type="button" className="secondary-button" onClick={() => scoreQuestion().catch((exception) => setError(exception instanceof Error ? exception.message : "Unable to score question."))}>
-                Score current answer
-              </button>
-            </div>
-            {scoreResult ? <p className="notice success">{scoreResult}</p> : null}
           </section>
         ) : null}
 

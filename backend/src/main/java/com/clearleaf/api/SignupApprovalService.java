@@ -1,5 +1,7 @@
 package com.clearleaf.api;
 
+import com.clearleaf.api.entity.SignupRequestEntity;
+import com.clearleaf.api.repository.SignupRequestRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
@@ -26,7 +28,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mail.MailException;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
@@ -39,7 +40,7 @@ public class SignupApprovalService {
     private static final Logger log = LoggerFactory.getLogger(SignupApprovalService.class);
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
-    private final JdbcTemplate jdbc;
+    private final SignupRequestRepository signupRequests;
     private final ObjectMapper objectMapper;
     private final JavaMailSender mailSender;
     private final HttpClient httpClient = HttpClient.newHttpClient();
@@ -56,7 +57,7 @@ public class SignupApprovalService {
     private final String mailFrom;
 
     public SignupApprovalService(
-            JdbcTemplate jdbc,
+            SignupRequestRepository signupRequests,
             ObjectMapper objectMapper,
             JavaMailSender mailSender,
             @Value("${app.keycloak.base-url}") String keycloakBaseUrl,
@@ -70,7 +71,7 @@ public class SignupApprovalService {
             @Value("${app.signup.password-encryption-key}") String encryptionKeyMaterial,
             @Value("${app.signup.token-days:7}") int tokenDays,
             @Value("${spring.mail.username:}") String mailFrom) {
-        this.jdbc = jdbc;
+        this.signupRequests = signupRequests;
         this.objectMapper = objectMapper;
         this.mailSender = mailSender;
         this.keycloakBaseUrl = trimTrailingSlash(keycloakBaseUrl);
@@ -108,91 +109,87 @@ public class SignupApprovalService {
             sendApplicantCreatedEmail(email);
             return status("CREATED", "Account created successfully. You can now sign in.", email, displayName);
         }
-        Integer pendingCount = jdbc.queryForObject(
-                "SELECT count(*) FROM signup_requests WHERE lower(email) = lower(?) AND status = 'PENDING'",
-                Integer.class,
-                email);
-        if (pendingCount != null && pendingCount > 0) {
+        if (signupRequests.existsByEmailIgnoreCaseAndStatus(email, "PENDING")) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "A signup request is already pending for this email");
         }
         String approveToken = randomToken();
         String rejectToken = randomToken();
         EncryptedPassword encryptedPassword = encryptPassword(password);
-        jdbc.update("""
-                INSERT INTO signup_requests (
-                    id, email, display_name, encrypted_password, password_nonce, status,
-                    legal_version, terms_accepted_at, requester_ip, requester_user_agent,
-                    approve_token_hash, reject_token_hash, expires_at
-                ) VALUES (?, ?, ?, ?, ?, 'PENDING', ?, now(), ?, ?, ?, ?, now() + (? * interval '1 day'))
-                """,
-                UUID.randomUUID(), email, displayName, encryptedPassword.cipherText(), encryptedPassword.nonce(),
-                legalVersion, trimToNull(ipAddress), trimToNull(userAgent),
-                hashToken(approveToken), hashToken(rejectToken), Math.max(1, tokenDays));
+        OffsetDateTime now = OffsetDateTime.now();
+        SignupRequestEntity request = new SignupRequestEntity();
+        request.setId(UUID.randomUUID());
+        request.setEmail(email);
+        request.setDisplayName(displayName);
+        request.setEncryptedPassword(encryptedPassword.cipherText());
+        request.setPasswordNonce(encryptedPassword.nonce());
+        request.setStatus("PENDING");
+        request.setLegalVersion(legalVersion);
+        request.setTermsAcceptedAt(now);
+        request.setRequesterIp(trimToNull(ipAddress));
+        request.setRequesterUserAgent(trimToNull(userAgent));
+        request.setApproveTokenHash(hashToken(approveToken));
+        request.setRejectTokenHash(hashToken(rejectToken));
+        request.setExpiresAt(now.plusDays(Math.max(1, tokenDays)));
+        signupRequests.save(request);
         sendAdminEmail(email, displayName, approveToken, rejectToken);
         sendApplicantReceivedEmail(email);
         return status("PENDING", "Signup request sent for approval.", email, displayName);
     }
 
     public SignupRequestStatusRecord tokenInfo(String token) {
-        SignupRequest request = findByAnyToken(token);
-        return status(request.status(), statusMessage(request), request.email(), request.displayName());
+        SignupRequestEntity request = findByAnyToken(token);
+        String effectiveStatus = effectiveStatus(request);
+        return status(effectiveStatus, statusMessage(effectiveStatus), request.getEmail(), request.getDisplayName());
     }
 
     @Transactional
     public SignupRequestStatusRecord approve(String token) {
-        SignupRequest request = findPendingByToken(token, true);
-        createKeycloakStudent(request.email(), request.displayName(),
-                decryptPassword(request.encryptedPassword(), request.passwordNonce()));
-        jdbc.update("""
-                UPDATE signup_requests SET status = 'APPROVED', reviewed_at = now(),
-                    reviewed_action = 'APPROVED', encrypted_password = NULL, password_nonce = NULL
-                WHERE id = ? AND status = 'PENDING'
-                """, request.id());
-        sendApplicantApprovedEmail(request.email());
-        return status("APPROVED", "Signup request approved. ClearLeaf account created.", request.email(), request.displayName());
+        SignupRequestEntity request = findPendingByToken(token, true);
+        createKeycloakStudent(request.getEmail(), request.getDisplayName(),
+                decryptPassword(request.getEncryptedPassword(), request.getPasswordNonce()));
+        request.setStatus("APPROVED");
+        request.setReviewedAt(OffsetDateTime.now());
+        request.setReviewedAction("APPROVED");
+        request.setEncryptedPassword(null);
+        request.setPasswordNonce(null);
+        signupRequests.save(request);
+        sendApplicantApprovedEmail(request.getEmail());
+        return status("APPROVED", "Signup request approved. ClearLeaf account created.",
+                request.getEmail(), request.getDisplayName());
     }
 
     @Transactional
     public SignupRequestStatusRecord reject(String token, RejectSignupRequest rejection) {
-        SignupRequest request = findPendingByToken(token, false);
+        SignupRequestEntity request = findPendingByToken(token, false);
         String reason = trimToNull(rejection == null ? null : rejection.reason());
-        jdbc.update("""
-                UPDATE signup_requests SET status = 'REJECTED', reviewed_at = now(),
-                    reviewed_action = 'REJECTED', review_reason = ?,
-                    encrypted_password = NULL, password_nonce = NULL
-                WHERE id = ? AND status = 'PENDING'
-                """, reason, request.id());
-        sendApplicantRejectedEmail(request.email(), reason);
-        return status("REJECTED", "Signup request rejected.", request.email(), request.displayName());
+        request.setStatus("REJECTED");
+        request.setReviewedAt(OffsetDateTime.now());
+        request.setReviewedAction("REJECTED");
+        request.setReviewReason(reason);
+        request.setEncryptedPassword(null);
+        request.setPasswordNonce(null);
+        signupRequests.save(request);
+        sendApplicantRejectedEmail(request.getEmail(), reason);
+        return status("REJECTED", "Signup request rejected.", request.getEmail(), request.getDisplayName());
     }
 
-    private SignupRequest findByAnyToken(String token) {
+    private SignupRequestEntity findByAnyToken(String token) {
         String hash = hashToken(requiredToken(token));
-        List<SignupRequest> requests = jdbc.query("""
-                SELECT id, email, display_name, encrypted_password, password_nonce, status, expires_at
-                FROM signup_requests WHERE approve_token_hash = ? OR reject_token_hash = ?
-                """, this::mapSignupRequest, hash, hash);
-        if (requests.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Signup approval link was not found");
-        }
-        SignupRequest request = requests.get(0);
-        return "PENDING".equals(request.status()) && request.expiresAt().isBefore(OffsetDateTime.now())
-                ? request.withStatus("EXPIRED")
-                : request;
+        return signupRequests.findFirstByApproveTokenHashOrRejectTokenHash(hash, hash)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "Signup approval link was not found"));
     }
 
-    private SignupRequest findPendingByToken(String token, boolean approve) {
-        String column = approve ? "approve_token_hash" : "reject_token_hash";
-        List<SignupRequest> requests = jdbc.query("""
-                SELECT id, email, display_name, encrypted_password, password_nonce, status, expires_at
-                FROM signup_requests WHERE %s = ? AND status = 'PENDING'
-                """.formatted(column), this::mapSignupRequest, hashToken(requiredToken(token)));
-        if (requests.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Signup approval link was not found or already used");
-        }
-        SignupRequest request = requests.get(0);
-        if (request.expiresAt().isBefore(OffsetDateTime.now())) {
-            jdbc.update("UPDATE signup_requests SET status = 'EXPIRED' WHERE id = ? AND status = 'PENDING'", request.id());
+    private SignupRequestEntity findPendingByToken(String token, boolean approve) {
+        String hash = hashToken(requiredToken(token));
+        SignupRequestEntity request = (approve
+                ? signupRequests.findFirstByApproveTokenHashAndStatus(hash, "PENDING")
+                : signupRequests.findFirstByRejectTokenHashAndStatus(hash, "PENDING"))
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "Signup approval link was not found or already used"));
+        if (request.getExpiresAt().isBefore(OffsetDateTime.now())) {
+            request.setStatus("EXPIRED");
+            signupRequests.save(request);
             throw new ResponseStatusException(HttpStatus.GONE, "Signup approval link has expired");
         }
         return request;
@@ -386,18 +383,18 @@ public class SignupApprovalService {
         return Base64.getEncoder().encodeToString(value);
     }
 
-    private SignupRequest mapSignupRequest(java.sql.ResultSet rs, int rowNum) throws java.sql.SQLException {
-        return new SignupRequest(rs.getObject("id", UUID.class), rs.getString("email"), rs.getString("display_name"),
-                rs.getString("encrypted_password"), rs.getString("password_nonce"), rs.getString("status"),
-                rs.getObject("expires_at", OffsetDateTime.class));
-    }
-
     private SignupRequestStatusRecord status(String status, String message, String email, String displayName) {
         return new SignupRequestStatusRecord(status, message, email, displayName);
     }
 
-    private String statusMessage(SignupRequest request) {
-        return switch (request.status()) {
+    private String effectiveStatus(SignupRequestEntity request) {
+        return "PENDING".equals(request.getStatus()) && request.getExpiresAt().isBefore(OffsetDateTime.now())
+                ? "EXPIRED"
+                : request.getStatus();
+    }
+
+    private String statusMessage(String status) {
+        return switch (status) {
             case "APPROVED" -> "Signup request was already approved.";
             case "REJECTED" -> "Signup request was already rejected.";
             case "EXPIRED" -> "Signup approval link has expired.";
@@ -435,11 +432,4 @@ public class SignupApprovalService {
     }
 
     private record EncryptedPassword(String cipherText, String nonce) {}
-
-    private record SignupRequest(UUID id, String email, String displayName, String encryptedPassword,
-                                 String passwordNonce, String status, OffsetDateTime expiresAt) {
-        SignupRequest withStatus(String nextStatus) {
-            return new SignupRequest(id, email, displayName, encryptedPassword, passwordNonce, nextStatus, expiresAt);
-        }
-    }
 }

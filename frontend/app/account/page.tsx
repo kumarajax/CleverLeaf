@@ -1,24 +1,14 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8081";
 const legalVersion = process.env.NEXT_PUBLIC_LEGAL_CURRENT_VERSION ?? "2026-05-30";
 const approvalRequired = (process.env.NEXT_PUBLIC_USER_CREATION_APPROVAL_REQUIRED ?? "Y").toLowerCase() !== "n";
-const authStorageKeys = ["clearleaf.auth", "owl_access_token", "owl_id_token"];
+const authStorageKeys = ["clearleaf.auth"];
 
 function readStoredSession() {
-  const current = localStorage.getItem("clearleaf.auth");
-  if (current) return current;
-  const accessToken = localStorage.getItem("owl_access_token");
-  const idToken = localStorage.getItem("owl_id_token");
-  if (!accessToken && !idToken) return null;
-  return JSON.stringify({
-    email: "",
-    accessToken: accessToken ?? "",
-    refreshToken: idToken ?? "",
-  });
+  return localStorage.getItem("clearleaf.auth");
 }
 
 function removeStoredSession() {
@@ -41,7 +31,6 @@ async function message(response: Response) {
 }
 
 export default function AccountPage() {
-  const router = useRouter();
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -61,8 +50,9 @@ export default function AccountPage() {
     const stored = readStoredSession();
     if (!stored) return;
     try {
-      const session = JSON.parse(stored) as { email?: string };
+      const session = JSON.parse(stored) as { email?: string; accessToken?: string };
       if (session.email) setSignedInEmail(session.email);
+      window.location.replace("/dashboard");
     } catch {
       removeStoredSession();
     }
@@ -75,8 +65,6 @@ export default function AccountPage() {
       refreshToken,
     });
     localStorage.setItem("clearleaf.auth", session);
-    localStorage.setItem("owl_access_token", accessToken);
-    localStorage.setItem("owl_id_token", refreshToken);
     setSignedInEmail(emailAddress);
   }
 
@@ -139,7 +127,7 @@ export default function AccountPage() {
       persistLogin(body.email ?? loginEmail.trim(), body.accessToken ?? "", body.refreshToken ?? "");
       setStatus(nextMessage);
       setLoginPassword("");
-      router.push("/dashboard");
+      window.location.replace("/dashboard");
     } catch (exception) {
       setError(exception instanceof Error ? exception.message : "Unable to sign in.");
     } finally {

@@ -1,0 +1,125 @@
+package com.clearleaf.api.entity;
+
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.Id;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.OrderBy;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
+import jakarta.persistence.Table;
+import jakarta.persistence.Version;
+
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+
+@Entity
+@Table(name = "question")
+public class QuestionEntity {
+    @Id
+    private UUID id;
+
+    @Column(name = "question_type", nullable = false, length = 32)
+    private String questionType;
+
+    @Column(nullable = false, length = 16)
+    private String difficulty;
+
+    @Column(name = "workflow_status", nullable = false, length = 32)
+    private String workflowStatus;
+
+    @Column(nullable = false, length = 32)
+    private String language = "English";
+
+    @Column(name = "question_text", nullable = false)
+    private String questionText;
+
+    private String explanation;
+
+    @Column(name = "source_reference")
+    private String sourceReference;
+
+    @Column(name = "license_category", length = 64)
+    private String licenseCategory;
+
+    @Column(name = "source_type", nullable = false, length = 32)
+    private String sourceType = "ORIGINAL";
+
+    @Column(name = "created_by", nullable = false, length = 256)
+    private String createdBy;
+
+    @Column(name = "updated_by", length = 256)
+    private String updatedBy;
+
+    @Version
+    @Column(name = "version_number", nullable = false)
+    private int versionNumber;
+
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private Instant createdAt;
+
+    @Column(name = "updated_at", nullable = false)
+    private Instant updatedAt;
+
+    @OneToMany(mappedBy = "question", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("sortOrder ASC")
+    private List<QuestionOptionEntity> options = new ArrayList<>();
+
+    @OneToMany(mappedBy = "question", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("sortOrder ASC")
+    private List<QuestionAnswerEntity> answers = new ArrayList<>();
+
+    @OneToMany(mappedBy = "question", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<QuestionTaxonomyNodeEntity> taxonomyAssignments = new ArrayList<>();
+
+    @OneToMany(mappedBy = "question", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<QuestionTagEntity> tags = new ArrayList<>();
+
+    @OneToMany(mappedBy = "question", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("createdAt ASC")
+    private List<QuestionWorkflowEventEntity> workflowEvents = new ArrayList<>();
+
+    @PrePersist
+    void onCreate() {
+        Instant now = Instant.now();
+        if (createdAt == null) createdAt = now;
+        updatedAt = now;
+    }
+
+    @PreUpdate
+    void onUpdate() {
+        updatedAt = Instant.now();
+    }
+
+    public UUID getId() { return id; }
+    public void setId(UUID id) { this.id = id; }
+    public String getQuestionType() { return questionType; }
+    public void setQuestionType(String questionType) { this.questionType = questionType; }
+    public String getDifficulty() { return difficulty; }
+    public void setDifficulty(String difficulty) { this.difficulty = difficulty; }
+    public String getWorkflowStatus() { return workflowStatus; }
+    public void setWorkflowStatus(String workflowStatus) { this.workflowStatus = workflowStatus; }
+    public String getQuestionText() { return questionText; }
+    public void setQuestionText(String questionText) { this.questionText = questionText; }
+    public String getExplanation() { return explanation; }
+    public void setExplanation(String explanation) { this.explanation = explanation; }
+    public String getSourceReference() { return sourceReference; }
+    public void setSourceReference(String sourceReference) { this.sourceReference = sourceReference; }
+    public String getLicenseCategory() { return licenseCategory; }
+    public void setLicenseCategory(String licenseCategory) { this.licenseCategory = licenseCategory; }
+    public String getSourceType() { return sourceType; }
+    public void setSourceType(String sourceType) { this.sourceType = sourceType; }
+    public String getCreatedBy() { return createdBy; }
+    public void setCreatedBy(String createdBy) { this.createdBy = createdBy; }
+    public String getUpdatedBy() { return updatedBy; }
+    public void setUpdatedBy(String updatedBy) { this.updatedBy = updatedBy; }
+    public List<QuestionOptionEntity> getOptions() { return options; }
+    public List<QuestionAnswerEntity> getAnswers() { return answers; }
+    public List<QuestionTaxonomyNodeEntity> getTaxonomyAssignments() { return taxonomyAssignments; }
+    public List<QuestionTagEntity> getTags() { return tags; }
+    public List<QuestionWorkflowEventEntity> getWorkflowEvents() { return workflowEvents; }
+}

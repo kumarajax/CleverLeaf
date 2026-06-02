@@ -28,22 +28,11 @@ type MeResponse = {
 };
 
 function readStoredSession() {
-  const current = localStorage.getItem("clearleaf.auth");
-  if (current) return current;
-  const accessToken = localStorage.getItem("owl_access_token");
-  const idToken = localStorage.getItem("owl_id_token");
-  if (!accessToken && !idToken) return null;
-  return JSON.stringify({
-    email: "",
-    accessToken: accessToken ?? "",
-    refreshToken: idToken ?? "",
-  });
+  return localStorage.getItem("clearleaf.auth");
 }
 
 function removeStoredSession() {
   localStorage.removeItem("clearleaf.auth");
-  localStorage.removeItem("owl_access_token");
-  localStorage.removeItem("owl_id_token");
 }
 
 function decodePayload(token: string): JwtPayload | null {

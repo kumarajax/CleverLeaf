@@ -9,15 +9,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/questions")
-public class QuestionValidationController {
+public class QuestionScoringController {
     private final QuestionValidator validator = new QuestionValidator();
     private final AnswerScorer scorer = new AnswerScorer();
-
-    @PostMapping("/validate")
-    public Map<String, Object> validate(@RequestBody QuestionDraft question) {
-        List<String> errors = validator.validate(question);
-        return Map.of("valid", errors.isEmpty(), "errors", errors);
-    }
 
     @PostMapping("/score")
     public Map<String, Boolean> score(@RequestBody ScoreQuestionRequest request) {

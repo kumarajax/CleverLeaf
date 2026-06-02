@@ -1,5 +1,10 @@
 package com.clearleaf.api;
 
+import java.util.UUID;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -10,8 +15,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
-import java.util.List;
-import java.util.UUID;
+import org.springframework.web.bind.annotation.RequestParam;
 
 @RestController
 @RequestMapping("/api/admin/questions")
@@ -23,8 +27,26 @@ public class QuestionAuthoringController {
     }
 
     @GetMapping
-    public List<QuestionAdminRecord> list() {
-        return questions.list();
+    public Page<QuestionAdminRecord> list(
+            @RequestParam(value = "questionType", required = false) String questionType,
+            @RequestParam(value = "difficulty", required = false) String difficulty,
+            @RequestParam(value = "workflowStatus", required = false) String workflowStatus,
+            @RequestParam(value = "taxonomyNodeId", required = false) UUID taxonomyNodeId,
+            @RequestParam(value = "includeDescendants", defaultValue = "true") boolean includeDescendants,
+            @RequestParam(value = "curriculumId", required = false) UUID curriculumId,
+            @RequestParam(value = "editionId", required = false) UUID editionId,
+            @RequestParam(value = "gradeId", required = false) UUID gradeId,
+            @RequestParam(value = "subjectId", required = false) UUID subjectId,
+            @RequestParam(value = "chapterId", required = false) UUID chapterId,
+            @RequestParam(value = "topicId", required = false) UUID topicId,
+            @PageableDefault(sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        return questions.list(new QuestionSearchCriteria(questionType, difficulty, workflowStatus,
+                taxonomyNodeId, includeDescendants, curriculumId, editionId, gradeId, subjectId, chapterId, topicId), pageable);
+    }
+
+    @GetMapping("/{id}")
+    public QuestionAdminRecord get(@PathVariable("id") UUID id) {
+        return questions.get(id);
     }
 
     @PostMapping
