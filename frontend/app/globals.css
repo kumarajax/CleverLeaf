@@ -786,6 +786,32 @@ h1 {
   margin: 8px 0 8px;
 }
 
+.admin-shell .import-tabs {
+  margin-top: 0;
+}
+
+.import-placeholder {
+  margin-top: 12px;
+}
+
+.import-step-tabs {
+  align-items: center;
+  border-bottom: 1px solid #d8e6dc;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 10px 0 12px;
+}
+
+.import-step-card {
+  display: grid;
+  gap: 10px;
+}
+
+.compact-section-header h3 {
+  margin: 0;
+}
+
 .admin-taxonomy-context {
   align-items: center;
   background: #f8fbf7;

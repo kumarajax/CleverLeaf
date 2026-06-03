@@ -146,7 +146,7 @@ public class QuestionAuthoringService {
         QuestionDraft draft = request.question();
         List<QuestionTaxonomyAssignment> assignments = assignments(request);
         List<QuestionAnswer> answers = request.answers() == null ? List.of() : request.answers();
-        validateAnswers(draft.type(), answers);
+        validateAnswers(draft.type(), draft.workflowStatus(), answers);
 
         question.setQuestionType(draft.type().name());
         question.setDifficulty(draft.difficulty().name());
@@ -260,7 +260,10 @@ public class QuestionAuthoringService {
         question.getWorkflowEvents().add(event);
     }
 
-    private void validateAnswers(QuestionType type, List<QuestionAnswer> answers) {
+    private void validateAnswers(QuestionType type, WorkflowStatus workflowStatus, List<QuestionAnswer> answers) {
+        if (workflowStatus == WorkflowStatus.MISSING_ANSWER) {
+            return;
+        }
         if ((type == QuestionType.FILL_BLANK || type == QuestionType.NUMERICAL) && answers.isEmpty()) {
             throw new IllegalArgumentException("Text and numerical questions require at least one accepted answer");
         }

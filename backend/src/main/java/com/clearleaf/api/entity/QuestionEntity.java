@@ -39,6 +39,9 @@ public class QuestionEntity {
     @Column(name = "question_text", nullable = false)
     private String questionText;
 
+    @Column(name = "external_key", length = 128)
+    private String externalKey;
+
     private String explanation;
 
     @Column(name = "source_reference")
@@ -110,6 +113,8 @@ public class QuestionEntity {
     public void setWorkflowStatus(String workflowStatus) { this.workflowStatus = workflowStatus; }
     public String getQuestionText() { return questionText; }
     public void setQuestionText(String questionText) { this.questionText = questionText; }
+    public String getExternalKey() { return externalKey; }
+    public void setExternalKey(String externalKey) { this.externalKey = externalKey; }
     public String getExplanation() { return explanation; }
     public void setExplanation(String explanation) { this.explanation = explanation; }
     public String getSourceReference() { return sourceReference; }

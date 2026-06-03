@@ -48,6 +48,9 @@ public class QuestionValidator {
             return;
         }
         List<QuestionOption> options = question.options() == null ? List.of() : question.options();
+        if (question.workflowStatus() == WorkflowStatus.MISSING_ANSWER) {
+            return;
+        }
         if (options.stream().anyMatch(option -> option == null || option.text() == null || option.text().isBlank())) {
             errors.add("Option text is required");
             return;

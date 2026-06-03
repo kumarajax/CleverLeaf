@@ -32,6 +32,9 @@ public class TaxonomyNodeEntity {
     @Column(name = "node_key", nullable = false, length = 128)
     private String nodeKey;
 
+    @Column(name = "external_key", length = 128)
+    private String externalKey;
+
     @Column(name = "display_name", nullable = false, length = 256)
     private String displayName;
 
@@ -98,6 +101,14 @@ public class TaxonomyNodeEntity {
 
     public void setNodeKey(String nodeKey) {
         this.nodeKey = nodeKey;
+    }
+
+    public String getExternalKey() {
+        return externalKey;
+    }
+
+    public void setExternalKey(String externalKey) {
+        this.externalKey = externalKey;
     }
 
     public String getDisplayName() {

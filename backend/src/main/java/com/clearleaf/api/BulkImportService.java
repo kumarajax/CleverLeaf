@@ -1,0 +1,384 @@
+package com.clearleaf.api;
+
+import com.clearleaf.api.entity.LookupEntity;
+import com.clearleaf.api.entity.QuestionAnswerEntity;
+import com.clearleaf.api.entity.QuestionEntity;
+import com.clearleaf.api.entity.QuestionOptionEntity;
+import com.clearleaf.api.entity.TaxonomyNodeEntity;
+import com.clearleaf.api.repository.LookupRepository;
+import com.clearleaf.api.repository.QuestionRepository;
+import com.clearleaf.api.repository.TaxonomyNodeRepository;
+import java.io.StringReader;
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.UUID;
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVParser;
+import org.apache.commons.csv.CSVRecord;
+import org.springframework.http.HttpStatus;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+
+@Service
+public class BulkImportService {
+    private final MinioStorageService storage;
+    private final LookupRepository lookups;
+    private final TaxonomyNodeRepository taxonomyNodes;
+    private final QuestionRepository questions;
+    private final QuestionAuthoringService authoring;
+    private final JdbcTemplate jdbcTemplate;
+
+    public BulkImportService(
+            MinioStorageService storage,
+            LookupRepository lookups,
+            TaxonomyNodeRepository taxonomyNodes,
+            QuestionRepository questions,
+            QuestionAuthoringService authoring,
+            JdbcTemplate jdbcTemplate) {
+        this.storage = storage;
+        this.lookups = lookups;
+        this.taxonomyNodes = taxonomyNodes;
+        this.questions = questions;
+        this.authoring = authoring;
+        this.jdbcTemplate = jdbcTemplate;
+    }
+
+    @Transactional(readOnly = true)
+    public List<BulkImportStepMetadata> metadata() {
+        return Arrays.stream(BulkImportStep.values())
+                .map(step -> new BulkImportStepMetadata(step.sequence(), step.name(), step.label(), step.columns()))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public BulkImportPreviewResponse preview(BulkImportStep step, String objectKey) {
+        List<BulkImportRowResult> rows = parseRows(step, objectKey);
+        long valid = rows.stream().filter(BulkImportRowResult::valid).count();
+        return new BulkImportPreviewResponse(objectKey, step.name(), rows.size(), (int) valid, rows.size() - (int) valid, rows);
+    }
+
+    @Transactional
+    public BulkImportSummary importStep(BulkImportStep step, String objectKey) {
+        List<BulkImportRowResult> previewRows = parseRows(step, objectKey);
+        List<BulkImportRowResult> results = new ArrayList<>();
+        int imported = 0;
+        for (BulkImportRowResult row : previewRows) {
+            if (!row.valid()) {
+                results.add(row);
+                continue;
+            }
+            List<String> errors = new ArrayList<>();
+            try {
+                switch (step) {
+                    case TAXONOMIES -> importTaxonomy(row.values());
+                    case QUESTIONS -> importQuestion(row.values());
+                    case QUESTION_OPTIONS -> importQuestionOption(row.values());
+                    case CORRECT_ANSWERS -> importCorrectAnswer(row.values());
+                }
+                imported++;
+            } catch (RuntimeException ex) {
+                errors.add(rootMessage(ex));
+            }
+            results.add(new BulkImportRowResult(row.lineNumber(), row.values(), errors, errors.isEmpty()));
+        }
+        int failed = previewRows.size() - imported;
+        recordStepRun(step, objectKey, previewRows.size(), imported, failed, results);
+        return new BulkImportSummary(objectKey, step.name(), previewRows.size(), imported, failed, results);
+    }
+
+    private void recordStepRun(BulkImportStep step, String objectKey, int totalRows, int imported, int failed, List<BulkImportRowResult> results) {
+        int validRows = (int) results.stream().filter(BulkImportRowResult::valid).count();
+        String status = failed == 0 ? "IMPORTED" : imported == 0 ? "FAILED" : "PARTIAL";
+        String errors = results.stream()
+                .filter(row -> !row.errors().isEmpty())
+                .map(row -> "line " + row.lineNumber() + ": " + String.join("; ", row.errors()))
+                .toList()
+                .toString();
+        jdbcTemplate.update("""
+                INSERT INTO bulk_import_step_run
+                    (id, step_code, object_key, status, total_rows, valid_rows, imported_rows, failed_rows, errors_json)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, UUID.randomUUID(), step.name(), objectKey, status, totalRows, validRows, imported, failed, errors);
+    }
+
+    private List<BulkImportRowResult> parseRows(BulkImportStep step, String objectKey) {
+        if (!storage.exists(objectKey)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Uploaded import file was not found");
+        }
+        String csv = storage.readText(objectKey);
+        try (CSVParser parser = CSVFormat.DEFAULT.builder()
+                .setHeader()
+                .setSkipHeaderRecord(true)
+                .setTrim(true)
+                .setIgnoreSurroundingSpaces(true)
+                .build()
+                .parse(new StringReader(csv))) {
+            List<BulkImportRowResult> rows = new ArrayList<>();
+            int lineNumber = 1;
+            for (CSVRecord record : parser) {
+                Map<String, String> values = values(record);
+                List<String> errors = validate(step, values);
+                rows.add(new BulkImportRowResult(lineNumber++, values, errors, errors.isEmpty()));
+            }
+            return rows;
+        } catch (Exception ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unable to parse import CSV", ex);
+        }
+    }
+
+    private Map<String, String> values(CSVRecord record) {
+        Map<String, String> values = new LinkedHashMap<>();
+        for (String header : record.getParser().getHeaderMap().keySet()) {
+            values.put(header, optionalText(record, header));
+        }
+        return values;
+    }
+
+    private List<String> validate(BulkImportStep step, Map<String, String> values) {
+        List<String> errors = new ArrayList<>();
+        for (BulkImportColumn column : step.columns()) {
+            if (column.required() && blank(values.get(column.name()))) {
+                errors.add(column.name() + " is required");
+            }
+        }
+        switch (step) {
+            case TAXONOMIES -> validateTaxonomy(values, errors);
+            case QUESTIONS -> validateQuestion(values, errors);
+            case QUESTION_OPTIONS -> validateQuestionOption(values, errors);
+            case CORRECT_ANSWERS -> validateCorrectAnswer(values, errors);
+        }
+        return errors;
+    }
+
+    private void validateTaxonomy(Map<String, String> values, List<String> errors) {
+        TaxonomyLevelDefinition definition = taxonomyDefinition(values.get("levelKey"), errors);
+        if (definition == null) return;
+        String parentExternalKey = values.get("parentExternalKey");
+        if (definition.allowedParentKey() == null && !blank(parentExternalKey)) {
+            errors.add("parentExternalKey must be blank for " + definition.lookupCode());
+        }
+        if (definition.allowedParentKey() != null && blank(parentExternalKey)) {
+            errors.add("parentExternalKey is required for " + definition.lookupCode());
+        }
+        parseInteger(values.get("sortOrder"), "sortOrder", errors);
+    }
+
+    private void validateQuestion(Map<String, String> values, List<String> errors) {
+        parseEnum(values.get("questionType"), QuestionType.class, "questionType", errors);
+        parseEnum(values.get("difficulty"), Difficulty.class, "difficulty", errors);
+        if (!blank(values.get("workflowStatus"))) {
+            parseEnum(values.get("workflowStatus"), WorkflowStatus.class, "workflowStatus", errors);
+        }
+    }
+
+    private void validateQuestionOption(Map<String, String> values, List<String> errors) {
+        parseInteger(values.get("sortOrder"), "sortOrder", errors);
+    }
+
+    private void validateCorrectAnswer(Map<String, String> values, List<String> errors) {
+        parseInteger(values.get("sortOrder"), "sortOrder", errors);
+        if (!blank(values.get("toleranceValue"))) {
+            try {
+                new BigDecimal(values.get("toleranceValue").trim());
+            } catch (NumberFormatException ex) {
+                errors.add("toleranceValue must be numeric");
+            }
+        }
+    }
+
+    private void importTaxonomy(Map<String, String> values) {
+        String externalKey = requireText(values.get("externalKey"), "externalKey");
+        TaxonomyLevelDefinition definition = TaxonomyLevelDefinition.fromCode(values.get("levelKey"))
+                .orElseThrow(() -> new IllegalArgumentException("levelKey is invalid"));
+        LookupEntity level = lookups.findByLookupTypeAndLookupCodeIgnoreCase(LookupType.TAXONOMY_TYPE, definition.lookupCode())
+                .orElseThrow(() -> new IllegalArgumentException("Unknown taxonomy level: " + definition.lookupCode()));
+        TaxonomyNodeEntity parent = null;
+        if (!blank(values.get("parentExternalKey"))) {
+            parent = taxonomyNodes.findByExternalKey(values.get("parentExternalKey").trim())
+                    .orElseThrow(() -> new IllegalArgumentException("Unknown parentExternalKey: " + values.get("parentExternalKey")));
+            if (!definition.allowedParentKey().equals(parent.getLevelType().getLookupCode())) {
+                throw new IllegalArgumentException(definition.lookupCode() + " requires parent " + definition.allowedParentKey());
+            }
+        }
+        TaxonomyNodeEntity node = taxonomyNodes.findByExternalKey(externalKey).orElseGet(() -> {
+            TaxonomyNodeEntity created = new TaxonomyNodeEntity();
+            created.setId(UUID.randomUUID());
+            created.setExternalKey(externalKey);
+            return created;
+        });
+        node.setLevelType(level);
+        node.setParentNode(parent);
+        node.setNodeKey(requireText(values.get("nodeKey"), "nodeKey"));
+        node.setDisplayName(requireText(values.get("displayName"), "displayName"));
+        node.setStatus(blank(values.get("status")) ? "ACTIVE" : values.get("status").trim().toUpperCase(Locale.ROOT));
+        node.setSortOrder(parseIntegerOrDefault(values.get("sortOrder"), 0));
+        taxonomyNodes.save(node);
+    }
+
+    private void importQuestion(Map<String, String> values) {
+        String externalKey = requireText(values.get("externalKey"), "externalKey");
+        TaxonomyNodeEntity taxonomy = taxonomyNodes.findByExternalKey(requireText(values.get("taxonomyExternalKey"), "taxonomyExternalKey"))
+                .orElseThrow(() -> new IllegalArgumentException("Unknown taxonomyExternalKey: " + values.get("taxonomyExternalKey")));
+        QuestionType type = parseRequiredEnum(values.get("questionType"), QuestionType.class, "questionType");
+        Difficulty difficulty = parseRequiredEnum(values.get("difficulty"), Difficulty.class, "difficulty");
+        WorkflowStatus status = blank(values.get("workflowStatus"))
+                ? WorkflowStatus.MISSING_ANSWER
+                : parseRequiredEnum(values.get("workflowStatus"), WorkflowStatus.class, "workflowStatus");
+        QuestionEntity existing = questions.findByExternalKey(externalKey).orElse(null);
+        CreateQuestionRequest request = new CreateQuestionRequest(
+                taxonomy.getId(),
+                requireText(values.get("actor"), "actor"),
+                new QuestionDraft(
+                        type,
+                        difficulty,
+                        status,
+                        requireText(values.get("questionText"), "questionText"),
+                        nullIfBlank(values.get("explanation")),
+                        nullIfBlank(values.get("sourceReference")),
+                        nullIfBlank(values.get("licenseCategory")),
+                        List.of()),
+                null,
+                null,
+                splitTags(values.get("tags")));
+        UUID questionId = existing == null
+                ? authoring.create(request).id()
+                : authoring.update(existing.getId(), request).id();
+        QuestionEntity question = questions.findById(questionId)
+                .orElseThrow(() -> new IllegalStateException("Imported question was not found"));
+        question.setExternalKey(externalKey);
+        questions.save(question);
+    }
+
+    private void importQuestionOption(Map<String, String> values) {
+        QuestionEntity question = questionByExternalKey(values.get("questionExternalKey"));
+        QuestionOptionEntity option = question.getOptions().stream()
+                .filter(current -> current.getOptionKey().equalsIgnoreCase(requireText(values.get("optionKey"), "optionKey")))
+                .findFirst()
+                .orElseGet(() -> {
+                    QuestionOptionEntity created = new QuestionOptionEntity();
+                    created.setId(UUID.randomUUID());
+                    created.setQuestion(question);
+                    question.getOptions().add(created);
+                    return created;
+                });
+        option.setOptionKey(requireText(values.get("optionKey"), "optionKey").toUpperCase(Locale.ROOT));
+        option.setOptionText(requireText(values.get("optionText"), "optionText"));
+        option.setSortOrder(parseIntegerOrDefault(values.get("sortOrder"), question.getOptions().indexOf(option)));
+        option.setCorrect(false);
+        questions.save(question);
+    }
+
+    private void importCorrectAnswer(Map<String, String> values) {
+        QuestionEntity question = questionByExternalKey(values.get("questionExternalKey"));
+        QuestionType type = parseRequiredEnum(question.getQuestionType(), QuestionType.class, "questionType");
+        if (type == QuestionType.SINGLE_SELECT || type == QuestionType.MULTIPLE_SELECT || type == QuestionType.TRUE_FALSE) {
+            String optionKey = requireText(values.get("optionKey"), "optionKey").toUpperCase(Locale.ROOT);
+            boolean matched = false;
+            for (QuestionOptionEntity option : question.getOptions()) {
+                boolean correct = option.getOptionKey().equalsIgnoreCase(optionKey);
+                if (correct) matched = true;
+                if (type != QuestionType.MULTIPLE_SELECT || correct) {
+                    option.setCorrect(correct);
+                }
+            }
+            if (!matched) {
+                throw new IllegalArgumentException("Unknown optionKey for question: " + optionKey);
+            }
+            questions.save(question);
+            return;
+        }
+        QuestionAnswerEntity answer = new QuestionAnswerEntity();
+        answer.setId(UUID.randomUUID());
+        answer.setQuestion(question);
+        answer.setAnswerValue(requireText(values.get("answerValue"), "answerValue"));
+        answer.setAnswerType(blank(values.get("answerType")) ? type.name() : values.get("answerType").trim().toUpperCase(Locale.ROOT));
+        answer.setToleranceValue(blank(values.get("toleranceValue")) ? null : new BigDecimal(values.get("toleranceValue").trim()));
+        answer.setCaseSensitive(blank(values.get("caseSensitive")) ? null : Boolean.parseBoolean(values.get("caseSensitive").trim()));
+        answer.setSortOrder(parseIntegerOrDefault(values.get("sortOrder"), question.getAnswers().size()));
+        question.getAnswers().add(answer);
+        questions.save(question);
+    }
+
+    private QuestionEntity questionByExternalKey(String externalKey) {
+        return questions.findByExternalKey(requireText(externalKey, "questionExternalKey"))
+                .orElseThrow(() -> new IllegalArgumentException("Unknown questionExternalKey: " + externalKey));
+    }
+
+    private TaxonomyLevelDefinition taxonomyDefinition(String value, List<String> errors) {
+        TaxonomyLevelDefinition definition = TaxonomyLevelDefinition.fromCode(value).orElse(null);
+        if (definition == null && !blank(value)) {
+            errors.add("levelKey is invalid");
+        }
+        return definition;
+    }
+
+    private <E extends Enum<E>> E parseEnum(String value, Class<E> type, String field, List<String> errors) {
+        if (blank(value)) return null;
+        try {
+            return Enum.valueOf(type, value.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException ex) {
+            errors.add(field + " is invalid");
+            return null;
+        }
+    }
+
+    private <E extends Enum<E>> E parseRequiredEnum(String value, Class<E> type, String field) {
+        if (blank(value)) throw new IllegalArgumentException(field + " is required");
+        return Enum.valueOf(type, value.trim().toUpperCase(Locale.ROOT));
+    }
+
+    private Integer parseInteger(String value, String field, List<String> errors) {
+        if (blank(value)) return null;
+        try {
+            return Integer.parseInt(value.trim());
+        } catch (NumberFormatException ex) {
+            errors.add(field + " must be an integer");
+            return null;
+        }
+    }
+
+    private int parseIntegerOrDefault(String value, int defaultValue) {
+        if (blank(value)) return defaultValue;
+        return Integer.parseInt(value.trim());
+    }
+
+    private List<String> splitTags(String value) {
+        if (blank(value)) return List.of();
+        return Arrays.stream(value.split(","))
+                .map(String::trim)
+                .filter(tag -> !tag.isBlank())
+                .toList();
+    }
+
+    private String optionalText(CSVRecord record, String field) {
+        return record.isMapped(field) ? record.get(field) : null;
+    }
+
+    private String requireText(String value, String field) {
+        if (blank(value)) throw new IllegalArgumentException(field + " is required");
+        return value.trim();
+    }
+
+    private String nullIfBlank(String value) {
+        return blank(value) ? null : value.trim();
+    }
+
+    private boolean blank(String value) {
+        return value == null || value.isBlank();
+    }
+
+    private String rootMessage(RuntimeException ex) {
+        Throwable current = ex;
+        while (current.getCause() != null) {
+            current = current.getCause();
+        }
+        return current.getMessage() == null ? ex.getClass().getSimpleName() : current.getMessage();
+    }
+}

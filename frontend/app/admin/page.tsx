@@ -87,29 +87,42 @@ type AdminQuestion = {
   tags: string[];
 };
 
-type CsvRow = {
-  lineNumber: number;
-  questionText?: string | null;
-  type?: string | null;
-  difficulty?: string | null;
-  workflowStatus?: string | null;
-  valid?: boolean;
-  errors?: string[];
+type BulkImportColumn = {
+  name: string;
+  required: boolean;
+  description: string;
 };
 
-type CsvPreviewResponse = {
+type BulkImportStepMetadata = {
+  sequence: number;
+  stepCode: string;
+  label: string;
+  columns: BulkImportColumn[];
+};
+
+type BulkImportRow = {
+  lineNumber: number;
+  values: Record<string, string>;
+  errors: string[];
+  valid: boolean;
+};
+
+type BulkImportPreviewResponse = {
   objectKey: string;
+  stepCode: string;
   totalRows: number;
   validRows: number;
   invalidRows: number;
-  rows: CsvRow[];
+  rows: BulkImportRow[];
 };
 
-type CsvImportSummary = {
+type BulkImportSummary = {
   objectKey: string;
+  stepCode: string;
+  totalRows: number;
   importedRows: number;
   failedRows: number;
-  rows: CsvRow[];
+  rows: BulkImportRow[];
 };
 
 type PageMetadata = {
@@ -341,11 +354,14 @@ export default function AdminPage() {
     tagsText: "",
   });
   const [questionFormVisible, setQuestionFormVisible] = useState(false);
-  const [preview, setPreview] = useState<CsvPreviewResponse | null>(null);
-  const [csvObjectKey, setCsvObjectKey] = useState("");
-  const [csvImportSummary, setCsvImportSummary] = useState<CsvImportSummary | null>(null);
+  const [importMetadata, setImportMetadata] = useState<BulkImportStepMetadata[]>([]);
+  const [activeImportStep, setActiveImportStep] = useState("TAXONOMIES");
+  const [importObjectKeys, setImportObjectKeys] = useState<Record<string, string>>({});
+  const [importPreviews, setImportPreviews] = useState<Record<string, BulkImportPreviewResponse>>({});
+  const [importSummaries, setImportSummaries] = useState<Record<string, BulkImportSummary>>({});
   const [csvError, setCsvError] = useState("");
-  const [activeTab, setActiveTab] = useState<"taxonomy" | "manual" | "csv">("taxonomy");
+  const [activeTab, setActiveTab] = useState<"taxonomy" | "manual" | "import">("taxonomy");
+  const [importTab, setImportTab] = useState<"csv" | "json">("csv");
   const [expandedTaxonomyIds, setExpandedTaxonomyIds] = useState<string[]>([]);
   const [expandedQuestionTaxonomyIds, setExpandedQuestionTaxonomyIds] = useState<string[]>([]);
   const [expandedQuestionIds, setExpandedQuestionIds] = useState<string[]>([]);
@@ -631,6 +647,14 @@ export default function AdminPage() {
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, currentToken, questionCursorIndex, questionNodeFilterId, selectedTaxonomyNodeId, questionTypeFilter, questionDifficultyFilter, questionWorkflowFilter]);
+
+  useEffect(() => {
+    if (activeTab !== "import" || !currentToken || importMetadata.length > 0) return;
+    loadImportMetadata().catch((exception) =>
+      setCsvError(exception instanceof Error ? exception.message : "Unable to load import metadata.")
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, currentToken, importMetadata.length]);
 
   useEffect(() => {
     if (!questionForm.taxonomyNodeId && selectedTaxonomyNodeId) {
@@ -1055,11 +1079,33 @@ export default function AdminPage() {
     }
   }
 
-  async function uploadCsv(file: File) {
+  async function loadImportMetadata() {
+    const response = await fetch(`${apiBaseUrl}/api/admin/imports/bulk/metadata`, {
+      headers: authHeaders(),
+    });
+    const body = await response.json().catch(() => []);
+    if (!response.ok) {
+      throw new Error(body.error || `Request failed with ${response.status}`);
+    }
+    setImportMetadata(body);
+    if (body[0]?.stepCode) {
+      setActiveImportStep(body[0].stepCode);
+    }
+  }
+
+  async function uploadImportCsv(stepCode: string, file: File) {
     setCsvError("");
     setStatus("");
-    setPreview(null);
-    setCsvImportSummary(null);
+    setImportPreviews((current) => {
+      const next = { ...current };
+      delete next[stepCode];
+      return next;
+    });
+    setImportSummaries((current) => {
+      const next = { ...current };
+      delete next[stepCode];
+      return next;
+    });
     const formData = new FormData();
     formData.append("file", file);
     const uploadResponse = await fetch(`${apiBaseUrl}/api/admin/media/upload`, {
@@ -1071,21 +1117,22 @@ export default function AdminPage() {
     if (!uploadResponse.ok) {
       throw new Error(uploadBody.error || `Request failed with ${uploadResponse.status}`);
     }
-    setCsvObjectKey(uploadBody.objectKey);
-    const previewResponse = await fetch(`${apiBaseUrl}/api/admin/imports/questions/preview?objectKey=${encodeURIComponent(uploadBody.objectKey)}`, {
+    setImportObjectKeys((current) => ({ ...current, [stepCode]: uploadBody.objectKey }));
+    const previewResponse = await fetch(`${apiBaseUrl}/api/admin/imports/bulk/${stepCode}/preview?objectKey=${encodeURIComponent(uploadBody.objectKey)}`, {
       headers: authHeaders(),
     });
     const previewBody = await previewResponse.json().catch(() => ({}));
     if (!previewResponse.ok) {
       throw new Error(previewBody.error || `Request failed with ${previewResponse.status}`);
     }
-    setPreview(previewBody);
+    setImportPreviews((current) => ({ ...current, [stepCode]: previewBody }));
   }
 
-  async function importCsv() {
-    if (!csvObjectKey) return;
+  async function importCsvStep(stepCode: string) {
+    const objectKey = importObjectKeys[stepCode];
+    if (!objectKey) return;
     setCsvError("");
-    const response = await fetch(`${apiBaseUrl}/api/admin/imports/questions?objectKey=${encodeURIComponent(csvObjectKey)}`, {
+    const response = await fetch(`${apiBaseUrl}/api/admin/imports/bulk/${stepCode}?objectKey=${encodeURIComponent(objectKey)}`, {
       method: "POST",
       headers: authHeaders(),
     });
@@ -1093,32 +1140,72 @@ export default function AdminPage() {
     if (!response.ok) {
       throw new Error(body.error || `Request failed with ${response.status}`);
     }
-    setCsvImportSummary(body);
-    setStatus(`Imported ${body.importedRows} row(s).`);
+    setImportSummaries((current) => ({ ...current, [stepCode]: body }));
+    setStatus(`Imported ${body.importedRows} row(s) for ${stepCode}.`);
+    if (stepCode === "TAXONOMIES") {
+      await Promise.all([loadAllTaxonomy(), loadTaxonomy(taxonomyFilter)]);
+    }
+    if (stepCode === "QUESTIONS" || stepCode === "QUESTION_OPTIONS" || stepCode === "CORRECT_ANSWERS") {
+      resetQuestionCursor();
+      await loadQuestions();
+    }
   }
 
-  function downloadCsvTemplate() {
-    const row = [
-      selectedTaxonomyNodeId,
-      me?.email ?? session?.email ?? "ajay1@gmail.com",
-      "SINGLE_SELECT",
-      "MEDIUM",
-      "DRAFT",
-      "What is 2/3 + 1/2?",
-      "Use common denominator 6: 2/3 = 4/6 and 1/2 = 3/6, so the answer is 7/6.",
-      "Original ClearLeaf sample",
-      "CC-BY",
-      "A|7/6|true;B|5/6|false;C|1/6|false;D|2/5|false",
-    ].join(",");
+  function downloadCsvTemplate(step: BulkImportStepMetadata) {
+    const headers = step.columns.map((column) => column.name);
+    const row = sampleImportRow(step.stepCode, headers);
     const blob = new Blob([
-      "taxonomyNodeId,actor,questionType,difficulty,workflowStatus,questionText,explanation,sourceReference,licenseCategory,options\n" + row + "\n",
+      headers.join(",") + "\n" + row.join(",") + "\n",
     ], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = "clearleaf-question-template.csv";
+    anchor.download = `clearleaf-${step.stepCode.toLowerCase()}-template.csv`;
     anchor.click();
     URL.revokeObjectURL(url);
+  }
+
+  function sampleImportRow(stepCode: string, headers: string[]) {
+    const samples: Record<string, Record<string, string>> = {
+      TAXONOMIES: {
+        externalKey: "CAASPP_GRADE_6_MATH_FRACTIONS",
+        levelKey: "TOPIC",
+        parentExternalKey: "CAASPP_GRADE_6_MATH_CHAPTER_1",
+        nodeKey: "FRACTIONS",
+        displayName: "Fractions",
+        status: "ACTIVE",
+        sortOrder: "10",
+      },
+      QUESTIONS: {
+        externalKey: "Q_FRACTIONS_0001",
+        taxonomyExternalKey: "CAASPP_GRADE_6_MATH_FRACTIONS",
+        actor: me?.email ?? session?.email ?? "admin@example.com",
+        questionType: "SINGLE_SELECT",
+        difficulty: "MEDIUM",
+        workflowStatus: "MISSING_ANSWER",
+        questionText: "What is 2/3 + 1/2?",
+        explanation: "Use common denominator 6.",
+        sourceReference: "Original ClearLeaf sample",
+        licenseCategory: "CC-BY",
+        tags: "FRACTIONS",
+      },
+      QUESTION_OPTIONS: {
+        questionExternalKey: "Q_FRACTIONS_0001",
+        optionKey: "A",
+        optionText: "7/6",
+        sortOrder: "1",
+      },
+      CORRECT_ANSWERS: {
+        questionExternalKey: "Q_FRACTIONS_0001",
+        optionKey: "A",
+        answerValue: "",
+        answerType: "",
+        toleranceValue: "",
+        caseSensitive: "",
+        sortOrder: "1",
+      },
+    };
+    return headers.map((header) => `"${(samples[stepCode]?.[header] ?? "").replaceAll("\"", "\"\"")}"`);
   }
 
   if (loading) {
@@ -1154,7 +1241,10 @@ export default function AdminPage() {
         <div className="account-tabs">
           <button type="button" className={activeTab === "taxonomy" ? "tab active" : "tab"} onClick={() => setActiveTab("taxonomy")}>Taxonomy</button>
           <button type="button" className={activeTab === "manual" ? "tab active" : "tab"} onClick={() => setActiveTab("manual")}>Manual question</button>
-          <button type="button" className={activeTab === "csv" ? "tab active" : "tab"} onClick={() => setActiveTab("csv")}>CSV import</button>
+          <button type="button" className={activeTab === "import" ? "tab active" : "tab"} onClick={() => {
+            setActiveTab("import");
+            setImportTab("csv");
+          }}>Import</button>
         </div>
 
         <div className="admin-taxonomy-context">
@@ -1626,65 +1716,124 @@ export default function AdminPage() {
           </section>
         ) : null}
 
-        {activeTab === "csv" ? (
+        {activeTab === "import" ? (
           <section className="section">
             <div className="section-header">
-              <h2>CSV import</h2>
-              <p>Upload a CSV to MinIO, preview it, and import valid rows as draft questions.</p>
+              <h2>Import</h2>
             </div>
-            <div className="dashboard-actions">
-              <button type="button" className="secondary-button compact-button" onClick={downloadCsvTemplate}>Template</button>
+            <div className="account-tabs import-tabs" role="tablist" aria-label="Import type">
+              <button type="button" role="tab" aria-selected={importTab === "csv"} className={importTab === "csv" ? "tab active" : "tab"} onClick={() => setImportTab("csv")}>CSV import</button>
+              <button type="button" role="tab" aria-selected={importTab === "json"} className={importTab === "json" ? "tab active" : "tab"} onClick={() => setImportTab("json")}>JSON import</button>
             </div>
-            <label className="file-drop">
-              Upload CSV
-              <input type="file" accept=".csv,text/csv" onChange={async (event) => {
-                const file = event.target.files?.[0];
-                if (!file) return;
-                try {
-                  await uploadCsv(file);
-                } catch (exception) {
-                  setCsvError(exception instanceof Error ? exception.message : "Unable to upload CSV.");
-                }
-              }} />
-            </label>
-            {csvObjectKey ? <p className="notice success">Stored object: {csvObjectKey}</p> : null}
-            {preview ? (
-              <div className="card">
-                <h3>Preview</h3>
-                <p>{preview.validRows} valid row(s), {preview.invalidRows} invalid row(s)</p>
-                <div className="table-wrap">
-                  <table className="data-table">
-                    <thead>
-                      <tr>
-                        <th>Line</th>
-                        <th>Question</th>
-                        <th>Type</th>
-                        <th>Difficulty</th>
-                        <th>Valid</th>
-                        <th>Errors</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {preview.rows.map((row) => (
-                        <tr key={row.lineNumber}>
-                          <td>{row.lineNumber}</td>
-                          <td>{row.questionText}</td>
-                          <td>{row.type}</td>
-                          <td>{row.difficulty}</td>
-                          <td>{row.valid ? "Yes" : "No"}</td>
-                          <td>{row.errors?.join("; ")}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+            {importTab === "csv" ? (
+              <>
+                <div className="import-step-tabs" role="tablist" aria-label="CSV import steps">
+                  {importMetadata.map((step) => (
+                    <button
+                      key={step.stepCode}
+                      type="button"
+                      role="tab"
+                      aria-selected={activeImportStep === step.stepCode}
+                      className={activeImportStep === step.stepCode ? "tab active" : "tab"}
+                      onClick={() => setActiveImportStep(step.stepCode)}
+                    >
+                      Step {step.sequence}: {step.label.replace("Import ", "")}
+                    </button>
+                  ))}
                 </div>
-                <button type="button" className="primary-button compact-button" onClick={() => importCsv().catch((exception) => setCsvError(exception instanceof Error ? exception.message : "Unable to import CSV."))}>
-                  Import valid rows
-                </button>
+                {importMetadata.map((step) => {
+                  if (step.stepCode !== activeImportStep) return null;
+                  const preview = importPreviews[step.stepCode];
+                  const summary = importSummaries[step.stepCode];
+                  return (
+                    <div className="card import-step-card" key={step.stepCode}>
+                      <div className="section-header compact-section-header">
+                        <h3>Step {step.sequence}: {step.label}</h3>
+                      </div>
+                      <div className="dashboard-actions">
+                        <button type="button" className="secondary-button compact-button" onClick={() => downloadCsvTemplate(step)}>Template</button>
+                      </div>
+                      <div className="table-wrap">
+                        <table className="data-table">
+                          <thead>
+                            <tr>
+                              <th>Column</th>
+                              <th>Required</th>
+                              <th>Description</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {step.columns.map((column) => (
+                              <tr key={column.name}>
+                                <td>{column.name}</td>
+                                <td>{column.required ? "Yes" : "No"}</td>
+                                <td>{column.description}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      <label className="file-drop">
+                        Upload CSV
+                        <input type="file" accept=".csv,text/csv" onChange={async (event) => {
+                          const file = event.target.files?.[0];
+                          if (!file) return;
+                          try {
+                            await uploadImportCsv(step.stepCode, file);
+                          } catch (exception) {
+                            setCsvError(exception instanceof Error ? exception.message : "Unable to upload CSV.");
+                          }
+                        }} />
+                      </label>
+                      {importObjectKeys[step.stepCode] ? <p className="notice success">Stored object: {importObjectKeys[step.stepCode]}</p> : null}
+                      {preview ? (
+                        <>
+                          <p className="muted">{preview.validRows} valid row(s), {preview.invalidRows} invalid row(s)</p>
+                          <div className="table-wrap">
+                            <table className="data-table">
+                              <thead>
+                                <tr>
+                                  <th>Line</th>
+                                  <th>Valid</th>
+                                  <th>Values</th>
+                                  <th>Errors</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {preview.rows.map((row) => (
+                                  <tr key={row.lineNumber}>
+                                    <td>{row.lineNumber}</td>
+                                    <td>{row.valid ? "Yes" : "No"}</td>
+                                    <td>{Object.entries(row.values).map(([key, value]) => `${key}: ${value}`).join("; ")}</td>
+                                    <td>{row.errors.join("; ")}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                          <button
+                            type="button"
+                            className="primary-button compact-button"
+                            disabled={preview.validRows === 0}
+                            onClick={() => importCsvStep(step.stepCode).catch((exception) => setCsvError(exception instanceof Error ? exception.message : "Unable to import CSV."))}
+                          >
+                            Import valid rows
+                          </button>
+                        </>
+                      ) : null}
+                      {summary ? <p className="notice success">Imported {summary.importedRows} row(s), failed {summary.failedRows} row(s).</p> : null}
+                    </div>
+                  );
+                })}
+                {csvError ? <p className="notice error">{csvError}</p> : null}
+              </>
+            ) : null}
+            {importTab === "json" ? (
+              <div className="card import-placeholder">
+                <h3>JSON import</h3>
+                <p className="muted">JSON import is not available yet.</p>
               </div>
             ) : null}
-            {csvImportSummary ? <p className="notice success">Imported {csvImportSummary.importedRows} row(s), failed {csvImportSummary.failedRows} row(s).</p> : null}
-            {csvError ? <p className="notice error">{csvError}</p> : null}
           </section>
         ) : null}
 
