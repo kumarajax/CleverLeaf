@@ -39,11 +39,11 @@ public class SecurityConfig {
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         return http
+                .securityMatcher("/api/admin/**", "/api/me", "/api/questions/**", "/api/student/**")
                 .cors(cors -> {})
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/public/**", "/api/health").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/me").authenticated()
                         .requestMatchers("/api/admin/**").hasAnyRole("administrator", "reviewer", "content_creator")

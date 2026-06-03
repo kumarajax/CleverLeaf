@@ -66,6 +66,19 @@ public class TaxonomyService {
         return nodes.findAll(specification, pageable).map(this::toNode);
     }
 
+    @Transactional(readOnly = true)
+    public List<StudentTaxonomyNode> searchActiveStudentTaxonomy(String query) {
+        String normalizedQuery = query == null ? "" : query.trim().toLowerCase(Locale.ROOT);
+        return nodes.findAll(statusSpecification("ACTIVE"), Sort.by(Sort.Order.asc("sortOrder"), Sort.Order.asc("displayName")))
+                .stream()
+                .map(this::toStudentNode)
+                .filter(node -> normalizedQuery.isBlank() || matchesStudentQuery(node, normalizedQuery))
+                .sorted(java.util.Comparator
+                        .comparing((StudentTaxonomyNode node) -> node.gradeLabel() == null ? "" : node.gradeLabel())
+                        .thenComparing(StudentTaxonomyNode::path))
+                .toList();
+    }
+
     @Transactional
     public TaxonomyNode createNode(CreateTaxonomyNodeRequest request) {
         String levelKey = normalizeLevelKey(requireText(request.levelKey(), "levelKey"));
@@ -387,8 +400,61 @@ public class TaxonomyService {
                 entity.getSortOrder());
     }
 
+    private StudentTaxonomyNode toStudentNode(TaxonomyNodeEntity entity) {
+        return new StudentTaxonomyNode(
+                entity.getId(),
+                entity.getParentNode() == null ? null : entity.getParentNode().getId(),
+                entity.getExternalKey(),
+                entity.getNodeKey(),
+                entity.getDisplayName(),
+                levelCode(entity),
+                gradeLabel(entity),
+                taxonomyPath(entity));
+    }
+
     private String levelCode(TaxonomyNodeEntity node) {
         return node.getLevelType().getLookupCode();
+    }
+
+    private boolean matchesStudentQuery(StudentTaxonomyNode node, String normalizedQuery) {
+        return containsIgnoreCase(node.nodeKey(), normalizedQuery)
+                || containsIgnoreCase(node.displayName(), normalizedQuery)
+                || containsIgnoreCase(node.externalKey(), normalizedQuery)
+                || containsIgnoreCase(node.levelKey(), normalizedQuery)
+                || containsIgnoreCase(node.path(), normalizedQuery);
+    }
+
+    private boolean containsIgnoreCase(String value, String normalizedQuery) {
+        return value != null && value.toLowerCase(Locale.ROOT).contains(normalizedQuery);
+    }
+
+    private String gradeLabel(TaxonomyNodeEntity entity) {
+        TaxonomyNodeEntity current = entity;
+        Set<UUID> visited = new java.util.HashSet<>();
+        while (current != null) {
+            if (!visited.add(current.getId())) {
+                throw new IllegalStateException("Taxonomy contains a cycle");
+            }
+            if ("GRADE".equals(levelCode(current))) {
+                return current.getDisplayName();
+            }
+            current = current.getParentNode();
+        }
+        return "Ungraded";
+    }
+
+    private String taxonomyPath(TaxonomyNodeEntity entity) {
+        Deque<String> parts = new ArrayDeque<>();
+        TaxonomyNodeEntity current = entity;
+        Set<UUID> visited = new java.util.HashSet<>();
+        while (current != null) {
+            if (!visited.add(current.getId())) {
+                throw new IllegalStateException("Taxonomy contains a cycle");
+            }
+            parts.addFirst(current.getDisplayName());
+            current = current.getParentNode();
+        }
+        return String.join(" / ", parts);
     }
 
     private String normalizeLevelKey(String value) {
