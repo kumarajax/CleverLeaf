@@ -9,6 +9,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.MapsId;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
+import org.hibernate.annotations.BatchSize;
 
 import java.time.Instant;
 
@@ -26,6 +27,7 @@ public class QuestionTaxonomyNodeEntity {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @MapsId("taxonomyNodeId")
     @JoinColumn(name = "taxonomy_node_id", nullable = false)
+    @BatchSize(size = 100)
     private TaxonomyNodeEntity taxonomyNode;
 
     @Column(name = "is_primary", nullable = false)

@@ -44,6 +44,26 @@ public class QuestionAuthoringController {
                 taxonomyNodeId, includeDescendants, curriculumId, editionId, gradeId, subjectId, chapterId, topicId), pageable);
     }
 
+    @GetMapping("/cursor")
+    public QuestionCursorPage listCursor(
+            @RequestParam(value = "questionType", required = false) String questionType,
+            @RequestParam(value = "difficulty", required = false) String difficulty,
+            @RequestParam(value = "workflowStatus", required = false) String workflowStatus,
+            @RequestParam(value = "taxonomyNodeId", required = false) UUID taxonomyNodeId,
+            @RequestParam(value = "includeDescendants", defaultValue = "true") boolean includeDescendants,
+            @RequestParam(value = "curriculumId", required = false) UUID curriculumId,
+            @RequestParam(value = "editionId", required = false) UUID editionId,
+            @RequestParam(value = "gradeId", required = false) UUID gradeId,
+            @RequestParam(value = "subjectId", required = false) UUID subjectId,
+            @RequestParam(value = "chapterId", required = false) UUID chapterId,
+            @RequestParam(value = "topicId", required = false) UUID topicId,
+            @RequestParam(value = "cursor", required = false) String cursor,
+            @RequestParam(value = "size", defaultValue = "25") int size) {
+        return questions.listCursor(new QuestionSearchCriteria(questionType, difficulty, workflowStatus,
+                taxonomyNodeId, includeDescendants, curriculumId, editionId, gradeId, subjectId, chapterId, topicId),
+                cursor, size);
+    }
+
     @GetMapping("/{id}")
     public QuestionAdminRecord get(@PathVariable("id") UUID id) {
         return questions.get(id);

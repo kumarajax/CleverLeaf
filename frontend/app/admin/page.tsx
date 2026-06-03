@@ -128,6 +128,13 @@ type SpringPage<T> = {
   totalPages?: number;
 };
 
+type CursorPage<T> = {
+  content: T[];
+  nextCursor: string | null;
+  hasNext: boolean;
+  size: number;
+};
+
 type TreeNode = TaxonomyNode & { children: TreeNode[] };
 
 type TaxonomyFormState = {
@@ -307,8 +314,10 @@ export default function AdminPage() {
     status: "ACTIVE",
   });
   const [questions, setQuestions] = useState<AdminQuestion[]>([]);
-  const [questionPage, setQuestionPage] = useState<PageMetadata>({ number: 0, size: questionPageSize, totalElements: 0, totalPages: 0 });
-  const [questionPageIndex, setQuestionPageIndex] = useState(0);
+  const [questionCursorStack, setQuestionCursorStack] = useState<(string | null)[]>([null]);
+  const [questionCursorIndex, setQuestionCursorIndex] = useState(0);
+  const [questionNextCursor, setQuestionNextCursor] = useState<string | null>(null);
+  const [questionHasNext, setQuestionHasNext] = useState(false);
   const [questionsLoading, setQuestionsLoading] = useState(false);
   const [questionSearch, setQuestionSearch] = useState("");
   const [questionNodeFilterId, setQuestionNodeFilterId] = useState("");
@@ -455,16 +464,23 @@ export default function AdminPage() {
     setAllNodes(readPage<TaxonomyNode>(body).content);
   }
 
-  async function loadQuestions(token = currentToken, page = questionPageIndex) {
+  function resetQuestionCursor() {
+    setQuestionCursorStack([null]);
+    setQuestionCursorIndex(0);
+    setQuestionNextCursor(null);
+    setQuestionHasNext(false);
+  }
+
+  async function loadQuestions(token = currentToken, cursorIndex = questionCursorIndex) {
     setQuestionsLoading(true);
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), requestTimeoutMs);
     try {
       const parameters = new URLSearchParams({
-        page: String(page),
         size: String(questionPageSize),
       });
-      parameters.append("sort", "createdAt,desc");
+      const cursor = questionCursorStack[cursorIndex];
+      if (cursor) parameters.set("cursor", cursor);
       const taxonomyNodeId = questionNodeFilterId || selectedTaxonomyNodeId;
       if (taxonomyNodeId) {
         parameters.set("taxonomyNodeId", taxonomyNodeId);
@@ -473,7 +489,7 @@ export default function AdminPage() {
       if (questionTypeFilter) parameters.set("questionType", questionTypeFilter);
       if (questionDifficultyFilter) parameters.set("difficulty", questionDifficultyFilter);
       if (questionWorkflowFilter) parameters.set("workflowStatus", questionWorkflowFilter);
-      const response = await fetch(`${apiBaseUrl}/api/admin/questions?${parameters.toString()}`, {
+      const response = await fetch(`${apiBaseUrl}/api/admin/questions/cursor?${parameters.toString()}`, {
         headers: authHeaders(token),
         signal: controller.signal,
       });
@@ -481,10 +497,20 @@ export default function AdminPage() {
       if (!response.ok) {
         throw new Error(body.error || `Request failed with ${response.status}`);
       }
-      const result = readPage<AdminQuestion>(body);
+      const result = body as CursorPage<AdminQuestion>;
       setQuestions(result.content);
-      setQuestionPage(result.page);
-      setQuestionPageIndex(result.page.number);
+      setQuestionCursorIndex(cursorIndex);
+      setQuestionNextCursor(result.nextCursor);
+      setQuestionHasNext(result.hasNext);
+      if (result.nextCursor) {
+        setQuestionCursorStack((current) => {
+          const next = current.slice(0, cursorIndex + 1);
+          next[cursorIndex + 1] = result.nextCursor;
+          return next;
+        });
+      } else {
+        setQuestionCursorStack((current) => current.slice(0, cursorIndex + 1));
+      }
     } finally {
       window.clearTimeout(timeout);
       setQuestionsLoading(false);
@@ -603,7 +629,7 @@ export default function AdminPage() {
       setError(exception instanceof Error ? exception.message : "Unable to load questions.")
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, currentToken, questionPageIndex, questionNodeFilterId, selectedTaxonomyNodeId, questionTypeFilter, questionDifficultyFilter, questionWorkflowFilter]);
+  }, [activeTab, currentToken, questionCursorIndex, questionNodeFilterId, selectedTaxonomyNodeId, questionTypeFilter, questionDifficultyFilter, questionWorkflowFilter]);
 
   useEffect(() => {
     if (!questionForm.taxonomyNodeId && selectedTaxonomyNodeId) {
@@ -786,7 +812,7 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (activeTab === "manual" && selectedTaxonomyNodeId) {
-      setQuestionPageIndex(0);
+      resetQuestionCursor();
       setQuestionNodeFilterId(selectedTaxonomyNodeId);
     }
   }, [activeTab, selectedTaxonomyNodeId]);
@@ -1266,7 +1292,7 @@ export default function AdminPage() {
               <label className="inline-select">
                 Node filter
                 <select value={questionNodeFilterId || selectedTaxonomyNodeId || ""} onChange={(event) => {
-                  setQuestionPageIndex(0);
+                  resetQuestionCursor();
                   setQuestionNodeFilterId(event.target.value);
                   setQuestionSearch("");
                 }}>
@@ -1281,7 +1307,7 @@ export default function AdminPage() {
               <label className="inline-select">
                 Type
                 <select value={questionTypeFilter} onChange={(event) => {
-                  setQuestionPageIndex(0);
+                  resetQuestionCursor();
                   setQuestionTypeFilter(event.target.value);
                 }}>
                   {questionTypeLookups.map((lookup) => <option key={lookup.id} value={lookup.lookupCode === "ALL" ? "" : lookup.lookupCode}>{lookup.lookupMeaning}</option>)}
@@ -1290,7 +1316,7 @@ export default function AdminPage() {
               <label className="inline-select">
                 Difficulty
                 <select value={questionDifficultyFilter} onChange={(event) => {
-                  setQuestionPageIndex(0);
+                  resetQuestionCursor();
                   setQuestionDifficultyFilter(event.target.value);
                 }}>
                   {difficultyLookups.map((lookup) => <option key={lookup.id} value={lookup.lookupCode === "ALL" ? "" : lookup.lookupCode}>{lookup.lookupMeaning}</option>)}
@@ -1299,7 +1325,7 @@ export default function AdminPage() {
               <label className="inline-select">
                 Workflow
                 <select value={questionWorkflowFilter} onChange={(event) => {
-                  setQuestionPageIndex(0);
+                  resetQuestionCursor();
                   setQuestionWorkflowFilter(event.target.value);
                 }}>
                   {workflowStatusLookups.map((lookup) => <option key={lookup.id} value={lookup.lookupCode === "ALL" ? "" : lookup.lookupCode}>{lookup.lookupMeaning}</option>)}
@@ -1313,23 +1339,23 @@ export default function AdminPage() {
                 {questionsLoading ? <p className="muted">Loading questions...</p> : null}
                 <div className="pagination-bar">
                   <span>
-                    Page {questionPage.totalPages ? questionPage.number + 1 : 0} of {questionPage.totalPages}
-                    {" "}({questionPage.totalElements} question{questionPage.totalElements === 1 ? "" : "s"})
+                    Batch {questionCursorIndex + 1}
+                    {" "}({questions.length} question{questions.length === 1 ? "" : "s"})
                   </span>
                   <div className="pagination-actions">
                     <button
                       type="button"
                       className="secondary-button compact-button"
-                      disabled={questionPage.number <= 0 || questionsLoading}
-                      onClick={() => setQuestionPageIndex((current) => Math.max(0, current - 1))}
+                      disabled={questionCursorIndex <= 0 || questionsLoading}
+                      onClick={() => setQuestionCursorIndex((current) => Math.max(0, current - 1))}
                     >
                       Previous
                     </button>
                     <button
                       type="button"
                       className="secondary-button compact-button"
-                      disabled={questionPage.totalPages === 0 || questionPage.number >= questionPage.totalPages - 1 || questionsLoading}
-                      onClick={() => setQuestionPageIndex((current) => current + 1)}
+                      disabled={!questionHasNext || !questionNextCursor || questionsLoading}
+                      onClick={() => setQuestionCursorIndex((current) => current + 1)}
                     >
                       Next
                     </button>

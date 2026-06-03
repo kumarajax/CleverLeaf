@@ -12,14 +12,23 @@ import com.clearleaf.api.entity.TaxonomyNodeEntity;
 import com.clearleaf.api.repository.QuestionRepository;
 import com.clearleaf.api.repository.QuestionSpecifications;
 import com.clearleaf.api.repository.TaxonomyNodeRepository;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -32,6 +41,9 @@ public class QuestionAuthoringService {
     private final TaxonomyNodeRepository taxonomyNodes;
     private final QuestionValidator validator = new QuestionValidator();
 
+    @PersistenceContext
+    private EntityManager entityManager;
+
     public QuestionAuthoringService(QuestionRepository questions, TaxonomyNodeRepository taxonomyNodes) {
         this.questions = questions;
         this.taxonomyNodes = taxonomyNodes;
@@ -39,16 +51,26 @@ public class QuestionAuthoringService {
 
     @Transactional(readOnly = true)
     public Page<QuestionAdminRecord> list(QuestionSearchCriteria criteria, Pageable pageable) {
-        Specification<QuestionEntity> specification = Specification
-                .where(QuestionSpecifications.questionType(criteria.questionType()))
-                .and(QuestionSpecifications.difficulty(criteria.difficulty()))
-                .and(QuestionSpecifications.workflowStatus(criteria.workflowStatus()));
-        Set<UUID> eligibleNodes = eligibleTaxonomyNodes(criteria);
-        if (eligibleNodes != null) {
-            if (eligibleNodes.isEmpty()) return Page.empty(pageable);
-            specification = specification.and(QuestionSpecifications.assignedToAny(eligibleNodes));
-        }
+        Specification<QuestionEntity> specification = specification(criteria);
+        if (specification == null) return Page.empty(pageable);
         return questions.findAll(specification, pageable).map(this::toAdminRecord);
+    }
+
+    @Transactional(readOnly = true)
+    public QuestionCursorPage listCursor(QuestionSearchCriteria criteria, String cursor, int requestedSize) {
+        int size = Math.clamp(requestedSize, 1, 100);
+        Specification<QuestionEntity> specification = specification(criteria);
+        if (specification == null) {
+            return new QuestionCursorPage(List.of(), null, false, 0);
+        }
+        List<QuestionEntity> entities = findCursorPage(specification, parseCursor(cursor), size + 1);
+        boolean hasNext = entities.size() > size;
+        List<QuestionEntity> visible = hasNext ? entities.subList(0, size) : entities;
+        String nextCursor = hasNext && !visible.isEmpty()
+                ? encodeCursor(visible.getLast().getCreatedAt(), visible.getLast().getId())
+                : null;
+        return new QuestionCursorPage(visible.stream().map(this::toAdminRecord).toList(),
+                nextCursor, hasNext, visible.size());
     }
 
     @Transactional(readOnly = true)
@@ -75,6 +97,41 @@ public class QuestionAuthoringService {
     @Transactional
     public void delete(UUID id) {
         questions.findById(requireUuid(id, "id")).ifPresent(questions::delete);
+    }
+
+    private Specification<QuestionEntity> specification(QuestionSearchCriteria criteria) {
+        Specification<QuestionEntity> specification = Specification
+                .where(QuestionSpecifications.questionType(criteria.questionType()))
+                .and(QuestionSpecifications.difficulty(criteria.difficulty()))
+                .and(QuestionSpecifications.workflowStatus(criteria.workflowStatus()));
+        Set<UUID> eligibleNodes = eligibleTaxonomyNodes(criteria);
+        if (eligibleNodes != null) {
+            if (eligibleNodes.isEmpty()) return null;
+            specification = specification.and(QuestionSpecifications.assignedToAny(eligibleNodes));
+        }
+        return specification;
+    }
+
+    private List<QuestionEntity> findCursorPage(
+            Specification<QuestionEntity> specification,
+            CursorPosition cursor,
+            int limit) {
+        CriteriaBuilder criteriaBuilder = entityManager.getCriteriaBuilder();
+        CriteriaQuery<QuestionEntity> query = criteriaBuilder.createQuery(QuestionEntity.class);
+        Root<QuestionEntity> root = query.from(QuestionEntity.class);
+        Predicate predicate = specification.toPredicate(root, query, criteriaBuilder);
+        if (cursor != null) {
+            Predicate olderCreatedAt = criteriaBuilder.lessThan(root.get("createdAt"), cursor.createdAt());
+            Predicate sameCreatedAtLowerId = criteriaBuilder.and(
+                    criteriaBuilder.equal(root.get("createdAt"), cursor.createdAt()),
+                    criteriaBuilder.lessThan(root.get("id"), cursor.id()));
+            predicate = criteriaBuilder.and(predicate, criteriaBuilder.or(olderCreatedAt, sameCreatedAtLowerId));
+        }
+        query.select(root)
+                .where(predicate)
+                .orderBy(criteriaBuilder.desc(root.get("createdAt")), criteriaBuilder.desc(root.get("id")))
+                .distinct(true);
+        return entityManager.createQuery(query).setMaxResults(limit).getResultList();
     }
 
     private void save(QuestionEntity question, CreateQuestionRequest request, String previousWorkflowStatus) {
@@ -251,6 +308,27 @@ public class QuestionAuthoringService {
         return result;
     }
 
+    private CursorPosition parseCursor(String cursor) {
+        if (cursor == null || cursor.isBlank()) {
+            return null;
+        }
+        try {
+            String decoded = new String(Base64.getUrlDecoder().decode(cursor.trim()), StandardCharsets.UTF_8);
+            String[] parts = decoded.split("\\|", 2);
+            if (parts.length != 2) {
+                throw new IllegalArgumentException("Invalid question cursor");
+            }
+            return new CursorPosition(Instant.parse(parts[0]), UUID.fromString(parts[1]));
+        } catch (RuntimeException exception) {
+            throw new IllegalArgumentException("Invalid question cursor");
+        }
+    }
+
+    private String encodeCursor(Instant createdAt, UUID id) {
+        String value = createdAt.toString() + "|" + id;
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(value.getBytes(StandardCharsets.UTF_8));
+    }
+
     private QuestionEntity findQuestion(UUID id) {
         return questions.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Question was not found: " + id));
@@ -300,5 +378,8 @@ public class QuestionAuthoringService {
 
     private String trimToNull(String value) {
         return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    private record CursorPosition(Instant createdAt, UUID id) {
     }
 }
