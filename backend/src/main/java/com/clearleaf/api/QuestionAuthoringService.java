@@ -165,6 +165,7 @@ public class QuestionAuthoringService {
         replaceOptions(question, draft.options());
         replaceAnswers(question, answers);
         replaceAssignments(question, assignments);
+        setQuestionUniquenessScope(question);
         replaceTags(question, request.tags());
         addWorkflowEvent(question, previousWorkflowStatus, draft.workflowStatus().name(), actor);
         questions.save(question);
@@ -258,6 +259,36 @@ public class QuestionAuthoringService {
         event.setActor(actor);
         event.setNotes(previousStatus == null ? "Question created" : "Question updated");
         question.getWorkflowEvents().add(event);
+    }
+
+    private void setQuestionUniquenessScope(QuestionEntity question) {
+        QuestionTaxonomyNodeEntity primary = question.getTaxonomyAssignments().stream()
+                .filter(QuestionTaxonomyNodeEntity::isPrimary)
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Exactly one primary taxonomy assignment is required"));
+        TaxonomyNodeEntity child = primary.getTaxonomyNode();
+        question.setChildTaxonomyNode(child);
+        question.setRootTaxonomyNode(rootTaxonomyNode(child));
+        question.setNormalizedQuestionText(normalizeQuestionText(question.getQuestionText()));
+    }
+
+    private TaxonomyNodeEntity rootTaxonomyNode(TaxonomyNodeEntity node) {
+        TaxonomyNodeEntity current = node;
+        java.util.HashSet<UUID> visited = new java.util.HashSet<>();
+        while (current.getParentNode() != null) {
+            if (!visited.add(current.getId())) {
+                throw new IllegalStateException("Taxonomy contains a cycle");
+            }
+            current = current.getParentNode();
+        }
+        return current;
+    }
+
+    private String normalizeQuestionText(String value) {
+        return requireText(value, "question.questionText")
+                .trim()
+                .replaceAll("\\s+", " ")
+                .toLowerCase(java.util.Locale.ROOT);
     }
 
     private void validateAnswers(QuestionType type, WorkflowStatus workflowStatus, List<QuestionAnswer> answers) {

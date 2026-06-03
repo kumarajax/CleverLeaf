@@ -105,6 +105,7 @@ type BulkImportRow = {
   lineNumber: number;
   values: Record<string, string>;
   errors: string[];
+  warnings?: string[];
   valid: boolean;
 };
 
@@ -147,6 +148,13 @@ type CursorPage<T> = {
   nextCursor: string | null;
   hasNext: boolean;
   size: number;
+};
+
+type QuestionCardPageState = {
+  cursorStack: (string | null)[];
+  cursorIndex: number;
+  nextCursor: string | null;
+  hasNext: boolean;
 };
 
 type TreeNode = TaxonomyNode & { children: TreeNode[] };
@@ -332,6 +340,7 @@ export default function AdminPage() {
   const [questionCursorIndex, setQuestionCursorIndex] = useState(0);
   const [questionNextCursor, setQuestionNextCursor] = useState<string | null>(null);
   const [questionHasNext, setQuestionHasNext] = useState(false);
+  const [questionCardPages, setQuestionCardPages] = useState<Record<string, QuestionCardPageState>>({});
   const [questionsLoading, setQuestionsLoading] = useState(false);
   const [questionSearch, setQuestionSearch] = useState("");
   const [questionNodeFilterId, setQuestionNodeFilterId] = useState("");
@@ -357,6 +366,7 @@ export default function AdminPage() {
   const [questionFormVisible, setQuestionFormVisible] = useState(false);
   const [importMetadata, setImportMetadata] = useState<BulkImportStepMetadata[]>([]);
   const [activeImportStep, setActiveImportStep] = useState("TAXONOMIES");
+  const [selectedImportFiles, setSelectedImportFiles] = useState<Record<string, File | null>>({});
   const [importObjectKeys, setImportObjectKeys] = useState<Record<string, string>>({});
   const [importPreviews, setImportPreviews] = useState<Record<string, BulkImportPreviewResponse>>({});
   const [importSummaries, setImportSummaries] = useState<Record<string, BulkImportSummary>>({});
@@ -433,6 +443,26 @@ export default function AdminPage() {
     });
     return [...groups.values()].sort((left, right) => left.taxonomyNodeLabel.localeCompare(right.taxonomyNodeLabel));
   }, [filteredQuestions]);
+  const questionCardNodes = useMemo(() => {
+    const scopeNodeId = questionNodeFilterId || selectedTaxonomyNodeId;
+    if (!scopeNodeId) return [];
+    const scopeNode = nodeById.get(scopeNodeId);
+    if (!scopeNode) return [];
+    const scopedLeaves = allNodes
+      .filter((node) => isActiveTaxonomyBranch(node.id))
+      .filter((node) => leafNodeIds.has(node.id))
+      .filter((node) => getAncestorChain(node.id).some((ancestor) => ancestor.id === scopeNodeId));
+    return (scopedLeaves.length ? scopedLeaves : [scopeNode])
+      .sort((left, right) => left.displayName.localeCompare(right.displayName));
+  }, [allNodes, leafNodeIds, nodeById, questionNodeFilterId, selectedTaxonomyNodeId]);
+  const groupedQuestionsByCard = useMemo(() => {
+    const byNode = new Map(groupedQuestions.map((group) => [group.taxonomyNodeId, group.questions]));
+    return questionCardNodes.map((node) => ({
+      taxonomyNodeId: node.id,
+      taxonomyNodeLabel: node.displayName,
+      questions: byNode.get(node.id) ?? [],
+    }));
+  }, [groupedQuestions, questionCardNodes]);
 
   function authHeaders(token = currentToken): Record<string, string> {
     return token ? { Authorization: `Bearer ${token}` } : {};
@@ -487,52 +517,72 @@ export default function AdminPage() {
     setQuestionCursorIndex(0);
     setQuestionNextCursor(null);
     setQuestionHasNext(false);
+    setQuestionCardPages({});
+    setExpandedQuestionTaxonomyIds([]);
+    setExpandedQuestionIds([]);
   }
 
-  async function loadQuestions(token = currentToken, cursorIndex = questionCursorIndex) {
+  async function loadQuestions(token = currentToken, cardPages = questionCardPages) {
     setQuestionsLoading(true);
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), requestTimeoutMs);
     try {
-      const parameters = new URLSearchParams({
-        size: String(questionPageSize),
-      });
-      const cursor = questionCursorStack[cursorIndex];
-      if (cursor) parameters.set("cursor", cursor);
-      const taxonomyNodeId = questionNodeFilterId || selectedTaxonomyNodeId;
-      if (taxonomyNodeId) {
-        parameters.set("taxonomyNodeId", taxonomyNodeId);
-        parameters.set("includeDescendants", "true");
-      }
-      if (questionTypeFilter) parameters.set("questionType", questionTypeFilter);
-      if (questionDifficultyFilter) parameters.set("difficulty", questionDifficultyFilter);
-      if (questionWorkflowFilter) parameters.set("workflowStatus", questionWorkflowFilter);
-      const response = await fetch(`${apiBaseUrl}/api/admin/questions/cursor?${parameters.toString()}`, {
-        headers: authHeaders(token),
-        signal: controller.signal,
-      });
-      const body = await response.json().catch(() => []);
-      if (!response.ok) {
-        throw new Error(body.error || `Request failed with ${response.status}`);
-      }
-      const result = body as CursorPage<AdminQuestion>;
-      setQuestions(result.content);
-      setQuestionCursorIndex(cursorIndex);
-      setQuestionNextCursor(result.nextCursor);
-      setQuestionHasNext(result.hasNext);
-      if (result.nextCursor) {
-        setQuestionCursorStack((current) => {
-          const next = current.slice(0, cursorIndex + 1);
-          next[cursorIndex + 1] = result.nextCursor;
-          return next;
+      const results = await Promise.all(questionCardNodes.map(async (node) => {
+        const pageState = cardPages[node.id] ?? { cursorStack: [null], cursorIndex: 0, nextCursor: null, hasNext: false };
+        const parameters = new URLSearchParams({
+          size: String(questionPageSize),
         });
-      } else {
-        setQuestionCursorStack((current) => current.slice(0, cursorIndex + 1));
-      }
+        const cursor = pageState.cursorStack[pageState.cursorIndex];
+        if (cursor) parameters.set("cursor", cursor);
+        parameters.set("taxonomyNodeId", node.id);
+        parameters.set("includeDescendants", "false");
+        if (questionTypeFilter) parameters.set("questionType", questionTypeFilter);
+        if (questionDifficultyFilter) parameters.set("difficulty", questionDifficultyFilter);
+        if (questionWorkflowFilter) parameters.set("workflowStatus", questionWorkflowFilter);
+        const response = await fetch(`${apiBaseUrl}/api/admin/questions/cursor?${parameters.toString()}`, {
+          headers: authHeaders(token),
+          signal: controller.signal,
+        });
+        const body = await response.json().catch(() => []);
+        if (!response.ok) {
+          throw new Error(body.error || `Request failed with ${response.status}`);
+        }
+        return { nodeId: node.id, result: body as CursorPage<AdminQuestion>, pageState };
+      }));
+      const nextPages: Record<string, QuestionCardPageState> = {};
+      results.forEach(({ nodeId, result, pageState }) => {
+        const cursorStack = result.nextCursor
+          ? [...pageState.cursorStack.slice(0, pageState.cursorIndex + 1), result.nextCursor]
+          : pageState.cursorStack.slice(0, pageState.cursorIndex + 1);
+        nextPages[nodeId] = {
+          cursorStack,
+          cursorIndex: pageState.cursorIndex,
+          nextCursor: result.nextCursor,
+          hasNext: result.hasNext,
+        };
+      });
+      const nextQuestions = results.flatMap(({ result }) => result.content);
+      setQuestions(nextQuestions);
+      setQuestionCardPages(nextPages);
     } finally {
       window.clearTimeout(timeout);
       setQuestionsLoading(false);
     }
+  }
+
+  function loadQuestionCardPage(taxonomyNodeId: string, cursorIndex: number) {
+    const current = questionCardPages[taxonomyNodeId] ?? { cursorStack: [null], cursorIndex: 0, nextCursor: null, hasNext: false };
+    const nextPages = {
+      ...questionCardPages,
+      [taxonomyNodeId]: {
+        ...current,
+        cursorIndex: Math.max(0, cursorIndex),
+      },
+    };
+    setQuestionCardPages(nextPages);
+    loadQuestions(currentToken, nextPages).catch((exception) =>
+      setError(exception instanceof Error ? exception.message : "Unable to load questions.")
+    );
   }
 
   async function bootstrap() {
@@ -668,13 +718,6 @@ export default function AdminPage() {
     if (!tree.length) return;
     setExpandedTaxonomyIds((current) => (current.length ? current : tree.map((node) => node.id)));
   }, [tree]);
-
-  useEffect(() => {
-    if (!groupedQuestions.length) return;
-    setExpandedQuestionTaxonomyIds((current) => (
-      current.length ? current : groupedQuestions.map((group) => group.taxonomyNodeId)
-    ));
-  }, [groupedQuestions]);
 
   function resetTaxonomyForm() {
     setTaxonomyFormVisible(false);
@@ -1463,8 +1506,9 @@ export default function AdminPage() {
                 <h3>Questions in scope</h3>
                 {questionsLoading ? <p className="muted">Loading questions...</p> : null}
                 <div className="question-list">
-                  {groupedQuestions.map((group) => {
+                  {groupedQuestionsByCard.map((group) => {
                     const groupExpanded = expandedQuestionTaxonomyIds.includes(group.taxonomyNodeId);
+                    const pageState = questionCardPages[group.taxonomyNodeId] ?? { cursorStack: [null], cursorIndex: 0, nextCursor: null, hasNext: false };
                     return (
                       <div className="question-taxonomy-group" key={group.taxonomyNodeId}>
                         <button
@@ -1517,32 +1561,34 @@ export default function AdminPage() {
                           </div>
                           );
                         }) : null}
-                        <div className="question-group-footer">
-                          <div className="pagination-bar">
-                            <span>
-                              Batch {questionCursorIndex + 1}
-                              {" "}({questions.length} question{questions.length === 1 ? "" : "s"})
-                            </span>
-                            <div className="pagination-actions">
-                              <button
-                                type="button"
-                                className="secondary-button compact-button"
-                                disabled={questionCursorIndex <= 0 || questionsLoading}
-                                onClick={() => setQuestionCursorIndex((current) => Math.max(0, current - 1))}
-                              >
-                                Previous
-                              </button>
-                              <button
-                                type="button"
-                                className="secondary-button compact-button"
-                                disabled={!questionHasNext || !questionNextCursor || questionsLoading}
-                                onClick={() => setQuestionCursorIndex((current) => current + 1)}
-                              >
-                                Next
-                              </button>
+                        {groupExpanded ? (
+                          <div className="question-group-footer">
+                            <div className="pagination-bar">
+                              <span>
+                                Batch {pageState.cursorIndex + 1}
+                                {" "}({group.questions.length} question{group.questions.length === 1 ? "" : "s"})
+                              </span>
+                              <div className="pagination-actions">
+                                <button
+                                  type="button"
+                                  className="secondary-button compact-button"
+                                  disabled={pageState.cursorIndex <= 0 || questionsLoading}
+                                  onClick={() => loadQuestionCardPage(group.taxonomyNodeId, pageState.cursorIndex - 1)}
+                                >
+                                  Previous
+                                </button>
+                                <button
+                                  type="button"
+                                  className="secondary-button compact-button"
+                                  disabled={!pageState.hasNext || !pageState.nextCursor || questionsLoading}
+                                  onClick={() => loadQuestionCardPage(group.taxonomyNodeId, pageState.cursorIndex + 1)}
+                                >
+                                  Next
+                                </button>
+                              </div>
                             </div>
                           </div>
-                        </div>
+                        ) : null}
                       </div>
                     );
                   })}
@@ -1771,13 +1817,70 @@ export default function AdminPage() {
                   if (step.stepCode !== activeImportStep) return null;
                   const preview = importPreviews[step.stepCode];
                   const summary = importSummaries[step.stepCode];
+                  const selectedFile = selectedImportFiles[step.stepCode];
+                  const previewErrors = preview?.rows.flatMap((row) => row.errors) ?? [];
+                  const previewWarnings = preview?.rows.flatMap((row) => row.warnings ?? []) ?? [];
+                  const summaryErrors = summary?.rows.flatMap((row) => row.errors) ?? [];
+                  const summaryWarnings = summary?.rows.flatMap((row) => row.warnings ?? []) ?? [];
+                  const visibleErrors = [...previewErrors, ...summaryErrors];
+                  const visibleWarnings = [...previewWarnings, ...summaryWarnings];
                   return (
                     <div className="card import-step-card" key={step.stepCode}>
                       <div className="section-header compact-section-header">
                         <h3>Step {step.sequence}: {step.label}</h3>
                       </div>
-                      <div className="dashboard-actions">
+                      <div className="dashboard-actions import-actions">
                         <button type="button" className="secondary-button compact-button" onClick={() => downloadCsvTemplate(step)}>Template</button>
+                        <label className="file-drop compact-file-drop">
+                          Choose CSV
+                          <input
+                            type="file"
+                            accept=".csv,text/csv"
+                            onChange={(event) => {
+                              const file = event.target.files?.[0] ?? null;
+                              setCsvError("");
+                              setSelectedImportFiles((current) => ({ ...current, [step.stepCode]: file }));
+                            }}
+                          />
+                        </label>
+                        {selectedFile ? <span className="muted selected-file-name">{selectedFile.name}</span> : null}
+                        {selectedFile ? (
+                          <button
+                            type="button"
+                            className="primary-button compact-button"
+                            onClick={() => uploadImportCsv(step.stepCode, selectedFile).catch((exception) => setCsvError(exception instanceof Error ? exception.message : "Unable to upload CSV."))}
+                          >
+                            Upload
+                          </button>
+                        ) : null}
+                        {preview ? (
+                          <button
+                            type="button"
+                            className="primary-button compact-button"
+                            disabled={preview.validRows === 0}
+                            onClick={() => importCsvStep(step.stepCode).catch((exception) => setCsvError(exception instanceof Error ? exception.message : "Unable to import CSV."))}
+                          >
+                            Import valid rows
+                          </button>
+                        ) : null}
+                      </div>
+                      <div className="import-message-stack">
+                        {csvError ? <p className="notice error">{csvError}</p> : null}
+                        {importObjectKeys[step.stepCode] ? <p className="notice success">Stored object: {importObjectKeys[step.stepCode]}</p> : null}
+                        {preview ? <p className="notice success">{preview.validRows} valid row(s), {preview.invalidRows} invalid row(s).</p> : null}
+                        {summary ? <p className="notice success">Imported {summary.importedRows} row(s), failed {summary.failedRows} row(s).</p> : null}
+                        {visibleErrors.length > 0 ? (
+                          <p className="notice error">
+                            {visibleErrors.slice(0, 5).join("; ")}
+                            {visibleErrors.length > 5 ? `; ${visibleErrors.length - 5} more error(s)` : ""}
+                          </p>
+                        ) : null}
+                        {visibleWarnings.length > 0 ? (
+                          <p className="notice warning">
+                            {visibleWarnings.slice(0, 5).join("; ")}
+                            {visibleWarnings.length > 5 ? `; ${visibleWarnings.length - 5} more warning(s)` : ""}
+                          </p>
+                        ) : null}
                       </div>
                       <div className="table-wrap">
                         <table className="data-table">
@@ -1799,22 +1902,8 @@ export default function AdminPage() {
                           </tbody>
                         </table>
                       </div>
-                      <label className="file-drop">
-                        Upload CSV
-                        <input type="file" accept=".csv,text/csv" onChange={async (event) => {
-                          const file = event.target.files?.[0];
-                          if (!file) return;
-                          try {
-                            await uploadImportCsv(step.stepCode, file);
-                          } catch (exception) {
-                            setCsvError(exception instanceof Error ? exception.message : "Unable to upload CSV.");
-                          }
-                        }} />
-                      </label>
-                      {importObjectKeys[step.stepCode] ? <p className="notice success">Stored object: {importObjectKeys[step.stepCode]}</p> : null}
                       {preview ? (
                         <>
-                          <p className="muted">{preview.validRows} valid row(s), {preview.invalidRows} invalid row(s)</p>
                           <div className="table-wrap">
                             <table className="data-table">
                               <thead>
@@ -1823,6 +1912,7 @@ export default function AdminPage() {
                                   <th>Valid</th>
                                   <th>Values</th>
                                   <th>Errors</th>
+                                  <th>Warnings</th>
                                 </tr>
                               </thead>
                               <tbody>
@@ -1832,26 +1922,17 @@ export default function AdminPage() {
                                     <td>{row.valid ? "Yes" : "No"}</td>
                                     <td>{Object.entries(row.values).map(([key, value]) => `${key}: ${value}`).join("; ")}</td>
                                     <td>{row.errors.join("; ")}</td>
+                                    <td>{row.warnings?.join("; ") ?? ""}</td>
                                   </tr>
                                 ))}
                               </tbody>
                             </table>
                           </div>
-                          <button
-                            type="button"
-                            className="primary-button compact-button"
-                            disabled={preview.validRows === 0}
-                            onClick={() => importCsvStep(step.stepCode).catch((exception) => setCsvError(exception instanceof Error ? exception.message : "Unable to import CSV."))}
-                          >
-                            Import valid rows
-                          </button>
                         </>
                       ) : null}
-                      {summary ? <p className="notice success">Imported {summary.importedRows} row(s), failed {summary.failedRows} row(s).</p> : null}
                     </div>
                   );
                 })}
-                {csvError ? <p className="notice error">{csvError}</p> : null}
               </>
             ) : null}
             {importTab === "json" ? (

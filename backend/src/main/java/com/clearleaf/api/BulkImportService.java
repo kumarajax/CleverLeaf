@@ -83,6 +83,9 @@ public class BulkImportService {
                     case CORRECT_ANSWERS -> importCorrectAnswer(row.values());
                 }
                 imported++;
+            } catch (DuplicateQuestionImportException ex) {
+                results.add(new BulkImportRowResult(row.lineNumber(), row.values(), List.of(), List.of(ex.getMessage()), false));
+                continue;
             } catch (RuntimeException ex) {
                 errors.add(rootMessage(ex));
             }
@@ -127,10 +130,37 @@ public class BulkImportService {
                 List<String> errors = validate(step, values);
                 rows.add(new BulkImportRowResult(lineNumber++, values, errors, errors.isEmpty()));
             }
+            if (step == BulkImportStep.QUESTIONS) {
+                return markDuplicateQuestionRows(rows);
+            }
             return rows;
         } catch (Exception ex) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unable to parse import CSV", ex);
         }
+    }
+
+    private List<BulkImportRowResult> markDuplicateQuestionRows(List<BulkImportRowResult> rows) {
+        Map<String, Integer> firstLineByDuplicateKey = new LinkedHashMap<>();
+        List<BulkImportRowResult> marked = new ArrayList<>();
+        for (BulkImportRowResult row : rows) {
+            if (!row.errors().isEmpty()) {
+                marked.add(row);
+                continue;
+            }
+            String duplicateKey = duplicateQuestionKey(row.values());
+            Integer firstLine = firstLineByDuplicateKey.putIfAbsent(duplicateKey, row.lineNumber());
+            if (firstLine == null) {
+                marked.add(row);
+            } else {
+                marked.add(new BulkImportRowResult(
+                        row.lineNumber(),
+                        row.values(),
+                        row.errors(),
+                        List.of("Duplicate question in CSV; first occurrence is line " + firstLine + ". Row skipped."),
+                        false));
+            }
+        }
+        return marked;
     }
 
     private Map<String, String> values(CSVRecord record) {
@@ -244,6 +274,16 @@ public class BulkImportService {
                 ? WorkflowStatus.DRAFT
                 : parseRequiredEnum(values.get("workflowStatus"), WorkflowStatus.class, "workflowStatus");
         QuestionEntity existing = questions.findByExternalKey(externalKey).orElse(null);
+        String normalizedQuestionText = normalizeQuestionText(values.get("questionText"));
+        QuestionEntity duplicate = questions.findByRootTaxonomyNode_IdAndChildTaxonomyNode_IdAndNormalizedQuestionText(
+                        rootTaxonomyNode(taxonomy).getId(),
+                        taxonomy.getId(),
+                        normalizedQuestionText)
+                .orElse(null);
+        if (duplicate != null && (existing == null || !duplicate.getId().equals(existing.getId()))) {
+            throw new DuplicateQuestionImportException("Duplicate question already exists in "
+                    + taxonomy.getDisplayName() + "; existing PublicKey is " + duplicate.getExternalKey() + ". Row skipped.");
+        }
         String rowActor = value(values, "actor", "Actor", "createdBy", "CreatedBy", "importedBy", "ImportedBy", "uploadedBy", "UploadedBy");
         if (blank(rowActor)) {
             rowActor = actor;
@@ -376,6 +416,37 @@ public class BulkImportService {
                 || equalsIgnoreCase(node.getDisplayName(), normalized);
     }
 
+    private String duplicateQuestionKey(Map<String, String> values) {
+        return normalizeKeyPart(value(values, "RootTaxonomy"))
+                + "|"
+                + normalizeKeyPart(value(values, "ChildTaxonomy"))
+                + "|"
+                + normalizeQuestionText(values.get("questionText"));
+    }
+
+    private TaxonomyNodeEntity rootTaxonomyNode(TaxonomyNodeEntity node) {
+        TaxonomyNodeEntity current = node;
+        java.util.HashSet<UUID> visited = new java.util.HashSet<>();
+        while (current.getParentNode() != null) {
+            if (!visited.add(current.getId())) {
+                throw new IllegalStateException("Taxonomy contains a cycle");
+            }
+            current = current.getParentNode();
+        }
+        return current;
+    }
+
+    private String normalizeQuestionText(String value) {
+        return requireText(value, "questionText")
+                .trim()
+                .replaceAll("\\s+", " ")
+                .toLowerCase(Locale.ROOT);
+    }
+
+    private String normalizeKeyPart(String value) {
+        return requireText(value, "taxonomy key").trim().toUpperCase(Locale.ROOT);
+    }
+
     private <E extends Enum<E>> E parseEnum(String value, Class<E> type, String field, List<String> errors) {
         if (blank(value)) return null;
         try {
@@ -467,5 +538,11 @@ public class BulkImportService {
             current = current.getCause();
         }
         return current.getMessage() == null ? ex.getClass().getSimpleName() : current.getMessage();
+    }
+
+    private static class DuplicateQuestionImportException extends RuntimeException {
+        DuplicateQuestionImportException(String message) {
+            super(message);
+        }
     }
 }

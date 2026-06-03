@@ -5,6 +5,8 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OrderBy;
 import jakarta.persistence.PrePersist;
@@ -38,6 +40,17 @@ public class QuestionEntity {
 
     @Column(name = "question_text", nullable = false)
     private String questionText;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "root_taxonomy_node_id")
+    private TaxonomyNodeEntity rootTaxonomyNode;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "child_taxonomy_node_id")
+    private TaxonomyNodeEntity childTaxonomyNode;
+
+    @Column(name = "normalized_question_text")
+    private String normalizedQuestionText;
 
     @Column(name = "external_key", length = 128)
     private String externalKey;
@@ -113,6 +126,12 @@ public class QuestionEntity {
     public void setWorkflowStatus(String workflowStatus) { this.workflowStatus = workflowStatus; }
     public String getQuestionText() { return questionText; }
     public void setQuestionText(String questionText) { this.questionText = questionText; }
+    public TaxonomyNodeEntity getRootTaxonomyNode() { return rootTaxonomyNode; }
+    public void setRootTaxonomyNode(TaxonomyNodeEntity rootTaxonomyNode) { this.rootTaxonomyNode = rootTaxonomyNode; }
+    public TaxonomyNodeEntity getChildTaxonomyNode() { return childTaxonomyNode; }
+    public void setChildTaxonomyNode(TaxonomyNodeEntity childTaxonomyNode) { this.childTaxonomyNode = childTaxonomyNode; }
+    public String getNormalizedQuestionText() { return normalizedQuestionText; }
+    public void setNormalizedQuestionText(String normalizedQuestionText) { this.normalizedQuestionText = normalizedQuestionText; }
     public String getExternalKey() { return externalKey; }
     public void setExternalKey(String externalKey) { this.externalKey = externalKey; }
     public String getExplanation() { return explanation; }

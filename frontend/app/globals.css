@@ -195,6 +195,7 @@ h1 {
 
 .success { background: #eaf8ee; color: #1e633a; }
 .error { background: #fff0f0; color: #9b2929; }
+.warning { background: #fff8e7; color: #7a4c00; }
 .back-link { color: #28633f; text-decoration: none; }
 
 .session-card {
@@ -519,7 +520,7 @@ h1 {
 
 .question-list {
   display: grid;
-  gap: 4px;
+  gap: 2px;
   max-height: 560px;
   overflow: auto;
   padding-right: 4px;
@@ -600,8 +601,8 @@ h1 {
   border: 1px solid #d8e6dc;
   border-radius: 8px;
   display: grid;
-  gap: 2px;
-  padding: 4px;
+  gap: 1px;
+  padding: 2px 3px;
 }
 
 .question-taxonomy-group-header {
@@ -611,9 +612,9 @@ h1 {
   color: #284238;
   cursor: pointer;
   display: flex;
-  gap: 5px;
+  gap: 4px;
   justify-content: flex-start;
-  padding: 3px 4px;
+  padding: 2px 3px;
   text-align: left;
 }
 
@@ -628,8 +629,8 @@ h1 {
 
 .question-group-footer {
   border-top: 1px solid #e2ece4;
-  margin-top: 4px;
-  padding: 6px 4px 2px;
+  margin-top: 2px;
+  padding: 4px 3px 1px;
 }
 
 .question-row-card {
@@ -749,6 +750,41 @@ h1 {
 .file-drop input {
   border: 0;
   padding: 0;
+}
+
+.import-actions {
+  align-items: center;
+}
+
+.compact-file-drop {
+  align-items: center;
+  border-radius: 7px;
+  display: inline-flex;
+  gap: 8px;
+  margin-top: 0;
+  min-height: 26px;
+  padding: 4px 8px;
+}
+
+.compact-file-drop input {
+  max-width: 220px;
+}
+
+.selected-file-name {
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.import-message-stack {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.import-message-stack .notice {
+  margin-top: 0;
 }
 
 .table-wrap {

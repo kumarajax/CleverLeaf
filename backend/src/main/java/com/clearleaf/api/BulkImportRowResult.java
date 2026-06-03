@@ -7,5 +7,10 @@ public record BulkImportRowResult(
         int lineNumber,
         Map<String, String> values,
         List<String> errors,
+        List<String> warnings,
         boolean valid) {
+
+    public BulkImportRowResult(int lineNumber, Map<String, String> values, List<String> errors, boolean valid) {
+        this(lineNumber, values, errors, List.of(), valid);
+    }
 }
