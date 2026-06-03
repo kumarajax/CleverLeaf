@@ -525,6 +525,76 @@ h1 {
   padding-right: 4px;
 }
 
+.manual-layout {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.manual-layout .table-card {
+  width: 100%;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  background: rgba(22, 35, 30, 0.48);
+  padding: 18px;
+}
+
+.modal-panel {
+  width: min(920px, 100%);
+  max-height: min(88vh, 900px);
+  overflow: auto;
+  background: #ffffff;
+  border: 1px solid #cfe0d6;
+  border-radius: 8px;
+  box-shadow: 0 20px 48px rgba(22, 35, 30, 0.22);
+  padding: 16px;
+}
+
+.question-modal {
+  display: grid;
+  gap: 12px;
+}
+
+.modal-header {
+  align-items: center;
+  border-bottom: 1px solid #e2ece4;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  padding-bottom: 10px;
+}
+
+.modal-header h3 {
+  margin: 0;
+}
+
+.modal-close-button {
+  align-items: center;
+  background: #f4f8f5;
+  border: 1px solid #cfe0d6;
+  border-radius: 8px;
+  color: #284238;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 16px;
+  font-weight: 700;
+  height: 30px;
+  justify-content: center;
+  line-height: 1;
+  padding: 0;
+  width: 30px;
+}
+
+.modal-close-button:hover {
+  background: #eaf3ed;
+}
+
 .question-taxonomy-group {
   background: #f8fbf7;
   border: 1px solid #d8e6dc;
@@ -554,6 +624,12 @@ h1 {
 .question-taxonomy-group-header small {
   color: #72837c;
   font-size: 10px;
+}
+
+.question-group-footer {
+  border-top: 1px solid #e2ece4;
+  margin-top: 4px;
+  padding: 6px 4px 2px;
 }
 
 .question-row-card {
@@ -827,6 +903,14 @@ h1 {
 }
 
 @media (max-width: 900px) {
+  .modal-backdrop {
+    align-items: stretch;
+    padding: 10px;
+  }
+  .modal-panel {
+    max-height: calc(100vh - 20px);
+    width: 100%;
+  }
   .taxonomy-grid {
     grid-template-columns: 1fr;
   }

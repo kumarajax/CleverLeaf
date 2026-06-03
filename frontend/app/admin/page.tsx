@@ -340,6 +340,7 @@ export default function AdminPage() {
     answersText: "",
     tagsText: "",
   });
+  const [questionFormVisible, setQuestionFormVisible] = useState(false);
   const [preview, setPreview] = useState<CsvPreviewResponse | null>(null);
   const [csvObjectKey, setCsvObjectKey] = useState("");
   const [csvImportSummary, setCsvImportSummary] = useState<CsvImportSummary | null>(null);
@@ -786,6 +787,11 @@ export default function AdminPage() {
     });
   }
 
+  function startNewQuestion(nextNodeId = selectedTaxonomyNodeId) {
+    resetQuestionForm(nextNodeId);
+    setQuestionFormVisible(true);
+  }
+
   function loadQuestionIntoForm(question: AdminQuestion) {
     setQuestionForm({
       id: question.id,
@@ -806,6 +812,7 @@ export default function AdminPage() {
       tagsText: question.tags.join(", "),
     });
     setActiveTab("manual");
+    setQuestionFormVisible(true);
     setSelectedTaxonomyNodeId(question.taxonomyNodeId);
     setQuestionNodeFilterId(question.taxonomyNodeId);
   }
@@ -858,6 +865,7 @@ export default function AdminPage() {
       }
       if (questionForm.id === questionId) {
         resetQuestionForm(selectedTaxonomyNodeId);
+        setQuestionFormVisible(false);
       }
       setStatus("Question deleted.");
       await loadQuestions();
@@ -1040,6 +1048,7 @@ export default function AdminPage() {
       }
       setStatus(questionForm.id ? "Question updated." : "Question created.");
       resetQuestionForm(questionForm.taxonomyNodeId);
+      setQuestionFormVisible(false);
       await loadQuestions();
     } catch (exception) {
       setError(exception instanceof Error ? exception.message : "Unable to save question.");
@@ -1331,36 +1340,12 @@ export default function AdminPage() {
                   {workflowStatusLookups.map((lookup) => <option key={lookup.id} value={lookup.lookupCode === "ALL" ? "" : lookup.lookupCode}>{lookup.lookupMeaning}</option>)}
                 </select>
               </label>
-              <button type="button" className="primary-button compact-button" onClick={() => resetQuestionForm(selectedTaxonomyNodeId)}>New question</button>
+              <button type="button" className="primary-button compact-button" onClick={() => startNewQuestion(selectedTaxonomyNodeId)}>New question</button>
             </div>
-            <div className="split-layout">
+            <div className="manual-layout">
               <div className="card table-card">
                 <h3>Questions in scope</h3>
                 {questionsLoading ? <p className="muted">Loading questions...</p> : null}
-                <div className="pagination-bar">
-                  <span>
-                    Batch {questionCursorIndex + 1}
-                    {" "}({questions.length} question{questions.length === 1 ? "" : "s"})
-                  </span>
-                  <div className="pagination-actions">
-                    <button
-                      type="button"
-                      className="secondary-button compact-button"
-                      disabled={questionCursorIndex <= 0 || questionsLoading}
-                      onClick={() => setQuestionCursorIndex((current) => Math.max(0, current - 1))}
-                    >
-                      Previous
-                    </button>
-                    <button
-                      type="button"
-                      className="secondary-button compact-button"
-                      disabled={!questionHasNext || !questionNextCursor || questionsLoading}
-                      onClick={() => setQuestionCursorIndex((current) => current + 1)}
-                    >
-                      Next
-                    </button>
-                  </div>
-                </div>
                 <div className="question-list">
                   {groupedQuestions.map((group) => {
                     const groupExpanded = expandedQuestionTaxonomyIds.includes(group.taxonomyNodeId);
@@ -1416,13 +1401,55 @@ export default function AdminPage() {
                           </div>
                           );
                         }) : null}
+                        <div className="question-group-footer">
+                          <div className="pagination-bar">
+                            <span>
+                              Batch {questionCursorIndex + 1}
+                              {" "}({questions.length} question{questions.length === 1 ? "" : "s"})
+                            </span>
+                            <div className="pagination-actions">
+                              <button
+                                type="button"
+                                className="secondary-button compact-button"
+                                disabled={questionCursorIndex <= 0 || questionsLoading}
+                                onClick={() => setQuestionCursorIndex((current) => Math.max(0, current - 1))}
+                              >
+                                Previous
+                              </button>
+                              <button
+                                type="button"
+                                className="secondary-button compact-button"
+                                disabled={!questionHasNext || !questionNextCursor || questionsLoading}
+                                onClick={() => setQuestionCursorIndex((current) => current + 1)}
+                              >
+                                Next
+                              </button>
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     );
                   })}
                 </div>
               </div>
-              <div className="card">
-                <h3>{questionForm.id ? "Edit question" : "Create question"}</h3>
+            </div>
+            {questionFormVisible ? (
+              <div
+                className="modal-backdrop"
+                role="presentation"
+                onMouseDown={(event) => {
+                  if (event.target === event.currentTarget) {
+                    setQuestionFormVisible(false);
+                  }
+                }}
+              >
+                <div className="modal-panel question-modal" role="dialog" aria-modal="true" aria-labelledby="question-form-title">
+                  <div className="modal-header">
+                    <h3 id="question-form-title">{questionForm.id ? "Edit question" : "Create question"}</h3>
+                    <button type="button" className="modal-close-button" aria-label="Close question form" onClick={() => setQuestionFormVisible(false)}>
+                      x
+                    </button>
+                  </div>
                 <form className="account-form" onSubmit={submitQuestion}>
                   <div className="form-grid">
                     <label>
@@ -1582,6 +1609,7 @@ export default function AdminPage() {
                     ) : null}
                     <button type="submit" className="primary-button compact-button">{questionForm.id ? "Save" : "Create"}</button>
                     <button type="button" className="secondary-button compact-button" onClick={() => resetQuestionForm(questionForm.taxonomyNodeId)}>Reset</button>
+                    <button type="button" className="secondary-button compact-button" onClick={() => setQuestionFormVisible(false)}>Cancel</button>
                     {questionForm.id ? (
                       <button type="button" className="secondary-button compact-button" onClick={() => deleteQuestion(questionForm.id)}>
                         Delete question
@@ -1590,10 +1618,11 @@ export default function AdminPage() {
                   </div>
                 </form>
                 <div className="dashboard-actions">
-                  {questionForm.id ? <button type="button" className="secondary-button compact-button" onClick={() => resetQuestionForm(questionForm.taxonomyNodeId)}>New question</button> : null}
+                  {questionForm.id ? <button type="button" className="secondary-button compact-button" onClick={() => startNewQuestion(questionForm.taxonomyNodeId)}>New question</button> : null}
                 </div>
               </div>
             </div>
+            ) : null}
           </section>
         ) : null}
 

@@ -9,11 +9,13 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import org.hibernate.annotations.BatchSize;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
 
 @Entity
+@BatchSize(size = 100)
 @Table(name = "taxonomy_node")
 public class TaxonomyNodeEntity {
     @Id
