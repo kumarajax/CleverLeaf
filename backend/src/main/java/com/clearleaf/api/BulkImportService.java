@@ -65,7 +65,7 @@ public class BulkImportService {
     }
 
     @Transactional
-    public BulkImportSummary importStep(BulkImportStep step, String objectKey) {
+    public BulkImportSummary importStep(BulkImportStep step, String objectKey, String actor) {
         List<BulkImportRowResult> previewRows = parseRows(step, objectKey);
         List<BulkImportRowResult> results = new ArrayList<>();
         int imported = 0;
@@ -78,7 +78,7 @@ public class BulkImportService {
             try {
                 switch (step) {
                     case TAXONOMIES -> importTaxonomy(row.values());
-                    case QUESTIONS -> importQuestion(row.values());
+                    case QUESTIONS -> importQuestion(row.values(), actor);
                     case QUESTION_OPTIONS -> importQuestionOption(row.values());
                     case CORRECT_ANSWERS -> importCorrectAnswer(row.values());
                 }
@@ -136,9 +136,13 @@ public class BulkImportService {
     private Map<String, String> values(CSVRecord record) {
         Map<String, String> values = new LinkedHashMap<>();
         for (String header : record.getParser().getHeaderMap().keySet()) {
-            values.put(header, optionalText(record, header));
+            values.put(cleanHeader(header), optionalText(record, header));
         }
         return values;
+    }
+
+    private String cleanHeader(String header) {
+        return header == null ? null : header.replace("\uFEFF", "").trim();
     }
 
     private List<String> validate(BulkImportStep step, Map<String, String> values) {
@@ -195,13 +199,14 @@ public class BulkImportService {
     }
 
     private void importTaxonomy(Map<String, String> values) {
-        String externalKey = requireText(values.get("externalKey"), "externalKey");
+        String externalKey = requireText(value(values, "PublicKey", "externalKey"), "PublicKey");
         String levelKey = normalizeLevelKey(requireText(values.get("levelKey"), "levelKey"));
         LookupEntity level = lookupOrCreateTaxonomyLevel(levelKey);
         TaxonomyNodeEntity parent = null;
-        if (!blank(values.get("parentExternalKey"))) {
-            parent = taxonomyNodes.findByExternalKey(values.get("parentExternalKey").trim())
-                    .orElseThrow(() -> new IllegalArgumentException("Unknown parentExternalKey: " + values.get("parentExternalKey")));
+        String parentPublicKey = value(values, "ParentPublicKey", "parentExternalKey");
+        if (!blank(parentPublicKey)) {
+            parent = taxonomyNodes.findByExternalKey(parentPublicKey.trim())
+                    .orElseThrow(() -> new IllegalArgumentException("Unknown ParentPublicKey: " + parentPublicKey));
         }
         TaxonomyNodeEntity node = taxonomyNodes.findByExternalKey(externalKey).orElseGet(() -> {
             TaxonomyNodeEntity created = new TaxonomyNodeEntity();
@@ -230,19 +235,22 @@ public class BulkImportService {
                         true)));
     }
 
-    private void importQuestion(Map<String, String> values) {
-        String externalKey = requireText(values.get("externalKey"), "externalKey");
-        TaxonomyNodeEntity taxonomy = taxonomyNodes.findByExternalKey(requireText(values.get("taxonomyExternalKey"), "taxonomyExternalKey"))
-                .orElseThrow(() -> new IllegalArgumentException("Unknown taxonomyExternalKey: " + values.get("taxonomyExternalKey")));
+    private void importQuestion(Map<String, String> values, String actor) {
+        String externalKey = requireText(value(values, "PublicKey", "externalKey"), "PublicKey");
+        TaxonomyNodeEntity taxonomy = taxonomyForQuestion(values);
         QuestionType type = parseRequiredEnum(values.get("questionType"), QuestionType.class, "questionType");
         Difficulty difficulty = parseRequiredEnum(values.get("difficulty"), Difficulty.class, "difficulty");
         WorkflowStatus status = blank(values.get("workflowStatus"))
-                ? WorkflowStatus.MISSING_ANSWER
+                ? WorkflowStatus.DRAFT
                 : parseRequiredEnum(values.get("workflowStatus"), WorkflowStatus.class, "workflowStatus");
         QuestionEntity existing = questions.findByExternalKey(externalKey).orElse(null);
+        String rowActor = value(values, "actor", "Actor", "createdBy", "CreatedBy", "importedBy", "ImportedBy", "uploadedBy", "UploadedBy");
+        if (blank(rowActor)) {
+            rowActor = actor;
+        }
         CreateQuestionRequest request = new CreateQuestionRequest(
                 taxonomy.getId(),
-                requireText(values.get("actor"), "actor"),
+                requireText(rowActor, "actor"),
                 new QuestionDraft(
                         type,
                         difficulty,
@@ -251,9 +259,13 @@ public class BulkImportService {
                         nullIfBlank(values.get("explanation")),
                         nullIfBlank(values.get("sourceReference")),
                         nullIfBlank(values.get("licenseCategory")),
-                        List.of()),
+                        existing == null ? List.of() : existing.getOptions().stream()
+                                .map(option -> new QuestionOption(option.getOptionKey(), option.getOptionText(), option.isCorrect()))
+                                .toList()),
                 null,
-                null,
+                existing == null ? null : existing.getAnswers().stream()
+                        .map(answer -> new QuestionAnswer(answer.getAnswerValue(), answer.getAnswerType(), answer.getToleranceValue(), answer.getCaseSensitive()))
+                        .toList(),
                 splitTags(values.get("tags")));
         UUID questionId = existing == null
                 ? authoring.create(request).id()
@@ -265,7 +277,7 @@ public class BulkImportService {
     }
 
     private void importQuestionOption(Map<String, String> values) {
-        QuestionEntity question = questionByExternalKey(values.get("questionExternalKey"));
+        QuestionEntity question = questionByExternalKey(value(values, "QuestionPublicKey", "questionExternalKey"));
         QuestionOptionEntity option = question.getOptions().stream()
                 .filter(current -> current.getOptionKey().equalsIgnoreCase(requireText(values.get("optionKey"), "optionKey")))
                 .findFirst()
@@ -284,7 +296,7 @@ public class BulkImportService {
     }
 
     private void importCorrectAnswer(Map<String, String> values) {
-        QuestionEntity question = questionByExternalKey(values.get("questionExternalKey"));
+        QuestionEntity question = questionByExternalKey(value(values, "QuestionPublicKey", "questionExternalKey"));
         QuestionType type = parseRequiredEnum(question.getQuestionType(), QuestionType.class, "questionType");
         if (type == QuestionType.SINGLE_SELECT || type == QuestionType.MULTIPLE_SELECT || type == QuestionType.TRUE_FALSE) {
             String optionKey = requireText(values.get("optionKey"), "optionKey").toUpperCase(Locale.ROOT);
@@ -315,8 +327,53 @@ public class BulkImportService {
     }
 
     private QuestionEntity questionByExternalKey(String externalKey) {
-        return questions.findByExternalKey(requireText(externalKey, "questionExternalKey"))
-                .orElseThrow(() -> new IllegalArgumentException("Unknown questionExternalKey: " + externalKey));
+        return questions.findByExternalKey(requireText(externalKey, "QuestionPublicKey"))
+                .orElseThrow(() -> new IllegalArgumentException("Unknown QuestionPublicKey: " + externalKey));
+    }
+
+    private TaxonomyNodeEntity taxonomyForQuestion(Map<String, String> values) {
+        String legacyKey = value(values, "taxonomyExternalKey");
+        if (!blank(legacyKey)) {
+            return taxonomyNodes.findByExternalKey(legacyKey.trim())
+                    .orElseThrow(() -> new IllegalArgumentException("Unknown taxonomyExternalKey: " + legacyKey));
+        }
+        String rootTaxonomy = requireText(values.get("RootTaxonomy"), "RootTaxonomy");
+        String childTaxonomy = requireText(values.get("ChildTaxonomy"), "ChildTaxonomy");
+        List<TaxonomyNodeEntity> all = taxonomyNodes.findAll();
+        List<TaxonomyNodeEntity> roots = all.stream()
+                .filter(node -> node.getParentNode() == null)
+                .filter(node -> matchesTaxonomyKey(node, rootTaxonomy))
+                .toList();
+        if (roots.isEmpty()) {
+            throw new IllegalArgumentException("Unknown RootTaxonomy: " + rootTaxonomy);
+        }
+        List<TaxonomyNodeEntity> matches = all.stream()
+                .filter(node -> matchesTaxonomyKey(node, childTaxonomy))
+                .filter(node -> roots.stream().anyMatch(root -> belongsToRoot(node, root.getId())))
+                .toList();
+        if (matches.isEmpty()) {
+            throw new IllegalArgumentException("Unknown ChildTaxonomy under " + rootTaxonomy + ": " + childTaxonomy);
+        }
+        if (matches.size() > 1) {
+            throw new IllegalArgumentException("ChildTaxonomy is ambiguous under " + rootTaxonomy + ": " + childTaxonomy);
+        }
+        return matches.getFirst();
+    }
+
+    private boolean belongsToRoot(TaxonomyNodeEntity node, UUID rootId) {
+        TaxonomyNodeEntity current = node;
+        while (current != null) {
+            if (rootId.equals(current.getId())) return true;
+            current = current.getParentNode();
+        }
+        return false;
+    }
+
+    private boolean matchesTaxonomyKey(TaxonomyNodeEntity node, String value) {
+        String normalized = value.trim();
+        return equalsIgnoreCase(node.getExternalKey(), normalized)
+                || equalsIgnoreCase(node.getNodeKey(), normalized)
+                || equalsIgnoreCase(node.getDisplayName(), normalized);
     }
 
     private <E extends Enum<E>> E parseEnum(String value, Class<E> type, String field, List<String> errors) {
@@ -361,6 +418,16 @@ public class BulkImportService {
         return record.isMapped(field) ? record.get(field) : null;
     }
 
+    private String value(Map<String, String> values, String field, String... aliases) {
+        String direct = values.get(field);
+        if (!blank(direct)) return direct;
+        for (String alias : aliases) {
+            String aliased = values.get(alias);
+            if (!blank(aliased)) return aliased;
+        }
+        return direct;
+    }
+
     private String requireText(String value, String field) {
         if (blank(value)) throw new IllegalArgumentException(field + " is required");
         return value.trim();
@@ -384,6 +451,10 @@ public class BulkImportService {
             display.append(Character.toUpperCase(word.charAt(0))).append(word.substring(1));
         }
         return display.toString();
+    }
+
+    private boolean equalsIgnoreCase(String left, String right) {
+        return left != null && right != null && left.equalsIgnoreCase(right);
     }
 
     private boolean blank(String value) {

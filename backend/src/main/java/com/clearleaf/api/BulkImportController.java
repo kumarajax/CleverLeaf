@@ -2,6 +2,8 @@ package com.clearleaf.api;
 
 import java.util.List;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -35,7 +37,17 @@ public class BulkImportController {
     @ResponseStatus(HttpStatus.CREATED)
     public BulkImportSummary importStep(
             @PathVariable("step") BulkImportStep step,
-            @RequestParam("objectKey") String objectKey) {
-        return imports.importStep(step, objectKey);
+            @RequestParam("objectKey") String objectKey,
+            @AuthenticationPrincipal Jwt jwt) {
+        return imports.importStep(step, objectKey, actor(jwt));
+    }
+
+    private String actor(Jwt jwt) {
+        if (jwt == null) return "bulk-import";
+        String email = jwt.getClaimAsString("email");
+        if (email != null && !email.isBlank()) return email;
+        String preferredUsername = jwt.getClaimAsString("preferred_username");
+        if (preferredUsername != null && !preferredUsername.isBlank()) return preferredUsername;
+        return jwt.getSubject();
     }
 }

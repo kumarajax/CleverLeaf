@@ -77,6 +77,7 @@ public class TaxonomyService {
         node.setLevelType(level);
         node.setParentNode(parent);
         node.setNodeKey(request.nodeKey());
+        node.setExternalKey(defaultExternalKey(parent, request.nodeKey()));
         node.setDisplayName(requireText(request.displayName(), "displayName"));
         node.setStatus("ACTIVE");
         node.setSortOrder(request.sortOrder());
@@ -93,6 +94,9 @@ public class TaxonomyService {
         current.setLevelType(level);
         current.setParentNode(parent);
         current.setNodeKey(request.nodeKey());
+        if (current.getExternalKey() == null || current.getExternalKey().isBlank()) {
+            current.setExternalKey(defaultExternalKey(parent, request.nodeKey()));
+        }
         current.setDisplayName(requireText(request.displayName(), "displayName"));
         current.setStatus(normalizeStatus(request.status(), current.getStatus()));
         current.setSortOrder(request.sortOrder());
@@ -275,6 +279,7 @@ public class TaxonomyService {
                 entity.getId(),
                 entity.getLevelType().getId(),
                 entity.getParentNode() == null ? null : entity.getParentNode().getId(),
+                entity.getExternalKey(),
                 entity.getNodeKey(),
                 entity.getDisplayName(),
                 entity.getStatus(),
@@ -305,6 +310,16 @@ public class TaxonomyService {
             display.append(Character.toUpperCase(word.charAt(0))).append(word.substring(1));
         }
         return display.toString();
+    }
+
+    private String defaultExternalKey(TaxonomyNodeEntity parent, String nodeKey) {
+        String normalizedNodeKey = requireText(nodeKey, "nodeKey").trim().toUpperCase(Locale.ROOT);
+        if (parent == null) return normalizedNodeKey;
+        String parentKey = parent.getExternalKey();
+        if (parentKey == null || parentKey.isBlank()) {
+            parentKey = parent.getNodeKey();
+        }
+        return parentKey + "_" + normalizedNodeKey;
     }
 
     private String normalizeStatusFilter(String status) {

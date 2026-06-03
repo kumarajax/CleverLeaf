@@ -261,7 +261,7 @@ public class QuestionAuthoringService {
     }
 
     private void validateAnswers(QuestionType type, WorkflowStatus workflowStatus, List<QuestionAnswer> answers) {
-        if (workflowStatus == WorkflowStatus.MISSING_ANSWER) {
+        if (workflowStatus == WorkflowStatus.DRAFT || workflowStatus == WorkflowStatus.MISSING_ANSWER) {
             return;
         }
         if ((type == QuestionType.FILL_BLANK || type == QuestionType.NUMERICAL) && answers.isEmpty()) {

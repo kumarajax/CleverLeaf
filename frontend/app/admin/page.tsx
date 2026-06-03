@@ -27,6 +27,7 @@ type TaxonomyNode = {
   id: string;
   levelTypeId: string;
   parentId: string | null;
+  externalKey?: string | null;
   nodeKey: string;
   displayName: string;
   status: string;
@@ -765,6 +766,20 @@ export default function AdminPage() {
     return getAncestorChain(contextNodeId)[0]?.id ?? "";
   }
 
+  function getSelectedRootBranchNodes() {
+    const rootId = selectedRootTaxonomyNode?.id;
+    if (!rootId) return [];
+    return allNodes.filter((node) => getBranchRootId(node.id) === rootId);
+  }
+
+  function taxonomyImportKey(node: TaxonomyNode) {
+    return node.externalKey || node.nodeKey || node.id;
+  }
+
+  function csvCell(value: string | number | null | undefined) {
+    return `"${String(value ?? "").replaceAll("\"", "\"\"")}"`;
+  }
+
   function isActiveTaxonomyBranch(nodeId: string) {
     const chain = getAncestorChain(nodeId);
     return chain.length > 0 && chain.every((node) => node.status === "ACTIVE");
@@ -1147,9 +1162,9 @@ export default function AdminPage() {
 
   function downloadCsvTemplate(step: BulkImportStepMetadata) {
     const headers = step.columns.map((column) => column.name);
-    const row = sampleImportRow(step.stepCode, headers);
+    const rows = templateRows(step.stepCode, headers);
     const blob = new Blob([
-      headers.join(",") + "\n" + row.join(",") + "\n",
+      headers.join(",") + "\n" + rows.map((row) => row.join(",")).join("\n") + "\n",
     ], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
@@ -1159,47 +1174,66 @@ export default function AdminPage() {
     URL.revokeObjectURL(url);
   }
 
-  function sampleImportRow(stepCode: string, headers: string[]) {
-    const samples: Record<string, Record<string, string>> = {
-      TAXONOMIES: {
-        externalKey: "CAASPP_GRADE_6_MATH_FRACTIONS",
-        levelKey: "TOPIC",
-        parentExternalKey: "CAASPP_GRADE_6_MATH_CHAPTER_1",
-        nodeKey: "FRACTIONS",
-        displayName: "Fractions",
-        status: "ACTIVE",
-        sortOrder: "10",
-      },
-      QUESTIONS: {
-        externalKey: "Q_FRACTIONS_0001",
-        taxonomyExternalKey: "CAASPP_GRADE_6_MATH_FRACTIONS",
+  function templateRows(stepCode: string, headers: string[]) {
+    const branchNodes = getSelectedRootBranchNodes();
+    const branchLeafNodes = branchNodes
+      .filter((node) => leafNodeIds.has(node.id))
+      .sort((left, right) => left.displayName.localeCompare(right.displayName));
+    const fallbackQuestionKey = "QUESTION_KEY_001";
+    if (stepCode === "TAXONOMIES") {
+      const rows = branchNodes.length ? branchNodes : [selectedTaxonomyNode].filter((node): node is TaxonomyNode => Boolean(node));
+      return rows.map((node) => {
+        const levelKey = levelTypeById.get(node.levelTypeId)?.levelKey ?? "";
+        const parent = node.parentId ? nodeById.get(node.parentId) : null;
+        return headers.map((header) => csvCell({
+          PublicKey: taxonomyImportKey(node),
+          levelKey,
+          ParentPublicKey: parent ? taxonomyImportKey(parent) : "",
+          nodeKey: node.nodeKey,
+          displayName: node.displayName,
+          status: node.status,
+          sortOrder: node.sortOrder,
+        }[header]));
+      });
+    }
+    if (stepCode === "QUESTIONS") {
+      const rows = branchLeafNodes.length ? branchLeafNodes : [selectedTaxonomyNode].filter((node): node is TaxonomyNode => Boolean(node));
+      const rootKey = selectedRootTaxonomyNode ? taxonomyImportKey(selectedRootTaxonomyNode) : "";
+      return rows.map((node, index) => headers.map((header) => csvCell({
+        PublicKey: `QUESTION_KEY_${String(index + 1).padStart(3, "0")}`,
+        RootTaxonomy: rootKey,
+        ChildTaxonomy: node.nodeKey,
         actor: me?.email ?? session?.email ?? "admin@example.com",
         questionType: "SINGLE_SELECT",
         difficulty: "MEDIUM",
-        workflowStatus: "MISSING_ANSWER",
-        questionText: "What is 2/3 + 1/2?",
-        explanation: "Use common denominator 6.",
-        sourceReference: "Original ClearLeaf sample",
+        workflowStatus: "DRAFT",
+        questionText: `Enter question for ${node.displayName}`,
+        explanation: "",
+        sourceReference: "",
         licenseCategory: "CC-BY",
-        tags: "FRACTIONS",
-      },
-      QUESTION_OPTIONS: {
-        questionExternalKey: "Q_FRACTIONS_0001",
-        optionKey: "A",
-        optionText: "7/6",
-        sortOrder: "1",
-      },
-      CORRECT_ANSWERS: {
-        questionExternalKey: "Q_FRACTIONS_0001",
+        tags: node.nodeKey,
+      }[header])));
+    }
+    if (stepCode === "QUESTION_OPTIONS") {
+      return ["A", "B", "C", "D"].map((optionKey, index) => headers.map((header) => csvCell({
+        QuestionPublicKey: fallbackQuestionKey,
+        optionKey,
+        optionText: `Option ${optionKey}`,
+        sortOrder: index + 1,
+      }[header])));
+    }
+    if (stepCode === "CORRECT_ANSWERS") {
+      return [headers.map((header) => csvCell({
+        QuestionPublicKey: fallbackQuestionKey,
         optionKey: "A",
         answerValue: "",
         answerType: "",
         toleranceValue: "",
         caseSensitive: "",
         sortOrder: "1",
-      },
-    };
-    return headers.map((header) => `"${(samples[stepCode]?.[header] ?? "").replaceAll("\"", "\"\"")}"`);
+      }[header]))];
+    }
+    return [headers.map(() => csvCell(""))];
   }
 
   if (loading) {

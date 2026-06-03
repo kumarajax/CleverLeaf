@@ -6,6 +6,7 @@ public record TaxonomyNode(
         UUID id,
         UUID levelTypeId,
         UUID parentId,
+        String externalKey,
         String nodeKey,
         String displayName,
         String status,
