@@ -71,13 +71,16 @@ public class TaxonomyService {
         String levelKey = normalizeLevelKey(requireText(request.levelKey(), "levelKey"));
         LookupEntity level = lookupOrCreateTaxonomyLevel(levelKey);
         TaxonomyNodeEntity parent = validateParent(request.parentId());
+        String nodeKey = normalizeNodeKey(request.nodeKey());
 
         TaxonomyNodeEntity node = new TaxonomyNodeEntity();
         node.setId(UUID.randomUUID());
         node.setLevelType(level);
         node.setParentNode(parent);
-        node.setNodeKey(request.nodeKey());
-        node.setExternalKey(defaultExternalKey(parent, request.nodeKey()));
+        node.setRootTaxonomyNode(parent == null ? node : rootTaxonomyNode(parent));
+        node.setNodeKey(nodeKey);
+        validateRootNodeKeyAvailable(node.getRootTaxonomyNode(), nodeKey, node.getId());
+        node.setExternalKey(defaultExternalKey(parent, nodeKey));
         node.setDisplayName(requireText(request.displayName(), "displayName"));
         node.setStatus("ACTIVE");
         node.setSortOrder(request.sortOrder());
@@ -90,17 +93,27 @@ public class TaxonomyService {
         String levelKey = normalizeLevelKey(requireText(request.levelKey(), "levelKey"));
         LookupEntity level = lookupOrCreateTaxonomyLevel(levelKey);
         TaxonomyNodeEntity parent = validateParent(request.parentId());
+        String nodeKey = normalizeNodeKey(request.nodeKey());
+        if (parent != null && isDescendant(parent.getId(), current.getId())) {
+            throw new IllegalArgumentException("Parent taxonomy node cannot be a descendant of the node being updated");
+        }
+        TaxonomyNodeEntity newRoot = parent == null ? current : rootTaxonomyNode(parent);
+        List<TaxonomyNodeEntity> subtree = subtreeEntities(current.getId());
+        validateSubtreeRootNodeKeys(subtree, current.getId(), newRoot, nodeKey);
 
         current.setLevelType(level);
         current.setParentNode(parent);
-        current.setNodeKey(request.nodeKey());
+        current.setRootTaxonomyNode(newRoot);
+        current.setNodeKey(nodeKey);
         if (current.getExternalKey() == null || current.getExternalKey().isBlank()) {
-            current.setExternalKey(defaultExternalKey(parent, request.nodeKey()));
+            current.setExternalKey(defaultExternalKey(parent, nodeKey));
         }
         current.setDisplayName(requireText(request.displayName(), "displayName"));
         current.setStatus(normalizeStatus(request.status(), current.getStatus()));
         current.setSortOrder(request.sortOrder());
-        return toNode(nodes.save(current));
+        TaxonomyNodeEntity saved = nodes.save(current);
+        reassignSubtreeRoots(current.getId(), newRoot);
+        return toNode(saved);
     }
 
     @Transactional
@@ -170,11 +183,15 @@ public class TaxonomyService {
         clone.setId(UUID.randomUUID());
         clone.setLevelType(source.getLevelType());
         clone.setParentNode(targetParent);
-        clone.setNodeKey(root ? rootKey : source.getNodeKey());
+        TaxonomyNodeEntity rootNode = targetParent == null ? clone : rootTaxonomyNode(targetParent);
+        String nodeKey = normalizeNodeKey(root ? rootKey : source.getNodeKey());
+        clone.setRootTaxonomyNode(rootNode);
+        clone.setNodeKey(nodeKey);
         clone.setDisplayName(root ? rootDisplayName : source.getDisplayName());
         clone.setStatus("DRAFT");
         clone.setSortOrder(source.getSortOrder());
         clone.setClonedFromNode(source);
+        validateRootNodeKeyAvailable(rootNode, nodeKey, clone.getId());
         TaxonomyNodeEntity saved = nodes.save(clone);
         for (TaxonomyNodeEntity child : nodes.findByParentNode_IdOrderBySortOrderAscDisplayNameAsc(source.getId())) {
             cloneSubtree(child, saved, child.getNodeKey(), child.getDisplayName(), false, visited);
@@ -219,6 +236,90 @@ public class TaxonomyService {
     private TaxonomyNodeEntity findNode(UUID id) {
         return nodes.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Unknown taxonomy node: " + id));
+    }
+
+    private TaxonomyNodeEntity rootTaxonomyNode(TaxonomyNodeEntity node) {
+        if (node.getRootTaxonomyNode() != null) {
+            return node.getRootTaxonomyNode();
+        }
+        TaxonomyNodeEntity current = node;
+        Set<UUID> visited = new java.util.HashSet<>();
+        while (current.getParentNode() != null) {
+            if (!visited.add(current.getId())) {
+                throw new IllegalStateException("Taxonomy contains a cycle");
+            }
+            current = current.getParentNode();
+        }
+        return current;
+    }
+
+    private boolean isDescendant(UUID nodeId, UUID ancestorId) {
+        TaxonomyNodeEntity current = findNode(nodeId);
+        Set<UUID> visited = new java.util.HashSet<>();
+        while (current != null) {
+            if (!visited.add(current.getId())) {
+                throw new IllegalStateException("Taxonomy contains a cycle");
+            }
+            if (ancestorId.equals(current.getId())) {
+                return true;
+            }
+            current = current.getParentNode();
+        }
+        return false;
+    }
+
+    private List<TaxonomyNodeEntity> subtreeEntities(UUID rootId) {
+        Deque<UUID> queue = new ArrayDeque<>();
+        List<TaxonomyNodeEntity> result = new java.util.ArrayList<>();
+        Set<UUID> visited = new java.util.HashSet<>();
+        queue.add(rootId);
+        while (!queue.isEmpty()) {
+            UUID currentId = queue.removeFirst();
+            if (!visited.add(currentId)) {
+                continue;
+            }
+            TaxonomyNodeEntity current = findNode(currentId);
+            result.add(current);
+            for (TaxonomyNodeEntity child : nodes.findByParentNode_IdOrderBySortOrderAscDisplayNameAsc(currentId)) {
+                queue.addLast(child.getId());
+            }
+        }
+        return result;
+    }
+
+    private void validateRootNodeKeyAvailable(TaxonomyNodeEntity root, String nodeKey, UUID currentId) {
+        if (nodes.existsByRootTaxonomyNode_IdAndNodeKeyAndIdNot(root.getId(), nodeKey, currentId)) {
+            throw new IllegalArgumentException("nodeKey already exists under root taxonomy: " + root.getNodeKey());
+        }
+    }
+
+    private void validateSubtreeRootNodeKeys(
+            List<TaxonomyNodeEntity> subtree,
+            UUID updatedNodeId,
+            TaxonomyNodeEntity newRoot,
+            String updatedNodeKey) {
+        Set<UUID> subtreeIds = subtree.stream()
+                .map(TaxonomyNodeEntity::getId)
+                .collect(java.util.stream.Collectors.toSet());
+        Set<String> seenKeys = new java.util.HashSet<>();
+        for (TaxonomyNodeEntity node : subtree) {
+            String nodeKey = node.getId().equals(updatedNodeId) ? updatedNodeKey : normalizeNodeKey(node.getNodeKey());
+            if (!seenKeys.add(nodeKey)) {
+                throw new IllegalArgumentException("Duplicate nodeKey inside taxonomy subtree: " + nodeKey);
+            }
+            if (nodes.existsByRootTaxonomyNode_IdAndNodeKeyAndIdNotIn(newRoot.getId(), nodeKey, subtreeIds)) {
+                throw new IllegalArgumentException("nodeKey already exists under root taxonomy: " + newRoot.getNodeKey());
+            }
+        }
+    }
+
+    private void reassignSubtreeRoots(UUID rootId, TaxonomyNodeEntity newRoot) {
+        for (TaxonomyNodeEntity node : subtreeEntities(rootId)) {
+            if (!newRoot.getId().equals(node.getRootTaxonomyNode() == null ? null : node.getRootTaxonomyNode().getId())) {
+                node.setRootTaxonomyNode(newRoot);
+                nodes.save(node);
+            }
+        }
     }
 
     private LookupEntity lookupOrCreateTaxonomyLevel(String levelKey) {
@@ -297,6 +398,17 @@ public class TaxonomyService {
         }
         if (normalized.length() > 64) {
             throw new IllegalArgumentException("levelKey must be 64 characters or fewer");
+        }
+        return normalized;
+    }
+
+    private String normalizeNodeKey(String value) {
+        String normalized = requireText(value, "nodeKey").trim().toUpperCase(Locale.ROOT);
+        if (!normalized.matches("[A-Z0-9]+(?:_[A-Z0-9]+)*")) {
+            throw new IllegalArgumentException("nodeKey must contain only uppercase letters, numbers, and single underscores between words");
+        }
+        if (normalized.length() > 128) {
+            throw new IllegalArgumentException("nodeKey must be 128 characters or fewer");
         }
         return normalized;
     }

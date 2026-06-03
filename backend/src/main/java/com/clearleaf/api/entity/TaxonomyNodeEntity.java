@@ -29,6 +29,10 @@ public class TaxonomyNodeEntity {
     @JoinColumn(name = "parent_id")
     private TaxonomyNodeEntity parentNode;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "root_taxonomy_node_id", nullable = false)
+    private TaxonomyNodeEntity rootTaxonomyNode;
+
     @Column(name = "node_key", nullable = false, length = 128)
     private String nodeKey;
 
@@ -93,6 +97,14 @@ public class TaxonomyNodeEntity {
 
     public void setParentNode(TaxonomyNodeEntity parentNode) {
         this.parentNode = parentNode;
+    }
+
+    public TaxonomyNodeEntity getRootTaxonomyNode() {
+        return rootTaxonomyNode;
+    }
+
+    public void setRootTaxonomyNode(TaxonomyNodeEntity rootTaxonomyNode) {
+        this.rootTaxonomyNode = rootTaxonomyNode;
     }
 
     public String getNodeKey() {

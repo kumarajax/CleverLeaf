@@ -16,6 +16,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
@@ -202,6 +203,13 @@ public class BulkImportService {
                 errors.add("levelKey must be 64 characters or fewer");
             }
         }
+        if (!blank(values.get("nodeKey"))) {
+            try {
+                normalizeNodeKey(values.get("nodeKey"));
+            } catch (IllegalArgumentException ex) {
+                errors.add(ex.getMessage());
+            }
+        }
         parseInteger(values.get("sortOrder"), "sortOrder", errors);
     }
 
@@ -246,7 +254,11 @@ public class BulkImportService {
         });
         node.setLevelType(level);
         node.setParentNode(parent);
-        node.setNodeKey(requireText(values.get("nodeKey"), "nodeKey"));
+        TaxonomyNodeEntity root = parent == null ? node : rootTaxonomyNode(parent);
+        String nodeKey = normalizeNodeKey(values.get("nodeKey"));
+        node.setRootTaxonomyNode(root);
+        node.setNodeKey(nodeKey);
+        validateRootNodeKeyAvailable(root, nodeKey, node.getId());
         node.setDisplayName(requireText(values.get("displayName"), "displayName"));
         node.setStatus(blank(values.get("status")) ? "ACTIVE" : values.get("status").trim().toUpperCase(Locale.ROOT));
         node.setSortOrder(parseIntegerOrDefault(values.get("sortOrder"), 0));
@@ -425,8 +437,11 @@ public class BulkImportService {
     }
 
     private TaxonomyNodeEntity rootTaxonomyNode(TaxonomyNodeEntity node) {
+        if (node.getRootTaxonomyNode() != null) {
+            return node.getRootTaxonomyNode();
+        }
         TaxonomyNodeEntity current = node;
-        java.util.HashSet<UUID> visited = new java.util.HashSet<>();
+        Set<UUID> visited = new java.util.HashSet<>();
         while (current.getParentNode() != null) {
             if (!visited.add(current.getId())) {
                 throw new IllegalStateException("Taxonomy contains a cycle");
@@ -434,6 +449,12 @@ public class BulkImportService {
             current = current.getParentNode();
         }
         return current;
+    }
+
+    private void validateRootNodeKeyAvailable(TaxonomyNodeEntity root, String nodeKey, UUID currentId) {
+        if (taxonomyNodes.existsByRootTaxonomyNode_IdAndNodeKeyAndIdNot(root.getId(), nodeKey, currentId)) {
+            throw new IllegalArgumentException("nodeKey already exists under root taxonomy: " + root.getNodeKey());
+        }
     }
 
     private String normalizeQuestionText(String value) {
@@ -445,6 +466,17 @@ public class BulkImportService {
 
     private String normalizeKeyPart(String value) {
         return requireText(value, "taxonomy key").trim().toUpperCase(Locale.ROOT);
+    }
+
+    private String normalizeNodeKey(String value) {
+        String normalized = requireText(value, "nodeKey").trim().toUpperCase(Locale.ROOT);
+        if (!normalized.matches("[A-Z0-9]+(?:_[A-Z0-9]+)*")) {
+            throw new IllegalArgumentException("nodeKey must contain only uppercase letters, numbers, and single underscores between words");
+        }
+        if (normalized.length() > 128) {
+            throw new IllegalArgumentException("nodeKey must be 128 characters or fewer");
+        }
+        return normalized;
     }
 
     private <E extends Enum<E>> E parseEnum(String value, Class<E> type, String field, List<String> errors) {

@@ -1,6 +1,7 @@
 package com.clearleaf.api.repository;
 
 import com.clearleaf.api.entity.TaxonomyNodeEntity;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -15,6 +16,10 @@ public interface TaxonomyNodeRepository extends JpaRepository<TaxonomyNodeEntity
     List<TaxonomyNodeEntity> findByIdInOrderBySortOrderAscDisplayNameAsc(List<UUID> ids);
 
     Optional<TaxonomyNodeEntity> findByExternalKey(String externalKey);
+
+    boolean existsByRootTaxonomyNode_IdAndNodeKeyAndIdNot(UUID rootTaxonomyNodeId, String nodeKey, UUID id);
+
+    boolean existsByRootTaxonomyNode_IdAndNodeKeyAndIdNotIn(UUID rootTaxonomyNodeId, String nodeKey, Collection<UUID> ids);
 
     boolean existsByLevelType_Id(UUID levelTypeId);
 
