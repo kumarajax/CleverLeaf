@@ -158,14 +158,15 @@ public class BulkImportService {
     }
 
     private void validateTaxonomy(Map<String, String> values, List<String> errors) {
-        TaxonomyLevelDefinition definition = taxonomyDefinition(values.get("levelKey"), errors);
-        if (definition == null) return;
-        String parentExternalKey = values.get("parentExternalKey");
-        if (definition.allowedParentKey() == null && !blank(parentExternalKey)) {
-            errors.add("parentExternalKey must be blank for " + definition.lookupCode());
-        }
-        if (definition.allowedParentKey() != null && blank(parentExternalKey)) {
-            errors.add("parentExternalKey is required for " + definition.lookupCode());
+        String levelKey = values.get("levelKey");
+        if (!blank(levelKey)) {
+            String normalized = normalizeLevelKey(levelKey);
+            if (normalized.isBlank()) {
+                errors.add("levelKey must include at least one letter or number");
+            }
+            if (normalized.length() > 64) {
+                errors.add("levelKey must be 64 characters or fewer");
+            }
         }
         parseInteger(values.get("sortOrder"), "sortOrder", errors);
     }
@@ -195,17 +196,12 @@ public class BulkImportService {
 
     private void importTaxonomy(Map<String, String> values) {
         String externalKey = requireText(values.get("externalKey"), "externalKey");
-        TaxonomyLevelDefinition definition = TaxonomyLevelDefinition.fromCode(values.get("levelKey"))
-                .orElseThrow(() -> new IllegalArgumentException("levelKey is invalid"));
-        LookupEntity level = lookups.findByLookupTypeAndLookupCodeIgnoreCase(LookupType.TAXONOMY_TYPE, definition.lookupCode())
-                .orElseThrow(() -> new IllegalArgumentException("Unknown taxonomy level: " + definition.lookupCode()));
+        String levelKey = normalizeLevelKey(requireText(values.get("levelKey"), "levelKey"));
+        LookupEntity level = lookupOrCreateTaxonomyLevel(levelKey);
         TaxonomyNodeEntity parent = null;
         if (!blank(values.get("parentExternalKey"))) {
             parent = taxonomyNodes.findByExternalKey(values.get("parentExternalKey").trim())
                     .orElseThrow(() -> new IllegalArgumentException("Unknown parentExternalKey: " + values.get("parentExternalKey")));
-            if (!definition.allowedParentKey().equals(parent.getLevelType().getLookupCode())) {
-                throw new IllegalArgumentException(definition.lookupCode() + " requires parent " + definition.allowedParentKey());
-            }
         }
         TaxonomyNodeEntity node = taxonomyNodes.findByExternalKey(externalKey).orElseGet(() -> {
             TaxonomyNodeEntity created = new TaxonomyNodeEntity();
@@ -220,6 +216,18 @@ public class BulkImportService {
         node.setStatus(blank(values.get("status")) ? "ACTIVE" : values.get("status").trim().toUpperCase(Locale.ROOT));
         node.setSortOrder(parseIntegerOrDefault(values.get("sortOrder"), 0));
         taxonomyNodes.save(node);
+    }
+
+    private LookupEntity lookupOrCreateTaxonomyLevel(String levelKey) {
+        return lookups.findByLookupTypeAndLookupCodeIgnoreCase(LookupType.TAXONOMY_TYPE, levelKey)
+                .orElseGet(() -> lookups.save(new LookupEntity(
+                        UUID.randomUUID(),
+                        LookupType.TAXONOMY_TYPE,
+                        levelKey,
+                        displayName(levelKey),
+                        "Imported taxonomy level",
+                        1000,
+                        true)));
     }
 
     private void importQuestion(Map<String, String> values) {
@@ -311,14 +319,6 @@ public class BulkImportService {
                 .orElseThrow(() -> new IllegalArgumentException("Unknown questionExternalKey: " + externalKey));
     }
 
-    private TaxonomyLevelDefinition taxonomyDefinition(String value, List<String> errors) {
-        TaxonomyLevelDefinition definition = TaxonomyLevelDefinition.fromCode(value).orElse(null);
-        if (definition == null && !blank(value)) {
-            errors.add("levelKey is invalid");
-        }
-        return definition;
-    }
-
     private <E extends Enum<E>> E parseEnum(String value, Class<E> type, String field, List<String> errors) {
         if (blank(value)) return null;
         try {
@@ -368,6 +368,22 @@ public class BulkImportService {
 
     private String nullIfBlank(String value) {
         return blank(value) ? null : value.trim();
+    }
+
+    private String normalizeLevelKey(String value) {
+        return value.trim().toUpperCase(Locale.ROOT).replaceAll("[^A-Z0-9]+", "_").replaceAll("^_+|_+$", "");
+    }
+
+    private String displayName(String value) {
+        String normalized = normalizeLevelKey(value).toLowerCase(Locale.ROOT).replace('_', ' ');
+        if (normalized.isBlank()) return value;
+        StringBuilder display = new StringBuilder();
+        for (String word : normalized.split(" ")) {
+            if (word.isBlank()) continue;
+            if (!display.isEmpty()) display.append(' ');
+            display.append(Character.toUpperCase(word.charAt(0))).append(word.substring(1));
+        }
+        return display.toString();
     }
 
     private boolean blank(String value) {

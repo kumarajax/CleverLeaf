@@ -11,6 +11,7 @@ import com.clearleaf.api.repository.TaxonomyNodeRepository;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
@@ -67,9 +68,9 @@ public class TaxonomyService {
 
     @Transactional
     public TaxonomyNode createNode(CreateTaxonomyNodeRequest request) {
-        TaxonomyLevelDefinition definition = levelDefinition(requireText(request.levelKey(), "levelKey"));
-        LookupEntity level = lookupForDefinition(definition);
-        TaxonomyNodeEntity parent = validateParent(definition, request.parentId());
+        String levelKey = normalizeLevelKey(requireText(request.levelKey(), "levelKey"));
+        LookupEntity level = lookupOrCreateTaxonomyLevel(levelKey);
+        TaxonomyNodeEntity parent = validateParent(request.parentId());
 
         TaxonomyNodeEntity node = new TaxonomyNodeEntity();
         node.setId(UUID.randomUUID());
@@ -85,9 +86,9 @@ public class TaxonomyService {
     @Transactional
     public TaxonomyNode updateNode(UUID id, UpdateTaxonomyNodeRequest request) {
         TaxonomyNodeEntity current = findNode(requireUuid(id, "id"));
-        TaxonomyLevelDefinition definition = levelDefinition(requireText(request.levelKey(), "levelKey"));
-        LookupEntity level = lookupForDefinition(definition);
-        TaxonomyNodeEntity parent = validateParent(definition, request.parentId());
+        String levelKey = normalizeLevelKey(requireText(request.levelKey(), "levelKey"));
+        LookupEntity level = lookupOrCreateTaxonomyLevel(levelKey);
+        TaxonomyNodeEntity parent = validateParent(request.parentId());
 
         current.setLevelType(level);
         current.setParentNode(parent);
@@ -195,22 +196,11 @@ public class TaxonomyService {
         }
     }
 
-    private TaxonomyNodeEntity validateParent(TaxonomyLevelDefinition definition, UUID parentId) {
-        if (definition.allowedParentKey() == null) {
-            if (parentId != null) {
-                throw new IllegalArgumentException(definition.lookupCode() + " must not have a parent");
-            }
-            return null;
-        }
-        if (parentId == null) {
-            throw new IllegalArgumentException(definition.lookupCode() + " requires parent " + definition.allowedParentKey());
-        }
+    private TaxonomyNodeEntity validateParent(UUID parentId) {
+        if (parentId == null) return null;
         TaxonomyNodeEntity parent = findNode(parentId);
         if (!"ACTIVE".equals(parent.getStatus())) {
             throw new IllegalArgumentException("Parent taxonomy node is missing or inactive");
-        }
-        if (!definition.allowedParentKey().equals(levelCode(parent))) {
-            throw new IllegalArgumentException(definition.lookupCode() + " requires parent " + definition.allowedParentKey());
         }
         return parent;
     }
@@ -227,29 +217,16 @@ public class TaxonomyService {
                 .orElseThrow(() -> new IllegalArgumentException("Unknown taxonomy node: " + id));
     }
 
-    private LookupEntity lookupForDefinition(TaxonomyLevelDefinition definition) {
-        LookupEntity lookup = lookups.findByLookupTypeAndLookupCodeIgnoreCase(LookupType.TAXONOMY_TYPE, definition.lookupCode())
-                .orElseGet(() -> {
-                    LookupEntity created = new LookupEntity(definition.seedId(), LookupType.TAXONOMY_TYPE, definition.lookupCode(), definition.meaning(), definition.description(), definition.sortOrder(), true);
-                    created.setId(definition.seedId());
-                    return created;
-                });
-        if (lookup.getId() == null) {
-            lookup.setId(definition.seedId());
-        }
-        lookup.setLookupType(LookupType.TAXONOMY_TYPE);
-        lookup.setLookupCode(definition.lookupCode());
-        if (lookup.getLookupMeaning() == null || lookup.getLookupMeaning().isBlank()) {
-            lookup.setLookupMeaning(definition.meaning());
-        }
-        if (lookup.getLookupDescription() == null || lookup.getLookupDescription().isBlank()) {
-            lookup.setLookupDescription(definition.description());
-        }
-        if (lookup.getSortOrder() == 0) {
-            lookup.setSortOrder(definition.sortOrder());
-        }
-        lookup.setActive(true);
-        return lookups.save(lookup);
+    private LookupEntity lookupOrCreateTaxonomyLevel(String levelKey) {
+        return lookups.findByLookupTypeAndLookupCodeIgnoreCase(LookupType.TAXONOMY_TYPE, levelKey)
+                .orElseGet(() -> lookups.save(new LookupEntity(
+                        UUID.randomUUID(),
+                        LookupType.TAXONOMY_TYPE,
+                        levelKey,
+                        displayName(levelKey),
+                        "Customer taxonomy level",
+                        1000,
+                        true)));
     }
 
     private LookupResponse toLookupResponse(LookupEntity lookup) {
@@ -304,13 +281,30 @@ public class TaxonomyService {
                 entity.getSortOrder());
     }
 
-    private TaxonomyLevelDefinition levelDefinition(String levelKey) {
-        return TaxonomyLevelDefinition.fromCode(levelKey)
-                .orElseThrow(() -> new IllegalArgumentException("Unknown taxonomy level: " + levelKey));
-    }
-
     private String levelCode(TaxonomyNodeEntity node) {
         return node.getLevelType().getLookupCode();
+    }
+
+    private String normalizeLevelKey(String value) {
+        String normalized = value.trim().toUpperCase(Locale.ROOT).replaceAll("[^A-Z0-9]+", "_").replaceAll("^_+|_+$", "");
+        if (normalized.isBlank()) {
+            throw new IllegalArgumentException("levelKey must include at least one letter or number");
+        }
+        if (normalized.length() > 64) {
+            throw new IllegalArgumentException("levelKey must be 64 characters or fewer");
+        }
+        return normalized;
+    }
+
+    private String displayName(String value) {
+        String normalized = normalizeLevelKey(value).toLowerCase(Locale.ROOT).replace('_', ' ');
+        StringBuilder display = new StringBuilder();
+        for (String word : normalized.split(" ")) {
+            if (word.isBlank()) continue;
+            if (!display.isEmpty()) display.append(' ');
+            display.append(Character.toUpperCase(word.charAt(0))).append(word.substring(1));
+        }
+        return display.toString();
     }
 
     private String normalizeStatusFilter(String status) {

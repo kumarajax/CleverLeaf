@@ -695,19 +695,13 @@ export default function AdminPage() {
 
   function startChildTaxonomyForm() {
     if (!selectedTaxonomyNode) return;
-    const parentLevelKey = levelTypeById.get(selectedTaxonomyNode.levelTypeId)?.levelKey;
-    const childLevel = levelTypes.find((level) => level.allowedParentKey === parentLevelKey);
-    if (!childLevel) {
-      setStatus("");
-      setError(`${selectedTaxonomyNode.displayName} is already a leaf topic and cannot have child nodes.`);
-      return;
-    }
+    const parentLevelKey = levelTypeById.get(selectedTaxonomyNode.levelTypeId)?.levelKey ?? "TOPIC";
     setError("");
     setStatus("");
     setTaxonomyFormVisible(true);
     setTaxonomyForm({
       id: "",
-      levelKey: childLevel.levelKey,
+      levelKey: parentLevelKey,
       parentId: selectedTaxonomyNode.id,
       nodeKey: "",
       displayName: "",
@@ -1225,8 +1219,6 @@ export default function AdminPage() {
   const visibleParentOptions = !taxonomyForm.id && taxonomyForm.parentId
     ? allNodes.filter((node) => node.id === taxonomyForm.parentId)
     : parentOptions;
-  const selectedLevelKey = selectedTaxonomyNode ? levelTypeById.get(selectedTaxonomyNode.levelTypeId)?.levelKey : null;
-  const nextChildLevel = levelTypes.find((level) => level.allowedParentKey === selectedLevelKey) ?? null;
   const createFormTitle = taxonomyForm.parentId ? "Create child node" : "Create root taxonomy";
 
   return (
@@ -1277,8 +1269,8 @@ export default function AdminPage() {
               <button
                 type="button"
                 className="secondary-button compact-button admin-action-button"
-                disabled={!selectedTaxonomyNode || !nextChildLevel}
-                title={selectedTaxonomyNode && !nextChildLevel ? "Topic nodes cannot have children" : "Create a child under the selected node"}
+                disabled={!selectedTaxonomyNode}
+                title="Create a child under the selected node"
                 onClick={startChildTaxonomyForm}
               >
                 Add child node
@@ -1321,7 +1313,7 @@ export default function AdminPage() {
                   <div className="form-grid">
                     <label>
                       Level
-                      <select value={taxonomyForm.levelKey} disabled={!taxonomyForm.id} onChange={(event) => setTaxonomyForm((current) => ({ ...current, levelKey: event.target.value, parentId: getDefaultParentId(event.target.value, selectedTaxonomyNodeId) }))}>
+                      <select value={taxonomyForm.levelKey} onChange={(event) => setTaxonomyForm((current) => ({ ...current, levelKey: event.target.value }))}>
                         {levelTypes.map((level) => (
                           <option key={level.id} value={level.levelKey}>{level.displayName}</option>
                         ))}
