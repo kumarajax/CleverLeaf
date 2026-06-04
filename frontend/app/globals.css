@@ -475,6 +475,137 @@ h1 {
   font-size: 12px;
 }
 
+.test-taking-panel {
+  max-width: 980px;
+}
+
+.test-taking-header {
+  align-items: start;
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+  margin-top: 12px;
+}
+
+.test-taking-header h1 {
+  font-size: 32px;
+}
+
+.test-timer {
+  background: #f8fbf7;
+  border: 1px solid #d8e6dc;
+  border-radius: 8px;
+  display: grid;
+  gap: 4px;
+  min-width: 140px;
+  padding: 12px;
+  text-align: right;
+}
+
+.test-timer strong {
+  font-size: 24px;
+}
+
+.test-timer span {
+  color: #5b6d66;
+  font-size: 12px;
+}
+
+.test-timer.urgent {
+  background: #fff0f0;
+  border-color: #d99a9a;
+  color: #9b2929;
+}
+
+.test-question-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 16px;
+}
+
+.question-nav-button {
+  align-items: center;
+  background: #eef5ef;
+  border: 1px solid #c8d8cd;
+  border-radius: 6px;
+  color: #245d3b;
+  cursor: pointer;
+  display: inline-flex;
+  font-weight: 700;
+  height: 34px;
+  justify-content: center;
+  position: relative;
+  width: 34px;
+}
+
+.question-nav-button.active {
+  background: #28633f;
+  color: white;
+}
+
+.question-nav-button span {
+  background: currentColor;
+  border-radius: 50%;
+  bottom: 4px;
+  height: 4px;
+  position: absolute;
+  width: 4px;
+}
+
+.test-question-card {
+  background: #f8fbf7;
+  border: 1px solid #d8e6dc;
+  border-radius: 8px;
+  display: grid;
+  gap: 14px;
+  margin-top: 16px;
+  padding: 16px;
+}
+
+.test-question-card h2 {
+  font-size: 22px;
+  line-height: 1.35;
+  margin: 0;
+}
+
+.test-question-meta {
+  color: #5b6d66;
+  display: flex;
+  font-size: 12px;
+  gap: 10px;
+  justify-content: space-between;
+  text-transform: uppercase;
+}
+
+.test-page-notice {
+  margin-top: 14px;
+}
+
+.test-review-list {
+  display: grid;
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.practice-option.correct-option {
+  border-color: #2f7d4f;
+  box-shadow: inset 0 0 0 1px #2f7d4f;
+}
+
+.test-answer-review {
+  background: white;
+  border: 1px solid #d8e6dc;
+  border-radius: 7px;
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+}
+
+.test-answer-review p {
+  margin: 0;
+}
+
 .dashboard-actions {
   display: flex;
   gap: 12px;
@@ -1173,6 +1304,12 @@ h1 {
   }
   .student-layout {
     grid-template-columns: 1fr;
+  }
+  .test-taking-header {
+    display: grid;
+  }
+  .test-timer {
+    text-align: left;
   }
   .question-list {
     max-height: none;

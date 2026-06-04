@@ -90,6 +90,7 @@ export default function PracticePage() {
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [starting, setStarting] = useState(false);
 
   useEffect(() => {
     const stored = readStoredSession();
@@ -175,13 +176,36 @@ export default function PracticePage() {
     })).filter((group) => group.nodes.length > 0);
   }, [visibleTaxonomies]);
 
-  function prepareTest() {
+  async function startTest() {
     if (!selectedTaxonomy) {
       setError("Select a subject or topic before starting a test.");
       return;
     }
     setError("");
-    setStatus(`Ready to create ${testName.trim() || "Practice Test"} for ${selectedTaxonomy.displayName}. Test-session API is the next backend step.`);
+    setStatus("");
+    setStarting(true);
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/student/tests`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session?.accessToken ?? ""}`,
+        },
+        body: JSON.stringify({
+          taxonomyNodeId: selectedTaxonomy.id,
+          difficulty,
+          questionCount,
+          testName: testName.trim() || `${selectedTaxonomy.displayName} Test`,
+        }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error || body.message || `Request failed with ${response.status}`);
+      router.push(`/practice/tests/${body.attemptId}`);
+    } catch (exception) {
+      setError(exception instanceof Error ? exception.message : "Unable to start test.");
+    } finally {
+      setStarting(false);
+    }
   }
 
   return (
@@ -279,7 +303,9 @@ export default function PracticePage() {
                 </button>
               ))}
             </div>
-            <button type="button" className="primary-button" onClick={prepareTest}>Start test setup</button>
+            <button type="button" className="primary-button" disabled={starting} onClick={startTest}>
+              {starting ? "Starting..." : "Start test"}
+            </button>
           </aside>
         </div>
 
