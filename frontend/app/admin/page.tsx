@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
+import { FormEvent, Fragment, ReactNode, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8081";
@@ -86,6 +86,71 @@ type AdminQuestion = {
   taxonomyAssignments: QuestionTaxonomyAssignment[];
   answers: QuestionAnswer[];
   tags: string[];
+};
+
+type AdminAssignedTestSummary = {
+  testId: string;
+  versionId: string;
+  publicKey: string;
+  name: string;
+  status: string;
+  questionCount: number;
+  timeAllowedSeconds: number;
+  availableFrom?: string | null;
+  availableUntil?: string | null;
+  resultsPublishedAt?: string | null;
+  createdAt: string;
+};
+
+type AdminAssignedTestResult = {
+  assignmentId: string;
+  attemptId?: string | null;
+  studentSubject: string;
+  status: string;
+  assignedAt: string;
+  startedAt?: string | null;
+  submittedAt?: string | null;
+  scorePoints?: number | null;
+  maxPoints: number;
+  attempt?: AdminResultAttempt | null;
+};
+
+type AssignedTestImportJob = {
+  jobId: string;
+  objectKey: string;
+  status: string;
+  totalRows: number;
+  importedRows: number;
+  skippedRows: number;
+  failedRows: number;
+  errorMessage?: string | null;
+  createdAt: string;
+  completedAt?: string | null;
+};
+
+type AssignedTestImportRow = {
+  lineNumber: number;
+  testPublicKey: string;
+  studentSubject: string;
+  status: string;
+  message: string;
+};
+
+type AdminResultQuestion = {
+  attemptQuestionId: string;
+  questionNumber: number;
+  questionType: string;
+  questionText: string;
+  options: QuestionOption[];
+  selectedOptionKeys: string[];
+  answerText?: string | null;
+  correctOptionKeys: string[];
+  correctAnswerText?: string | null;
+  correct?: boolean | null;
+};
+
+type AdminResultAttempt = {
+  questions: AdminResultQuestion[];
 };
 
 type BulkImportColumn = {
@@ -284,6 +349,40 @@ function removeStoredSession() {
   localStorage.removeItem("clearleaf.auth");
 }
 
+function formatDateTime(value?: string | null) {
+  if (!value) return "Not set";
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(value));
+}
+
+function usesQuestionOptions(questionType: string) {
+  return ["SINGLE_SELECT", "MULTIPLE_SELECT", "TRUE_FALSE"].includes(questionType);
+}
+
+function resultOptionText(question: AdminResultQuestion, keys: string[]) {
+  if (!keys.length) return "No answer";
+  return keys
+    .map((key) => {
+      const option = question.options.find((item) => item.key === key);
+      return option ? `${option.key}. ${option.text}` : key;
+    })
+    .join(", ");
+}
+
+function resultSubmittedAnswerText(question: AdminResultQuestion) {
+  return usesQuestionOptions(question.questionType)
+    ? resultOptionText(question, question.selectedOptionKeys ?? [])
+    : question.answerText || "No answer";
+}
+
+function resultCorrectAnswerText(question: AdminResultQuestion) {
+  return usesQuestionOptions(question.questionType)
+    ? resultOptionText(question, question.correctOptionKeys ?? [])
+    : question.correctAnswerText || "Not configured";
+}
+
 function readPage<T>(body: unknown): { content: T[]; page: PageMetadata } {
   if (Array.isArray(body)) {
     return {
@@ -371,11 +470,34 @@ export default function AdminPage() {
   const [importPreviews, setImportPreviews] = useState<Record<string, BulkImportPreviewResponse>>({});
   const [importSummaries, setImportSummaries] = useState<Record<string, BulkImportSummary>>({});
   const [csvError, setCsvError] = useState("");
-  const [activeTab, setActiveTab] = useState<"taxonomy" | "manual" | "import">("taxonomy");
+  const [activeTab, setActiveTab] = useState<"taxonomy" | "manual" | "import" | "tests">("taxonomy");
   const [importTab, setImportTab] = useState<"csv" | "json">("csv");
   const [expandedTaxonomyIds, setExpandedTaxonomyIds] = useState<string[]>([]);
   const [expandedQuestionTaxonomyIds, setExpandedQuestionTaxonomyIds] = useState<string[]>([]);
   const [expandedQuestionIds, setExpandedQuestionIds] = useState<string[]>([]);
+  const [assignedTests, setAssignedTests] = useState<AdminAssignedTestSummary[]>([]);
+  const [assignedTestResults, setAssignedTestResults] = useState<AdminAssignedTestResult[]>([]);
+  const [assignedTestRows, setAssignedTestRows] = useState<AssignedTestImportRow[]>([]);
+  const [selectedAssignedTestVersionId, setSelectedAssignedTestVersionId] = useState("");
+  const [assignedTestImportFile, setAssignedTestImportFile] = useState<File | null>(null);
+  const [assignedTestImportJob, setAssignedTestImportJob] = useState<AssignedTestImportJob | null>(null);
+  const [creatingAssignedTest, setCreatingAssignedTest] = useState(false);
+  const [assignedTestError, setAssignedTestError] = useState("");
+  const [testQuestionResults, setTestQuestionResults] = useState<AdminQuestion[]>([]);
+  const [testQuestionLoading, setTestQuestionLoading] = useState(false);
+  const [testQuestionCursorStack, setTestQuestionCursorStack] = useState<(string | null)[]>([null]);
+  const [testQuestionCursorIndex, setTestQuestionCursorIndex] = useState(0);
+  const [testQuestionNextCursor, setTestQuestionNextCursor] = useState<string | null>(null);
+  const [testQuestionHasNext, setTestQuestionHasNext] = useState(false);
+  const [manualAssignmentStudentSubject, setManualAssignmentStudentSubject] = useState("");
+  const [assignedTestForm, setAssignedTestForm] = useState({
+    publicKey: "",
+    name: "",
+    timeAllowedMinutes: 30,
+    availableFrom: "",
+    availableUntil: "",
+  });
+  const [selectedAssignedQuestionIds, setSelectedAssignedQuestionIds] = useState<string[]>([]);
 
   const currentToken = session?.accessToken ?? "";
   const questionTypes = questionTypeLookups.filter((lookup) => lookup.lookupCode !== "ALL").map((lookup) => lookup.lookupCode);
@@ -463,6 +585,12 @@ export default function AdminPage() {
       questions: byNode.get(node.id) ?? [],
     }));
   }, [groupedQuestions, questionCardNodes]);
+  const selectedAssignedQuestions = useMemo(() => {
+    const byId = new Map([...questions, ...testQuestionResults].map((question) => [question.id, question]));
+    return selectedAssignedQuestionIds
+      .map((id) => byId.get(id))
+      .filter((question): question is AdminQuestion => Boolean(question));
+  }, [questions, testQuestionResults, selectedAssignedQuestionIds]);
 
   function authHeaders(token = currentToken): Record<string, string> {
     return token ? { Authorization: `Bearer ${token}` } : {};
@@ -568,6 +696,221 @@ export default function AdminPage() {
       window.clearTimeout(timeout);
       setQuestionsLoading(false);
     }
+  }
+
+  async function loadAssignedTests(token = currentToken) {
+    const response = await fetch(`${apiBaseUrl}/api/admin/assigned-tests`, {
+      headers: authHeaders(token),
+    });
+    const body = await response.json().catch(() => []);
+    if (!response.ok) {
+      throw new Error(body.error || `Request failed with ${response.status}`);
+    }
+    const rows = Array.isArray(body) ? body : [];
+    setAssignedTests(rows);
+    setSelectedAssignedTestVersionId((current) => current || rows[0]?.versionId || "");
+  }
+
+  function resetTestQuestionCursor() {
+    setTestQuestionCursorStack([null]);
+    setTestQuestionCursorIndex(0);
+    setTestQuestionNextCursor(null);
+    setTestQuestionHasNext(false);
+  }
+
+  async function loadTestQuestionSearch(token = currentToken, cursorIndex = testQuestionCursorIndex, cursorStack = testQuestionCursorStack) {
+    setTestQuestionLoading(true);
+    try {
+      const parameters = new URLSearchParams({
+        size: "50",
+        includeDescendants: "true",
+      });
+      const cursor = cursorStack[cursorIndex];
+      if (cursor) parameters.set("cursor", cursor);
+      if (questionSearch.trim()) parameters.set("search", questionSearch.trim());
+      if (questionNodeFilterId) parameters.set("taxonomyNodeId", questionNodeFilterId);
+      if (questionTypeFilter) parameters.set("questionType", questionTypeFilter);
+      if (questionDifficultyFilter) parameters.set("difficulty", questionDifficultyFilter);
+      if (questionWorkflowFilter) parameters.set("workflowStatus", questionWorkflowFilter);
+      const response = await fetch(`${apiBaseUrl}/api/admin/questions/cursor?${parameters.toString()}`, {
+        headers: authHeaders(token),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(body.error || `Request failed with ${response.status}`);
+      }
+      const result = body as CursorPage<AdminQuestion>;
+      const nextStack = result.nextCursor
+        ? [...cursorStack.slice(0, cursorIndex + 1), result.nextCursor]
+        : cursorStack.slice(0, cursorIndex + 1);
+      setTestQuestionResults(result.content ?? []);
+      setTestQuestionCursorStack(nextStack);
+      setTestQuestionCursorIndex(cursorIndex);
+      setTestQuestionNextCursor(result.nextCursor);
+      setTestQuestionHasNext(result.hasNext);
+    } finally {
+      setTestQuestionLoading(false);
+    }
+  }
+
+  function loadTestQuestionPage(cursorIndex: number) {
+    const nextIndex = Math.max(0, cursorIndex);
+    setTestQuestionCursorIndex(nextIndex);
+    loadTestQuestionSearch(currentToken, nextIndex, testQuestionCursorStack).catch((exception) =>
+      setAssignedTestError(exception instanceof Error ? exception.message : "Unable to search questions.")
+    );
+  }
+
+  async function loadAssignedTestResults(versionId = selectedAssignedTestVersionId) {
+    if (!versionId) {
+      setAssignedTestResults([]);
+      return;
+    }
+    const response = await fetch(`${apiBaseUrl}/api/admin/assigned-tests/${versionId}/results`, {
+      headers: authHeaders(),
+    });
+    const body = await response.json().catch(() => []);
+    if (!response.ok) {
+      throw new Error(body.error || `Request failed with ${response.status}`);
+    }
+    setAssignedTestResults(Array.isArray(body) ? body : []);
+  }
+
+  async function createAssignedTest(event: FormEvent) {
+    event.preventDefault();
+    setAssignedTestError("");
+    if (selectedAssignedQuestionIds.length === 0) {
+      setAssignedTestError("Select at least one question before creating the test.");
+      return;
+    }
+    setCreatingAssignedTest(true);
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/admin/assigned-tests`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeaders(),
+        },
+        body: JSON.stringify({
+          publicKey: assignedTestForm.publicKey,
+          name: assignedTestForm.name,
+          timeAllowedSeconds: Math.max(1, assignedTestForm.timeAllowedMinutes) * 60,
+          availableFrom: assignedTestForm.availableFrom ? new Date(assignedTestForm.availableFrom).toISOString() : null,
+          availableUntil: assignedTestForm.availableUntil ? new Date(assignedTestForm.availableUntil).toISOString() : null,
+          questionIds: selectedAssignedQuestionIds,
+        }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(body.error || `Request failed with ${response.status}`);
+      }
+      setStatus("Assigned test created.");
+      setAssignedTestForm({ publicKey: "", name: "", timeAllowedMinutes: 30, availableFrom: "", availableUntil: "" });
+      setSelectedAssignedQuestionIds([]);
+      await loadAssignedTests();
+    } catch (exception) {
+      setAssignedTestError(exception instanceof Error ? exception.message : "Unable to create assigned test.");
+    } finally {
+      setCreatingAssignedTest(false);
+    }
+  }
+
+  function toggleAssignedQuestion(questionId: string) {
+    setSelectedAssignedQuestionIds((current) => (
+      current.includes(questionId)
+        ? current.filter((id) => id !== questionId)
+        : [...current, questionId]
+    ));
+  }
+
+  async function importAssignedTestAssignments() {
+    if (!assignedTestImportFile) return;
+    setAssignedTestError("");
+    const formData = new FormData();
+    formData.append("file", assignedTestImportFile);
+    const uploadResponse = await fetch(`${apiBaseUrl}/api/admin/media/upload`, {
+      method: "POST",
+      headers: authHeaders(),
+      body: formData,
+    });
+    const uploadBody = await uploadResponse.json().catch(() => ({}));
+    if (!uploadResponse.ok) {
+      throw new Error(uploadBody.error || `Request failed with ${uploadResponse.status}`);
+    }
+    const importResponse = await fetch(`${apiBaseUrl}/api/admin/assigned-tests/assignment-imports?objectKey=${encodeURIComponent(uploadBody.objectKey)}`, {
+      method: "POST",
+      headers: authHeaders(),
+    });
+    const importBody = await importResponse.json().catch(() => ({}));
+    if (!importResponse.ok) {
+      throw new Error(importBody.error || `Request failed with ${importResponse.status}`);
+    }
+    setAssignedTestImportJob(importBody);
+    setStatus("Assignment import started.");
+  }
+
+  async function refreshAssignedTestImportJob() {
+    if (!assignedTestImportJob) return;
+    const jobResponse = await fetch(`${apiBaseUrl}/api/admin/assigned-tests/assignment-imports/${assignedTestImportJob.jobId}`, {
+      headers: authHeaders(),
+    });
+    const jobBody = await jobResponse.json().catch(() => ({}));
+    if (!jobResponse.ok) {
+      throw new Error(jobBody.error || `Request failed with ${jobResponse.status}`);
+    }
+    setAssignedTestImportJob(jobBody);
+    const rowsResponse = await fetch(`${apiBaseUrl}/api/admin/assigned-tests/assignment-imports/${assignedTestImportJob.jobId}/rows`, {
+      headers: authHeaders(),
+    });
+    const rowsBody = await rowsResponse.json().catch(() => []);
+    if (!rowsResponse.ok) {
+      throw new Error(rowsBody.error || `Request failed with ${rowsResponse.status}`);
+    }
+    setAssignedTestRows(Array.isArray(rowsBody) ? rowsBody : []);
+    await loadAssignedTests();
+    if (selectedAssignedTestVersionId) await loadAssignedTestResults(selectedAssignedTestVersionId);
+  }
+
+  async function assignTestToStudent() {
+    if (!selectedAssignedTestVersionId) {
+      setAssignedTestError("Select a test before assigning it.");
+      return;
+    }
+    if (!manualAssignmentStudentSubject.trim()) {
+      setAssignedTestError("Student subject is required.");
+      return;
+    }
+    setAssignedTestError("");
+    const response = await fetch(`${apiBaseUrl}/api/admin/assigned-tests/${selectedAssignedTestVersionId}/assignments`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeaders(),
+      },
+      body: JSON.stringify({ studentSubject: manualAssignmentStudentSubject.trim() }),
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(body.error || `Request failed with ${response.status}`);
+    }
+    setManualAssignmentStudentSubject("");
+    setStatus("Test assigned to student.");
+    await loadAssignedTestResults(selectedAssignedTestVersionId);
+  }
+
+  async function publishAssignedTestResults(versionId = selectedAssignedTestVersionId) {
+    if (!versionId) return;
+    setAssignedTestError("");
+    const response = await fetch(`${apiBaseUrl}/api/admin/assigned-tests/${versionId}/publish-results`, {
+      method: "POST",
+      headers: authHeaders(),
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(body.error || `Request failed with ${response.status}`);
+    }
+    setStatus("Results published.");
+    await Promise.all([loadAssignedTests(), loadAssignedTestResults(versionId)]);
   }
 
   function loadQuestionCardPage(taxonomyNodeId: string, cursorIndex: number) {
@@ -698,6 +1041,25 @@ export default function AdminPage() {
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, currentToken, questionCursorIndex, questionNodeFilterId, selectedTaxonomyNodeId, questionTypeFilter, questionDifficultyFilter, questionWorkflowFilter]);
+
+  useEffect(() => {
+    if (activeTab !== "tests" || !currentToken) return;
+    Promise.all([
+      loadAssignedTests(currentToken),
+      loadTestQuestionSearch(currentToken, testQuestionCursorIndex, testQuestionCursorStack),
+    ]).catch((exception) =>
+      setAssignedTestError(exception instanceof Error ? exception.message : "Unable to load assigned test data.")
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, currentToken, questionSearch, questionNodeFilterId, questionTypeFilter, questionDifficultyFilter, questionWorkflowFilter]);
+
+  useEffect(() => {
+    if (activeTab !== "tests" || !selectedAssignedTestVersionId) return;
+    loadAssignedTestResults(selectedAssignedTestVersionId).catch((exception) =>
+      setAssignedTestError(exception instanceof Error ? exception.message : "Unable to load assigned test results.")
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, selectedAssignedTestVersionId]);
 
   useEffect(() => {
     if (activeTab !== "import" || !currentToken || importMetadata.length > 0) return;
@@ -1302,14 +1664,15 @@ export default function AdminPage() {
     <main className="admin-shell">
       <section className="admin-panel">
         <div className="admin-topbar">
+          <a className="secondary-button compact-button admin-action-button" href="/dashboard">Dashboard</a>
           <div className="admin-topbar-actions">
-            <a className="secondary-button compact-button admin-action-button" href="/dashboard">Dashboard</a>
             <button type="button" className="secondary-button compact-button admin-action-button" onClick={signOut}>Log out</button>
           </div>
         </div>
         <div className="account-tabs">
           <button type="button" className={activeTab === "taxonomy" ? "tab active" : "tab"} onClick={() => setActiveTab("taxonomy")}>Taxonomy</button>
           <button type="button" className={activeTab === "manual" ? "tab active" : "tab"} onClick={() => setActiveTab("manual")}>Manual question</button>
+          <button type="button" className={activeTab === "tests" ? "tab active" : "tab"} onClick={() => setActiveTab("tests")}>Tests</button>
           <button type="button" className={activeTab === "import" ? "tab active" : "tab"} onClick={() => {
             setActiveTab("import");
             setImportTab("csv");
@@ -1785,6 +2148,298 @@ export default function AdminPage() {
               </div>
             </div>
             ) : null}
+          </section>
+        ) : null}
+
+        {activeTab === "tests" ? (
+          <section className="section">
+            <div className="section-header">
+              <h2>Assigned tests</h2>
+              <p>Create a fixed test from existing questions, then assign it to students by CSV.</p>
+            </div>
+
+            {assignedTestError ? <p className="notice error">{assignedTestError}</p> : null}
+
+            <form className="card account-form" onSubmit={createAssignedTest}>
+              <div className="section-header compact-section-header">
+                <h3>Create assigned test</h3>
+                <p>{selectedAssignedQuestionIds.length} selected question(s)</p>
+              </div>
+              <div className="form-grid">
+                <label>
+                  Test public key
+                  <input
+                    value={assignedTestForm.publicKey}
+                    onChange={(event) => setAssignedTestForm((current) => ({ ...current, publicKey: event.target.value.toUpperCase() }))}
+                    placeholder="GRADE5_MATH_TEST_001"
+                    required
+                  />
+                </label>
+                <label>
+                  Test name
+                  <input
+                    value={assignedTestForm.name}
+                    onChange={(event) => setAssignedTestForm((current) => ({ ...current, name: event.target.value }))}
+                    placeholder="Grade 5 Maths Baseline"
+                    required
+                  />
+                </label>
+                <label>
+                  Time allowed (minutes)
+                  <input
+                    type="number"
+                    min="1"
+                    value={assignedTestForm.timeAllowedMinutes}
+                    onChange={(event) => setAssignedTestForm((current) => ({ ...current, timeAllowedMinutes: Number(event.target.value) }))}
+                  />
+                </label>
+                <label>
+                  Available from
+                  <input
+                    type="datetime-local"
+                    value={assignedTestForm.availableFrom}
+                    onChange={(event) => setAssignedTestForm((current) => ({ ...current, availableFrom: event.target.value }))}
+                  />
+                </label>
+                <label>
+                  Available until
+                  <input
+                    type="datetime-local"
+                    value={assignedTestForm.availableUntil}
+                    onChange={(event) => setAssignedTestForm((current) => ({ ...current, availableUntil: event.target.value }))}
+                  />
+                </label>
+              </div>
+              <div className="dashboard-actions">
+                <button type="submit" className="primary-button compact-button" disabled={creatingAssignedTest}>
+                  {creatingAssignedTest ? "Creating..." : "Create test"}
+                </button>
+                <button type="button" className="secondary-button compact-button" onClick={() => setSelectedAssignedQuestionIds([])}>Clear selected</button>
+              </div>
+              {selectedAssignedQuestions.length > 0 ? (
+                <div className="selected-question-list">
+                  {selectedAssignedQuestions.map((question, index) => (
+                    <span key={question.id}>{index + 1}. {question.questionText}</span>
+                  ))}
+                </div>
+              ) : null}
+            </form>
+
+            <div className="dashboard-actions">
+              <label className="inline-select">
+                Search
+                <input value={questionSearch} onChange={(event) => {
+                  resetTestQuestionCursor();
+                  setQuestionSearch(event.target.value);
+                }} placeholder="Search questions" />
+              </label>
+              <label className="inline-select">
+                Node filter
+                <select value={questionNodeFilterId} onChange={(event) => {
+                  resetTestQuestionCursor();
+                  setQuestionNodeFilterId(event.target.value);
+                }}>
+                  <option value="">All active taxonomy</option>
+                  {[...allNodes]
+                    .filter((node) => isActiveTaxonomyBranch(node.id))
+                    .sort((left, right) => left.displayName.localeCompare(right.displayName))
+                    .map((node) => (
+                    <option key={node.id} value={node.id}>{node.displayName}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="inline-select">
+                Difficulty
+                <select value={questionDifficultyFilter} onChange={(event) => {
+                  resetTestQuestionCursor();
+                  setQuestionDifficultyFilter(event.target.value);
+                }}>
+                  {difficultyLookups.map((lookup) => <option key={lookup.id} value={lookup.lookupCode === "ALL" ? "" : lookup.lookupCode}>{lookup.lookupMeaning}</option>)}
+                </select>
+              </label>
+              <label className="inline-select">
+                Workflow
+                <select value={questionWorkflowFilter} onChange={(event) => {
+                  resetTestQuestionCursor();
+                  setQuestionWorkflowFilter(event.target.value);
+                }}>
+                  {workflowStatusLookups.map((lookup) => <option key={lookup.id} value={lookup.lookupCode === "ALL" ? "" : lookup.lookupCode}>{lookup.lookupMeaning}</option>)}
+                </select>
+              </label>
+            </div>
+
+            <div className="card table-card">
+              <h3>Pick questions</h3>
+              {testQuestionLoading ? <p className="muted">Searching questions...</p> : null}
+              <div className="question-list">
+                {testQuestionResults.map((question) => (
+                  <label className="question-row-card selectable-question-row" key={question.id}>
+                    <input
+                      type="checkbox"
+                      checked={selectedAssignedQuestionIds.includes(question.id)}
+                      onChange={() => toggleAssignedQuestion(question.id)}
+                    />
+                    <span>
+                      <span className="question-summary-text">{question.questionText}</span>
+                      <small>{question.taxonomyNodeLabel}</small>
+                    </span>
+                    <small>{question.difficulty} | {question.questionType}</small>
+                  </label>
+                ))}
+                {!testQuestionLoading && testQuestionResults.length === 0 ? (
+                  <p className="notice warning">No matching questions found.</p>
+                ) : null}
+              </div>
+              <div className="pagination-bar">
+                <span>Page {testQuestionCursorIndex + 1}</span>
+                <div className="pagination-actions">
+                  <button type="button" className="secondary-button compact-button" disabled={testQuestionCursorIndex <= 0 || testQuestionLoading} onClick={() => loadTestQuestionPage(testQuestionCursorIndex - 1)}>Previous</button>
+                  <button type="button" className="secondary-button compact-button" disabled={!testQuestionHasNext || !testQuestionNextCursor || testQuestionLoading} onClick={() => loadTestQuestionPage(testQuestionCursorIndex + 1)}>Next</button>
+                </div>
+              </div>
+            </div>
+
+            <div className="card import-step-card">
+              <div className="section-header compact-section-header">
+                <h3>Assign tests</h3>
+                <p>Assign one student manually, or use CSV for bulk assignments.</p>
+              </div>
+              <div className="dashboard-actions import-actions">
+                <label className="inline-select">
+                  Test
+                  <select value={selectedAssignedTestVersionId} onChange={(event) => setSelectedAssignedTestVersionId(event.target.value)}>
+                    <option value="">Select test</option>
+                    {assignedTests.map((test) => (
+                      <option key={test.versionId} value={test.versionId}>{test.publicKey} - {test.name}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="inline-select">
+                  Student email, username, or subject
+                  <input
+                    value={manualAssignmentStudentSubject}
+                    onChange={(event) => setManualAssignmentStudentSubject(event.target.value)}
+                    placeholder="r@g"
+                  />
+                </label>
+                <button
+                  type="button"
+                  className="primary-button compact-button"
+                  onClick={() => assignTestToStudent().catch((exception) => setAssignedTestError(exception instanceof Error ? exception.message : "Unable to assign test."))}
+                >
+                  Assign student
+                </button>
+              </div>
+              <div className="section-header compact-section-header">
+                <h3>Bulk assignment CSV</h3>
+                <p>CSV columns: TestPublicKey, StudentSubject</p>
+              </div>
+              <div className="dashboard-actions import-actions">
+                <button type="button" className="secondary-button compact-button" onClick={() => {
+                  const blob = new Blob(["TestPublicKey,StudentSubject\nGRADE5_MATH_TEST_001,keycloak-user-subject\n"], { type: "text/csv;charset=utf-8" });
+                  const url = URL.createObjectURL(blob);
+                  const anchor = document.createElement("a");
+                  anchor.href = url;
+                  anchor.download = "assigned-test-assignments-template.csv";
+                  anchor.click();
+                  URL.revokeObjectURL(url);
+                }}>Template</button>
+                <label className="file-drop compact-file-drop">
+                  Choose CSV
+                  <input type="file" accept=".csv,text/csv" onChange={(event) => setAssignedTestImportFile(event.target.files?.[0] ?? null)} />
+                </label>
+                {assignedTestImportFile ? <span className="muted selected-file-name">{assignedTestImportFile.name}</span> : null}
+                {assignedTestImportFile ? (
+                  <button type="button" className="primary-button compact-button" onClick={() => importAssignedTestAssignments().catch((exception) => setAssignedTestError(exception instanceof Error ? exception.message : "Unable to start assignment import."))}>
+                    Upload and import
+                  </button>
+                ) : null}
+                {assignedTestImportJob ? (
+                  <button type="button" className="secondary-button compact-button" onClick={() => refreshAssignedTestImportJob().catch((exception) => setAssignedTestError(exception instanceof Error ? exception.message : "Unable to refresh import job."))}>
+                    Refresh job
+                  </button>
+                ) : null}
+              </div>
+              {assignedTestImportJob ? (
+                <p className="notice success">
+                  Job {assignedTestImportJob.status}: {assignedTestImportJob.importedRows} imported, {assignedTestImportJob.skippedRows} skipped, {assignedTestImportJob.failedRows} failed.
+                </p>
+              ) : null}
+              {assignedTestRows.length > 0 ? (
+                <div className="table-wrap">
+                  <table className="data-table">
+                    <thead><tr><th>Line</th><th>Test</th><th>Student</th><th>Status</th><th>Message</th></tr></thead>
+                    <tbody>
+                      {assignedTestRows.slice(0, 50).map((row) => (
+                        <tr key={`${row.lineNumber}-${row.studentSubject}`}>
+                          <td>{row.lineNumber}</td>
+                          <td>{row.testPublicKey}</td>
+                          <td>{row.studentSubject}</td>
+                          <td>{row.status}</td>
+                          <td>{row.message}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : null}
+            </div>
+
+            <div className="card table-card">
+              <div className="section-header compact-section-header">
+                <h3>Tests and results</h3>
+              </div>
+              <div className="dashboard-actions">
+                <label className="inline-select">
+                  Test
+                  <select value={selectedAssignedTestVersionId} onChange={(event) => setSelectedAssignedTestVersionId(event.target.value)}>
+                    <option value="">Select test</option>
+                    {assignedTests.map((test) => (
+                      <option key={test.versionId} value={test.versionId}>{test.publicKey} - {test.name}</option>
+                    ))}
+                  </select>
+                </label>
+                <button type="button" className="secondary-button compact-button" onClick={() => loadAssignedTests().catch((exception) => setAssignedTestError(exception instanceof Error ? exception.message : "Unable to load tests."))}>Refresh</button>
+                <button type="button" className="primary-button compact-button" disabled={!selectedAssignedTestVersionId} onClick={() => publishAssignedTestResults().catch((exception) => setAssignedTestError(exception instanceof Error ? exception.message : "Unable to publish results."))}>Publish results</button>
+              </div>
+              <div className="table-wrap">
+                <table className="data-table">
+                  <thead><tr><th>Student</th><th>Status</th><th>Assigned</th><th>Submitted</th><th>Score</th></tr></thead>
+                  <tbody>
+                    {assignedTestResults.map((result) => (
+                      <Fragment key={result.assignmentId}>
+                        <tr>
+                          <td>{result.studentSubject}</td>
+                          <td>{result.status}</td>
+                          <td>{formatDateTime(result.assignedAt)}</td>
+                          <td>{formatDateTime(result.submittedAt)}</td>
+                          <td>{result.scorePoints ?? 0} / {result.maxPoints}</td>
+                        </tr>
+                        {result.attempt?.questions?.length ? (
+                          <tr key={`${result.assignmentId}-review`}>
+                            <td colSpan={5}>
+                              <div className="admin-result-review">
+                                {result.attempt.questions.map((question) => (
+                                  <div key={question.attemptQuestionId} className="admin-result-question">
+                                    <strong>{question.questionNumber}. {question.questionText}</strong>
+                                    <span>Your answer: {resultSubmittedAnswerText(question)}</span>
+                                    <span>Correct answer: {resultCorrectAnswerText(question)}</span>
+                                    <span>{question.correct ? "Correct" : "Incorrect"}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </td>
+                          </tr>
+                        ) : null}
+                      </Fragment>
+                    ))}
+                    {assignedTestResults.length === 0 ? (
+                      <tr><td colSpan={5}>No assignments or results for this test yet.</td></tr>
+                    ) : null}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </section>
         ) : null}
 

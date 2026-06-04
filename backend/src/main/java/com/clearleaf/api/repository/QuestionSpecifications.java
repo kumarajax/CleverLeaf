@@ -22,6 +22,12 @@ public final class QuestionSpecifications {
         return equal("workflowStatus", value);
     }
 
+    public static Specification<QuestionEntity> textSearch(String value) {
+        return (root, query, criteriaBuilder) -> value == null || value.isBlank()
+                ? criteriaBuilder.conjunction()
+                : criteriaBuilder.like(criteriaBuilder.lower(root.get("questionText")), "%" + value.trim().toLowerCase() + "%");
+    }
+
     public static Specification<QuestionEntity> assignedToAny(Collection<UUID> taxonomyNodeIds) {
         return (root, query, criteriaBuilder) -> {
             query.distinct(true);

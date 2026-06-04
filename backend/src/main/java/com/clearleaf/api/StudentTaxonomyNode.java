@@ -10,5 +10,6 @@ public record StudentTaxonomyNode(
         String displayName,
         String levelKey,
         String gradeLabel,
-        String path) {
+        String path,
+        long questionCount) {
 }

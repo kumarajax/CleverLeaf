@@ -24,6 +24,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class TaxonomyService {
+    private static final Set<String> TESTABLE_WORKFLOW_STATUSES = Set.of("ACTIVE", "READY_FOR_TEST", "PRACTICE");
+
     private final LookupRepository lookups;
     private final TaxonomyNodeRepository nodes;
     private final TaxonomyEditionStateRepository editionStates;
@@ -72,6 +74,7 @@ public class TaxonomyService {
         return nodes.findAll(statusSpecification("ACTIVE"), Sort.by(Sort.Order.asc("sortOrder"), Sort.Order.asc("displayName")))
                 .stream()
                 .map(this::toStudentNode)
+                .filter(node -> node.questionCount() > 0)
                 .filter(node -> normalizedQuery.isBlank() || matchesStudentQuery(node, normalizedQuery))
                 .sorted(java.util.Comparator
                         .comparing((StudentTaxonomyNode node) -> node.gradeLabel() == null ? "" : node.gradeLabel())
@@ -409,7 +412,26 @@ public class TaxonomyService {
                 entity.getDisplayName(),
                 levelCode(entity),
                 gradeLabel(entity),
-                taxonomyPath(entity));
+                taxonomyPath(entity),
+                questions.countTestableByTaxonomyNodeIds(descendantIds(entity.getId()), TESTABLE_WORKFLOW_STATUSES));
+    }
+
+    private List<UUID> descendantIds(UUID rootId) {
+        Deque<UUID> queue = new ArrayDeque<>();
+        List<UUID> result = new java.util.ArrayList<>();
+        Set<UUID> visited = new java.util.HashSet<>();
+        queue.add(rootId);
+        while (!queue.isEmpty()) {
+            UUID currentId = queue.removeFirst();
+            if (!visited.add(currentId)) {
+                continue;
+            }
+            result.add(currentId);
+            for (TaxonomyNodeEntity child : nodes.findByParentNode_IdOrderBySortOrderAscDisplayNameAsc(currentId)) {
+                queue.addLast(child.getId());
+            }
+        }
+        return result;
     }
 
     private String levelCode(TaxonomyNodeEntity node) {

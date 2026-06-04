@@ -38,4 +38,18 @@ public interface QuestionRepository extends JpaRepository<QuestionEntity, UUID>,
             @Param("difficulty") String difficulty,
             @Param("workflowStatuses") Collection<String> workflowStatuses,
             Pageable pageable);
+
+    @Query("""
+            select count(distinct question.id)
+            from QuestionEntity question
+            where exists (
+                select 1
+                from question.taxonomyAssignments assignment
+                where assignment.taxonomyNode.id in :taxonomyNodeIds
+            )
+              and upper(question.workflowStatus) in :workflowStatuses
+            """)
+    long countTestableByTaxonomyNodeIds(
+            @Param("taxonomyNodeIds") Collection<UUID> taxonomyNodeIds,
+            @Param("workflowStatuses") Collection<String> workflowStatuses);
 }

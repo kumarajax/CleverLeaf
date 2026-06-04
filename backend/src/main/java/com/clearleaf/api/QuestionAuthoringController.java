@@ -39,9 +39,10 @@ public class QuestionAuthoringController {
             @RequestParam(value = "subjectId", required = false) UUID subjectId,
             @RequestParam(value = "chapterId", required = false) UUID chapterId,
             @RequestParam(value = "topicId", required = false) UUID topicId,
+            @RequestParam(value = "search", required = false) String search,
             @PageableDefault(sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
         return questions.list(new QuestionSearchCriteria(questionType, difficulty, workflowStatus,
-                taxonomyNodeId, includeDescendants, curriculumId, editionId, gradeId, subjectId, chapterId, topicId), pageable);
+                taxonomyNodeId, includeDescendants, curriculumId, editionId, gradeId, subjectId, chapterId, topicId, search), pageable);
     }
 
     @GetMapping("/cursor")
@@ -57,10 +58,11 @@ public class QuestionAuthoringController {
             @RequestParam(value = "subjectId", required = false) UUID subjectId,
             @RequestParam(value = "chapterId", required = false) UUID chapterId,
             @RequestParam(value = "topicId", required = false) UUID topicId,
+            @RequestParam(value = "search", required = false) String search,
             @RequestParam(value = "cursor", required = false) String cursor,
             @RequestParam(value = "size", defaultValue = "25") int size) {
         return questions.listCursor(new QuestionSearchCriteria(questionType, difficulty, workflowStatus,
-                taxonomyNodeId, includeDescendants, curriculumId, editionId, gradeId, subjectId, chapterId, topicId),
+                taxonomyNodeId, includeDescendants, curriculumId, editionId, gradeId, subjectId, chapterId, topicId, search),
                 cursor, size);
     }
 

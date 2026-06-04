@@ -26,6 +26,7 @@ type StudentTaxonomyNode = {
   levelKey: string;
   gradeLabel: string;
   path: string;
+  questionCount: number;
 };
 
 type Difficulty = "EASY" | "MEDIUM" | "HARD";
@@ -211,7 +212,7 @@ export default function PracticePage() {
   return (
     <main className="student-shell">
       <section className="student-panel">
-        <a className="back-link" href="/dashboard">&lt;- Back to dashboard</a>
+        <a className="secondary-button compact-button page-nav-button" href="/dashboard">Dashboard</a>
         <div className="student-header">
           <div>
             <div className="eyebrow">Student test center</div>
@@ -261,6 +262,7 @@ export default function PracticePage() {
                           <small>{node.levelKey}</small>
                         </span>
                         <span>{node.path}</span>
+                        <span>{node.questionCount} available question(s)</span>
                       </button>
                     ))}
                   </div>

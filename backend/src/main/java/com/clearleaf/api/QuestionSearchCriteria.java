@@ -15,7 +15,8 @@ public record QuestionSearchCriteria(
         UUID gradeId,
         UUID subjectId,
         UUID chapterId,
-        UUID topicId) {
+        UUID topicId,
+        String search) {
 
     public List<UUID> pedigreeNodeIds() {
         return Stream.of(curriculumId, editionId, gradeId, subjectId, chapterId, topicId)

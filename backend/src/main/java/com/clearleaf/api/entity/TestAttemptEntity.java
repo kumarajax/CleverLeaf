@@ -54,6 +54,13 @@ public class TestAttemptEntity {
     @Column(name = "max_points", nullable = false)
     private int maxPoints;
 
+    @Column(name = "source_type", nullable = false, length = 32)
+    private String sourceType = "RANDOM";
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "assignment_id")
+    private AssignedTestAssignmentEntity assignment;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -98,5 +105,9 @@ public class TestAttemptEntity {
     public void setScorePoints(Integer scorePoints) { this.scorePoints = scorePoints; }
     public int getMaxPoints() { return maxPoints; }
     public void setMaxPoints(int maxPoints) { this.maxPoints = maxPoints; }
+    public String getSourceType() { return sourceType; }
+    public void setSourceType(String sourceType) { this.sourceType = sourceType; }
+    public AssignedTestAssignmentEntity getAssignment() { return assignment; }
+    public void setAssignment(AssignedTestAssignmentEntity assignment) { this.assignment = assignment; }
     public List<TestAttemptQuestionEntity> getQuestions() { return questions; }
 }

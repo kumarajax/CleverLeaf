@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
 type Session = {
@@ -45,7 +45,7 @@ type StudentTestAttempt = {
   scorePoints?: number | null;
   maxPoints: number;
   navigation: StudentTestNavigationItem[];
-  currentQuestion: StudentTestQuestion;
+  currentQuestion?: StudentTestQuestion | null;
   questions: StudentTestQuestion[];
 };
 
@@ -86,8 +86,8 @@ function correctAnswerText(question: StudentTestQuestion) {
   return usesOptions(question.questionType) ? optionText(question, question.correctOptionKeys ?? []) : question.correctAnswerText || "Not configured";
 }
 
-export default function StudentTestPage() {
-  const params = useParams<{ attemptId: string }>();
+export default function AssignedTestPage() {
+  const params = useParams<{ assignmentId: string }>();
   const router = useRouter();
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8081";
   const [session, setSession] = useState<Session | null>(null);
@@ -99,7 +99,6 @@ export default function StudentTestPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [questionSubmitted, setQuestionSubmitted] = useState(false);
   const answerTextSaveTimeout = useRef<number | null>(null);
 
   useEffect(() => {
@@ -122,10 +121,10 @@ export default function StudentTestPage() {
   }, [router]);
 
   useEffect(() => {
-    if (!session?.accessToken || !params.attemptId) return;
+    if (!session?.accessToken || !params.assignmentId) return;
     loadAttempt();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session?.accessToken, params.attemptId]);
+  }, [session?.accessToken, params.assignmentId]);
 
   useEffect(() => {
     if (!attempt) return;
@@ -143,15 +142,10 @@ export default function StudentTestPage() {
     if (!currentQuestion) return;
     setSelectedOptionKeys(currentQuestion.selectedOptionKeys ?? []);
     setAnswerText(currentQuestion.answerText ?? "");
-    setQuestionSubmitted(currentQuestion.correct != null);
   }, [currentQuestion]);
 
   const submitted = attempt?.status === "SUBMITTED";
-  const currentNavigation = useMemo(() => {
-    if (!attempt || !currentQuestion) return null;
-    return attempt.navigation.find((item) => item.attemptQuestionId === currentQuestion.attemptQuestionId) ?? null;
-  }, [attempt, currentQuestion]);
-
+  const hasPublishedReview = submitted && Boolean(attempt?.questions?.length);
   async function request(path: string, init?: RequestInit) {
     const response = await fetch(`${apiBaseUrl}${path}`, {
       ...init,
@@ -170,24 +164,23 @@ export default function StudentTestPage() {
     setLoading(true);
     setError("");
     try {
-      const body = await request(`/api/student/tests/${params.attemptId}`);
+      const body = await request(`/api/student/assigned-tests/${params.assignmentId}`);
       setAttempt(body);
-      setCurrentQuestion(body.currentQuestion);
+      setCurrentQuestion(body.currentQuestion ?? body.questions?.[0] ?? null);
     } catch (exception) {
-      setError(exception instanceof Error ? exception.message : "Unable to load test.");
+      setError(exception instanceof Error ? exception.message : "Unable to load assigned test.");
     } finally {
       setLoading(false);
     }
   }
 
   async function loadQuestion(attemptQuestionId: string) {
-    if (!attempt) return;
     setLoading(true);
     setError("");
     try {
-      const question = await request(`/api/student/tests/${attempt.attemptId}/questions/${attemptQuestionId}`);
+      const question = await request(`/api/student/assigned-tests/${params.assignmentId}/questions/${attemptQuestionId}`);
       setCurrentQuestion(question);
-      const refreshed = await request(`/api/student/tests/${attempt.attemptId}`);
+      const refreshed = await request(`/api/student/assigned-tests/${params.assignmentId}`);
       setAttempt(refreshed);
     } catch (exception) {
       setError(exception instanceof Error ? exception.message : "Unable to load question.");
@@ -197,18 +190,18 @@ export default function StudentTestPage() {
   }
 
   async function saveAnswer(nextSelectedOptionKeys = selectedOptionKeys, nextAnswerText = answerText) {
-    if (!attempt || !currentQuestion || submitted || questionSubmitted || remainingSeconds <= 0) return;
+    if (!attempt || !currentQuestion || submitted || remainingSeconds <= 0) return;
     setSaving(true);
     setError("");
     try {
-      await request(`/api/student/tests/${attempt.attemptId}/questions/${currentQuestion.attemptQuestionId}/answer`, {
+      await request(`/api/student/assigned-tests/${params.assignmentId}/questions/${currentQuestion.attemptQuestionId}/answer`, {
         method: "PUT",
         body: JSON.stringify({
           selectedOptionKeys: nextSelectedOptionKeys,
           answerText: nextAnswerText,
         }),
       });
-      const refreshed = await request(`/api/student/tests/${attempt.attemptId}`);
+      const refreshed = await request(`/api/student/assigned-tests/${params.assignmentId}`);
       setAttempt(refreshed);
     } catch (exception) {
       setError(exception instanceof Error ? exception.message : "Unable to save answer.");
@@ -218,38 +211,14 @@ export default function StudentTestPage() {
   }
 
   async function submitTest() {
-    if (!attempt) return;
     setLoading(true);
     setError("");
     try {
-      const body = await request(`/api/student/tests/${attempt.attemptId}/submit`, { method: "POST" });
+      const body = await request(`/api/student/assigned-tests/${params.assignmentId}/submit`, { method: "POST" });
       setAttempt(body);
-      setCurrentQuestion(body.currentQuestion);
+      setCurrentQuestion(body.currentQuestion ?? null);
     } catch (exception) {
-      setError(exception instanceof Error ? exception.message : "Unable to submit test.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function submitCurrentQuestion() {
-    if (!attempt || !currentQuestion || submitted) return;
-    setLoading(true);
-    setError("");
-    try {
-      const question = await request(`/api/student/tests/${attempt.attemptId}/questions/${currentQuestion.attemptQuestionId}/submit`, {
-        method: "POST",
-        body: JSON.stringify({
-          selectedOptionKeys,
-          answerText,
-        }),
-      });
-      setCurrentQuestion(question);
-      setQuestionSubmitted(true);
-      const refreshed = await request(`/api/student/tests/${attempt.attemptId}`);
-      setAttempt(refreshed);
-    } catch (exception) {
-      setError(exception instanceof Error ? exception.message : "Unable to submit answer.");
+      setError(exception instanceof Error ? exception.message : "Unable to submit assigned test.");
     } finally {
       setLoading(false);
     }
@@ -262,19 +231,11 @@ export default function StudentTestPage() {
     return attempt.navigation[currentIndex + 1].attemptQuestionId;
   }
 
-  function nextQuestion() {
-    const nextId = nextQuestionId();
-    if (nextId) loadQuestion(nextId);
-  }
-
   function toggleOption(key: string) {
-    if (!currentQuestion || submitted || questionSubmitted) return;
-    let nextKeys: string[];
-    if (currentQuestion.questionType === "MULTIPLE_SELECT") {
-      nextKeys = selectedOptionKeys.includes(key) ? selectedOptionKeys.filter((value) => value !== key) : [...selectedOptionKeys, key];
-    } else {
-      nextKeys = [key];
-    }
+    if (!currentQuestion || submitted) return;
+    const nextKeys = currentQuestion.questionType === "MULTIPLE_SELECT"
+      ? (selectedOptionKeys.includes(key) ? selectedOptionKeys.filter((value) => value !== key) : [...selectedOptionKeys, key])
+      : [key];
     setSelectedOptionKeys(nextKeys);
     saveAnswer(nextKeys, answerText);
   }
@@ -293,25 +254,25 @@ export default function StudentTestPage() {
         <a className="secondary-button compact-button page-nav-button" href="/dashboard">Dashboard</a>
         <div className="test-taking-header">
           <div>
-            <div className="eyebrow">Student test</div>
-            <h1>{attempt?.testName ?? "Loading test"}</h1>
+            <div className="eyebrow">Assigned test</div>
+            <h1>{attempt?.testName ?? "Loading assigned test"}</h1>
           </div>
           <div className={remainingSeconds <= 30 && !submitted ? "test-timer urgent" : "test-timer"}>
             <strong>{submitted ? "Submitted" : formatRemaining(remainingSeconds)}</strong>
-            <span>{attempt?.difficulty ?? ""}</span>
+            <span>{saving ? "Saving..." : "Autosaved"}</span>
           </div>
-        </div>
-
-        <div className="dashboard-actions test-top-actions">
-          {!submitted ? (
-            <button type="button" className="primary-button" disabled={loading} onClick={submitTest}>Submit test</button>
-          ) : null}
         </div>
 
         {error ? <p className="notice error test-page-notice">{error}</p> : null}
 
-        {submitted && attempt ? (
+        {!submitted ? (
+          <div className="dashboard-actions test-top-actions">
+            <button type="button" className="primary-button" disabled={loading} onClick={submitTest}>Submit test</button>
+          </div>
+        ) : hasPublishedReview && attempt ? (
           <p className="notice success test-page-notice">Final score: {attempt.scorePoints ?? 0} / {attempt.maxPoints}</p>
+        ) : submitted ? (
+          <p className="notice warning test-page-notice">Test submitted. Results will be visible after the admin publishes them.</p>
         ) : null}
 
         {attempt && !submitted ? (
@@ -330,9 +291,9 @@ export default function StudentTestPage() {
           </div>
         ) : null}
 
-        {submitted && attempt ? (
+        {hasPublishedReview && attempt ? (
           <div className="test-review-list">
-            {(attempt.questions ?? []).map((question) => (
+            {attempt.questions.map((question) => (
               <section className="test-question-card" key={question.attemptQuestionId}>
                 <div className="test-question-meta">
                   <span>Question {question.questionNumber} of {attempt.questionCount}</span>
@@ -344,18 +305,10 @@ export default function StudentTestPage() {
                     {question.options.map((option) => {
                       const selectedOption = question.selectedOptionKeys.includes(option.key);
                       const correctOption = question.correctOptionKeys.includes(option.key);
-                      const className = [
-                        "practice-option",
-                        selectedOption ? "active" : "",
-                        correctOption ? "correct-option" : "",
-                      ].filter(Boolean).join(" ");
+                      const className = ["practice-option", selectedOption ? "active" : "", correctOption ? "correct-option" : ""].filter(Boolean).join(" ");
                       return (
                         <button type="button" key={option.key} disabled className={className}>
-                          <input
-                            type={question.questionType === "MULTIPLE_SELECT" ? "checkbox" : "radio"}
-                            checked={selectedOption}
-                            readOnly
-                          />
+                          <input type={question.questionType === "MULTIPLE_SELECT" ? "checkbox" : "radio"} checked={selectedOption} readOnly />
                           <span>{option.key}</span>
                           <span>{option.text}</span>
                         </button>
@@ -367,13 +320,11 @@ export default function StudentTestPage() {
                   <p><strong>Your answer:</strong> {submittedAnswerText(question)}</p>
                   <p><strong>Correct answer:</strong> {correctAnswerText(question)}</p>
                 </div>
-                <p className={question.correct ? "notice success" : "notice error"}>
-                  {question.correct ? "Correct." : "Incorrect."}
-                </p>
+                <p className={question.correct ? "notice success" : "notice error"}>{question.correct ? "Correct." : "Incorrect."}</p>
               </section>
             ))}
           </div>
-        ) : currentQuestion ? (
+        ) : currentQuestion && !submitted ? (
           <section className="test-question-card">
             <div className="test-question-meta">
               <span>Question {currentQuestion.questionNumber} of {attempt?.questionCount ?? "?"}</span>
@@ -386,15 +337,11 @@ export default function StudentTestPage() {
                   <button
                     type="button"
                     key={option.key}
-                    disabled={submitted || questionSubmitted}
+                    disabled={submitted}
                     className={selectedOptionKeys.includes(option.key) ? "practice-option active" : "practice-option"}
                     onClick={() => toggleOption(option.key)}
                   >
-                    <input
-                      type={currentQuestion.questionType === "MULTIPLE_SELECT" ? "checkbox" : "radio"}
-                      checked={selectedOptionKeys.includes(option.key)}
-                      readOnly
-                    />
+                    <input type={currentQuestion.questionType === "MULTIPLE_SELECT" ? "checkbox" : "radio"} checked={selectedOptionKeys.includes(option.key)} readOnly />
                     <span>{option.key}</span>
                     <span>{option.text}</span>
                   </button>
@@ -403,25 +350,19 @@ export default function StudentTestPage() {
             ) : (
               <label className="student-search">
                 Answer
-                <input value={answerText} disabled={submitted || questionSubmitted} onChange={(event) => changeAnswerText(event.target.value)} />
+                <input value={answerText} disabled={submitted} onChange={(event) => changeAnswerText(event.target.value)} />
               </label>
             )}
-            {(questionSubmitted || submitted) && (currentQuestion.correct ?? currentNavigation?.correct) != null ? (
-              <p className={(currentQuestion.correct ?? currentNavigation?.correct) ? "notice success" : "notice error"}>
-                {(currentQuestion.correct ?? currentNavigation?.correct) ? "Correct." : "Incorrect."}
-              </p>
-            ) : null}
           </section>
         ) : null}
 
         {!submitted ? (
           <div className="dashboard-actions">
-            <button type="button" className="primary-button" disabled={loading || saving || questionSubmitted} onClick={submitCurrentQuestion}>
-              Submit
-            </button>
-            <button type="button" className="secondary-button" disabled={loading || !nextQuestionId()} onClick={nextQuestion}>
-              Next
-            </button>
+            <button type="button" className="secondary-button" disabled={loading || !nextQuestionId()} onClick={() => {
+              const nextId = nextQuestionId();
+              if (nextId) loadQuestion(nextId);
+            }}>Next</button>
+            <button type="button" className="primary-button" disabled={loading} onClick={submitTest}>Submit test</button>
           </div>
         ) : null}
       </section>

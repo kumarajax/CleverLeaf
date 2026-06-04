@@ -12,6 +12,8 @@ import com.clearleaf.api.repository.TestAttemptQuestionRepository;
 import com.clearleaf.api.repository.TestAttemptRepository;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -24,8 +26,11 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 
 @Service
 public class StudentTestService {
@@ -99,6 +104,25 @@ public class StudentTestService {
             if (uniqueById.size() == questionCount) break;
         }
         return uniqueById.values().stream().toList();
+    }
+
+    @Transactional(readOnly = true)
+    public Page<StudentTestAttemptSummary> history(
+            String studentSubject,
+            int page,
+            int size,
+            String dateFrom,
+            String dateTo,
+            String taxonomy) {
+        if (studentSubject == null || studentSubject.isBlank()) {
+            throw new IllegalArgumentException("student subject is required");
+        }
+        Specification<TestAttemptEntity> specification = historySpecification(studentSubject, dateFrom, dateTo, taxonomy);
+        PageRequest pageable = PageRequest.of(
+                Math.max(0, page),
+                Math.max(1, Math.min(size, 50)),
+                Sort.by(Sort.Order.desc("startedAt")));
+        return attempts.findAll(specification, pageable).map(this::toSummary);
     }
 
     @Transactional(readOnly = true)
@@ -238,6 +262,71 @@ public class StudentTestService {
                 revealScore ? correctOptionKeys(question) : List.of(),
                 revealScore ? correctAnswerText(question) : "",
                 revealScore ? attemptQuestion.getCorrect() : null);
+    }
+
+    private StudentTestAttemptSummary toSummary(TestAttemptEntity attempt) {
+        TaxonomyNodeEntity taxonomy = attempt.getTaxonomyNode();
+        return new StudentTestAttemptSummary(
+                attempt.getId(),
+                attempt.getTestName(),
+                taxonomy.getId(),
+                taxonomy.getDisplayName(),
+                taxonomyPath(taxonomy),
+                attempt.getDifficulty(),
+                attempt.getStatus(),
+                attempt.getStartedAt(),
+                attempt.getSubmittedAt(),
+                attempt.getScorePoints(),
+                attempt.getMaxPoints(),
+                attempt.getQuestions().size());
+    }
+
+    private Specification<TestAttemptEntity> historySpecification(
+            String studentSubject,
+            String dateFrom,
+            String dateTo,
+            String taxonomy) {
+        return (root, query, criteriaBuilder) -> {
+            List<jakarta.persistence.criteria.Predicate> predicates = new ArrayList<>();
+            predicates.add(criteriaBuilder.equal(root.get("studentSubject"), studentSubject));
+            Instant from = parseStartDate(dateFrom);
+            if (from != null) {
+                predicates.add(criteriaBuilder.greaterThanOrEqualTo(root.get("startedAt"), from));
+            }
+            Instant to = parseEndDate(dateTo);
+            if (to != null) {
+                predicates.add(criteriaBuilder.lessThan(root.get("startedAt"), to));
+            }
+            if (taxonomy != null && !taxonomy.isBlank()) {
+                String pattern = "%" + taxonomy.trim().toLowerCase(Locale.ROOT) + "%";
+                predicates.add(criteriaBuilder.like(criteriaBuilder.lower(root.get("taxonomyNode").get("displayName")), pattern));
+            }
+            return criteriaBuilder.and(predicates.toArray(jakarta.persistence.criteria.Predicate[]::new));
+        };
+    }
+
+    private Instant parseStartDate(String value) {
+        if (value == null || value.isBlank()) return null;
+        return LocalDate.parse(value.trim()).atStartOfDay().toInstant(ZoneOffset.UTC);
+    }
+
+    private Instant parseEndDate(String value) {
+        if (value == null || value.isBlank()) return null;
+        return LocalDate.parse(value.trim()).plusDays(1).atStartOfDay().toInstant(ZoneOffset.UTC);
+    }
+
+    private String taxonomyPath(TaxonomyNodeEntity node) {
+        ArrayDeque<String> labels = new ArrayDeque<>();
+        TaxonomyNodeEntity current = node;
+        Set<UUID> visited = new java.util.HashSet<>();
+        while (current != null) {
+            if (!visited.add(current.getId())) {
+                throw new IllegalStateException("Taxonomy contains a cycle");
+            }
+            labels.addFirst(current.getDisplayName());
+            current = current.getParentNode();
+        }
+        return String.join(" / ", labels);
     }
 
     private List<UUID> descendantIds(UUID rootId) {
