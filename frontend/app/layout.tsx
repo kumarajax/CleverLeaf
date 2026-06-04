@@ -1,7 +1,8 @@
 import "./globals.css";
+import { defaultApplicationConfig } from "./applicationConfig";
 
 export const metadata = {
-  title: "ClearLeaf",
+  title: defaultApplicationConfig.applicationName,
   description: "Local-first examination preparation platform",
 };
 

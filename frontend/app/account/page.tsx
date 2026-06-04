@@ -1,8 +1,9 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import { apiBaseUrl } from "../applicationConfig";
+import { useApplicationConfig } from "../useApplicationConfig";
 
-const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8081";
 const legalVersion = process.env.NEXT_PUBLIC_LEGAL_CURRENT_VERSION ?? "2026-05-30";
 const approvalRequired = (process.env.NEXT_PUBLIC_USER_CREATION_APPROVAL_REQUIRED ?? "Y").toLowerCase() !== "n";
 const authStorageKeys = ["clearleaf.auth"];
@@ -31,6 +32,7 @@ async function message(response: Response) {
 }
 
 export default function AccountPage() {
+  const { applicationName } = useApplicationConfig();
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -84,7 +86,7 @@ export default function AccountPage() {
     if (password !== confirmPassword) return setError("Passwords do not match.");
     if (password.length < 8) return setError("Password must be at least 8 characters.");
     if (captchaInput.trim().toUpperCase() !== captchaCode) return setError("Captcha code did not match.");
-    if (!termsAccepted) return setError("You must accept the ClearLeaf terms.");
+    if (!termsAccepted) return setError(`You must accept the ${applicationName} terms.`);
     setSubmitting(true);
     try {
       const response = await fetch(`${apiBaseUrl}/api/public/signup-requests`, {
@@ -138,8 +140,8 @@ export default function AccountPage() {
   return (
     <main className="account-shell">
       <section className="account-panel">
-        <a className="back-link" href="/">← Back to ClearLeaf</a>
-        <div className="eyebrow">ClearLeaf Account</div>
+        <a className="back-link" href="/">← Back to {applicationName}</a>
+        <div className="eyebrow">{applicationName} Account</div>
         <h1>{mode === "login" ? "Welcome back" : "Create an account"}</h1>
         <p className="lede">
           {mode === "login"
@@ -169,7 +171,7 @@ export default function AccountPage() {
             </div>
             <div className="captcha"><strong>{captchaCode}</strong><button type="button" onClick={() => setCaptchaCode(captcha())}>Refresh</button></div>
             <label>Enter captcha<input value={captchaInput} onChange={(event) => setCaptchaInput(event.target.value)} autoComplete="off" /></label>
-            <label className="check"><input type="checkbox" checked={termsAccepted} onChange={(event) => setTermsAccepted(event.target.checked)} />I accept the <a href="/terms">ClearLeaf terms</a>.</label>
+            <label className="check"><input type="checkbox" checked={termsAccepted} onChange={(event) => setTermsAccepted(event.target.checked)} />I accept the <a href="/terms">{applicationName} terms</a>.</label>
             <button className="primary-button" disabled={submitting}>{submitting ? "Submitting..." : approvalRequired ? "Request approval" : "Create account"}</button>
           </form>
         )}

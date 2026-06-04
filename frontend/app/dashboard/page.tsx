@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useApplicationConfig } from "../useApplicationConfig";
 
 type Session = {
   email?: string;
@@ -96,6 +97,7 @@ function formatDate(value?: string | null) {
 
 export default function DashboardPage() {
   const router = useRouter();
+  const { applicationName } = useApplicationConfig();
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8081";
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<ProfilePayload | null>(null);
@@ -266,7 +268,7 @@ export default function DashboardPage() {
         <div className="student-header">
           <div className="dashboard-welcome">
             <div className="eyebrow">Student dashboard</div>
-            <h1>Welcome to CleverLeaf, {studentName}</h1>
+            <h1>Welcome to {applicationName}, {studentName}</h1>
             <p className="lede">Start a test or review your previous attempts and scores.</p>
           </div>
         </div>

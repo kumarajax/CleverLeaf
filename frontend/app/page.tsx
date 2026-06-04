@@ -1,3 +1,7 @@
+"use client";
+
+import { useApplicationConfig } from "./useApplicationConfig";
+
 const areas = [
   ["Taxonomy", "Configure curriculum editions, grades, subjects, chapters, and topics."],
   ["Question bank", "Author reviewed single-select and multiple-select questions."],
@@ -6,9 +10,10 @@ const areas = [
 ];
 
 export default function Home() {
+  const { applicationName } = useApplicationConfig();
   return (
     <main>
-      <div className="eyebrow">ClearLeaf Phase 1</div>
+      <div className="eyebrow">{applicationName} Phase 1</div>
       <h1>Grade 5-6 learning pilot</h1>
       <p className="lede">
         A local-first CBSE/NCERT examination preparation platform for Math and

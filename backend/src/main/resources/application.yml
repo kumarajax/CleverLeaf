@@ -28,6 +28,9 @@ spring:
         max-page-size: 500
 
 app:
+  identity:
+    application-code: ${APP_IDENTITY_APPLICATION_CODE:CLEVERLEAF}
+    application-name: ${APP_IDENTITY_APPLICATION_NAME:CleverLeaf}
   public-base-url: ${APP_PUBLIC_BASE_URL:http://localhost:3000}
   legal:
     current-version: ${APP_LEGAL_CURRENT_VERSION:2026-05-30}

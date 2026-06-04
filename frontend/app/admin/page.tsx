@@ -2,6 +2,7 @@
 
 import { FormEvent, Fragment, ReactNode, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useApplicationConfig } from "../useApplicationConfig";
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8081";
 
@@ -408,6 +409,7 @@ function readPage<T>(body: unknown): { content: T[]; page: PageMetadata } {
 
 export default function AdminPage() {
   const router = useRouter();
+  const { applicationName } = useApplicationConfig();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [status, setStatus] = useState("");
@@ -1645,7 +1647,7 @@ export default function AdminPage() {
     return (
       <main className="account-shell">
         <section className="account-panel">
-          <div className="eyebrow">ClearLeaf Admin</div>
+          <div className="eyebrow">{applicationName} Admin</div>
           <h1>Loading admin console</h1>
           <p className="lede">Verifying session and loading taxonomy.</p>
         </section>

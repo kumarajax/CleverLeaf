@@ -49,6 +49,7 @@ public class SignupApprovalService {
     private final String keycloakAdminUser;
     private final String keycloakAdminPassword;
     private final String publicBaseUrl;
+    private final String applicationName;
     private final boolean approvalRequired;
     private final String approvalEmailTo;
     private final String legalVersion;
@@ -65,6 +66,7 @@ public class SignupApprovalService {
             @Value("${app.keycloak.admin-user}") String keycloakAdminUser,
             @Value("${app.keycloak.admin-password}") String keycloakAdminPassword,
             @Value("${app.public-base-url}") String publicBaseUrl,
+            @Value("${app.identity.application-name}") String applicationName,
             @Value("${app.signup.approval-required:Y}") String approvalRequired,
             @Value("${app.signup.approval-email-to}") String approvalEmailTo,
             @Value("${app.legal.current-version}") String legalVersion,
@@ -79,6 +81,7 @@ public class SignupApprovalService {
         this.keycloakAdminUser = keycloakAdminUser;
         this.keycloakAdminPassword = keycloakAdminPassword;
         this.publicBaseUrl = trimTrailingSlash(publicBaseUrl);
+        this.applicationName = applicationName;
         this.approvalRequired = isTruthy(approvalRequired);
         this.approvalEmailTo = approvalEmailTo;
         this.legalVersion = legalVersion;
@@ -154,7 +157,7 @@ public class SignupApprovalService {
         request.setPasswordNonce(null);
         signupRequests.save(request);
         sendApplicantApprovedEmail(request.getEmail());
-        return status("APPROVED", "Signup request approved. ClearLeaf account created.",
+        return status("APPROVED", "Signup request approved. " + applicationName + " account created.",
                 request.getEmail(), request.getDisplayName());
     }
 
@@ -203,7 +206,7 @@ public class SignupApprovalService {
                     "username", email,
                     "email", email,
                     "firstName", displayName == null ? fallbackName : displayName,
-                    "lastName", "ClearLeaf",
+                    "lastName", applicationName,
                     "enabled", true,
                     "emailVerified", true,
                     "credentials", List.of(Map.of("type", "password", "value", password, "temporary", false)));
@@ -298,26 +301,26 @@ public class SignupApprovalService {
 
     private void sendAdminEmail(String email, String displayName, String approveToken, String rejectToken) {
         String name = displayName == null ? "" : "\nName: " + displayName;
-        sendEmail(approvalEmailTo, "ClearLeaf signup approval request",
-                "A new ClearLeaf account request is pending review.\n\nEmail: " + email + name
+        sendEmail(approvalEmailTo, applicationName + " signup approval request",
+                "A new " + applicationName + " account request is pending review.\n\nEmail: " + email + name
                         + "\n\nApprove:\n" + publicBaseUrl + "/signup-approvals/" + approveToken + "/approve"
                         + "\n\nReject:\n" + publicBaseUrl + "/signup-approvals/" + rejectToken + "/reject");
     }
 
     private void sendApplicantReceivedEmail(String email) {
-        sendEmail(email, "ClearLeaf signup request received", "Your ClearLeaf account request is pending approval.");
+        sendEmail(email, applicationName + " signup request received", "Your " + applicationName + " account request is pending approval.");
     }
 
     private void sendApplicantApprovedEmail(String email) {
-        sendEmail(email, "ClearLeaf signup approved", "Your ClearLeaf account was approved. Sign in at " + publicBaseUrl + "/account.");
+        sendEmail(email, applicationName + " signup approved", "Your " + applicationName + " account was approved. Sign in at " + publicBaseUrl + "/account.");
     }
 
     private void sendApplicantCreatedEmail(String email) {
-        sendEmail(email, "ClearLeaf account created", "Your ClearLeaf account was created. Sign in at " + publicBaseUrl + "/account.");
+        sendEmail(email, applicationName + " account created", "Your " + applicationName + " account was created. Sign in at " + publicBaseUrl + "/account.");
     }
 
     private void sendApplicantRejectedEmail(String email, String reason) {
-        sendEmail(email, "ClearLeaf signup request rejected", "Your ClearLeaf account request was not approved."
+        sendEmail(email, applicationName + " signup request rejected", "Your " + applicationName + " account request was not approved."
                 + (reason == null ? "" : "\n\nReason:\n" + reason));
     }
 
