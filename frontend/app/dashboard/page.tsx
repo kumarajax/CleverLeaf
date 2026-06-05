@@ -112,6 +112,7 @@ export default function DashboardPage() {
   const [startingAttemptId, setStartingAttemptId] = useState("");
   const [assignedTests, setAssignedTests] = useState<StudentAssignedTestSummary[]>([]);
   const [assignedResults, setAssignedResults] = useState<StudentAssignedTestSummary[]>([]);
+  const [dashboardTab, setDashboardTab] = useState<"history" | "take" | "assigned" | "configure">("history");
   const [assignedTab, setAssignedTab] = useState<"assigned" | "results">("assigned");
   const [startingAssignmentId, setStartingAssignmentId] = useState("");
   const [error, setError] = useState("");
@@ -269,13 +270,21 @@ export default function DashboardPage() {
           <div className="dashboard-welcome">
             <div className="eyebrow">Student dashboard</div>
             <h1>Welcome to {applicationName}, {studentName}</h1>
-            <p className="lede">Start a test or review your previous attempts and scores.</p>
           </div>
         </div>
 
         {error ? <p className="notice error">{error}</p> : null}
 
-        {isAdmin ? (
+        <div className="account-tabs dashboard-tabs" role="tablist" aria-label="Dashboard sections">
+          <button type="button" role="tab" aria-selected={dashboardTab === "history"} className={dashboardTab === "history" ? "tab active" : "tab"} onClick={() => setDashboardTab("history")}>Historical Tests</button>
+          <button type="button" role="tab" aria-selected={dashboardTab === "take"} className={dashboardTab === "take" ? "tab active" : "tab"} onClick={() => setDashboardTab("take")}>Take Test</button>
+          <button type="button" role="tab" aria-selected={dashboardTab === "assigned"} className={dashboardTab === "assigned" ? "tab active" : "tab"} onClick={() => setDashboardTab("assigned")}>Assigned Tests</button>
+          {isAdmin ? (
+            <button type="button" role="tab" aria-selected={dashboardTab === "configure"} className={dashboardTab === "configure" ? "tab active" : "tab"} onClick={() => setDashboardTab("configure")}>Configure</button>
+          ) : null}
+        </div>
+
+        {isAdmin && dashboardTab === "configure" ? (
           <section className="dashboard-admin-panel">
             <div>
               <h2>Configure Taxonomy and Questions</h2>
@@ -285,6 +294,7 @@ export default function DashboardPage() {
           </section>
         ) : null}
 
+        {dashboardTab === "take" ? (
         <section className="dashboard-test-hero">
           <div>
             <h2>Take Test</h2>
@@ -292,7 +302,9 @@ export default function DashboardPage() {
           </div>
           <a className="primary-button" href="/practice">Take test</a>
         </section>
+        ) : null}
 
+        {dashboardTab === "assigned" ? (
         <section className="dashboard-history">
           <div className="section-header">
             <h2>Assigned Tests</h2>
@@ -347,7 +359,9 @@ export default function DashboardPage() {
             {assignedTab === "results" && assignedResults.length === 0 ? <p className="notice warning">No published results available.</p> : null}
           </div>
         </section>
+        ) : null}
 
+        {dashboardTab === "history" ? (
         <section className="dashboard-history">
           <div className="section-header">
             <h2>Historical Tests</h2>
@@ -424,6 +438,7 @@ export default function DashboardPage() {
             </div>
           </div>
         </section>
+        ) : null}
       </section>
     </main>
   );

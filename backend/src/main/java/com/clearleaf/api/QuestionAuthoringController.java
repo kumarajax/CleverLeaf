@@ -1,6 +1,7 @@
 package com.clearleaf.api;
 
 import java.util.UUID;
+import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -31,6 +32,7 @@ public class QuestionAuthoringController {
             @RequestParam(value = "questionType", required = false) String questionType,
             @RequestParam(value = "difficulty", required = false) String difficulty,
             @RequestParam(value = "workflowStatus", required = false) String workflowStatus,
+            @RequestParam(value = "workflowStatuses", required = false) List<String> workflowStatuses,
             @RequestParam(value = "taxonomyNodeId", required = false) UUID taxonomyNodeId,
             @RequestParam(value = "includeDescendants", defaultValue = "true") boolean includeDescendants,
             @RequestParam(value = "curriculumId", required = false) UUID curriculumId,
@@ -42,7 +44,7 @@ public class QuestionAuthoringController {
             @RequestParam(value = "search", required = false) String search,
             @PageableDefault(sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
         return questions.list(new QuestionSearchCriteria(questionType, difficulty, workflowStatus,
-                taxonomyNodeId, includeDescendants, curriculumId, editionId, gradeId, subjectId, chapterId, topicId, search), pageable);
+                workflowStatuses, taxonomyNodeId, includeDescendants, curriculumId, editionId, gradeId, subjectId, chapterId, topicId, search), pageable);
     }
 
     @GetMapping("/cursor")
@@ -50,6 +52,7 @@ public class QuestionAuthoringController {
             @RequestParam(value = "questionType", required = false) String questionType,
             @RequestParam(value = "difficulty", required = false) String difficulty,
             @RequestParam(value = "workflowStatus", required = false) String workflowStatus,
+            @RequestParam(value = "workflowStatuses", required = false) List<String> workflowStatuses,
             @RequestParam(value = "taxonomyNodeId", required = false) UUID taxonomyNodeId,
             @RequestParam(value = "includeDescendants", defaultValue = "true") boolean includeDescendants,
             @RequestParam(value = "curriculumId", required = false) UUID curriculumId,
@@ -62,7 +65,7 @@ public class QuestionAuthoringController {
             @RequestParam(value = "cursor", required = false) String cursor,
             @RequestParam(value = "size", defaultValue = "25") int size) {
         return questions.listCursor(new QuestionSearchCriteria(questionType, difficulty, workflowStatus,
-                taxonomyNodeId, includeDescendants, curriculumId, editionId, gradeId, subjectId, chapterId, topicId, search),
+                workflowStatuses, taxonomyNodeId, includeDescendants, curriculumId, editionId, gradeId, subjectId, chapterId, topicId, search),
                 cursor, size);
     }
 

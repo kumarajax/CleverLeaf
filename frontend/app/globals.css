@@ -290,6 +290,7 @@ h1 {
 }
 
 .student-shell {
+  align-items: start;
   display: grid;
   min-height: 100vh;
 }
@@ -305,14 +306,16 @@ h1 {
 }
 
 .dashboard-panel {
-  display: grid;
-  gap: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .dashboard-topbar {
   align-items: center;
   display: flex;
   justify-content: flex-end;
+  min-height: 0;
 }
 
 .profile-menu {
@@ -416,18 +419,41 @@ h1 {
 
 .dashboard-history {
   display: grid;
-  gap: 8px;
+  gap: 6px;
+}
+
+.dashboard-tabs {
+  gap: 4px;
+  justify-content: flex-start;
+  margin: 2px 0 6px;
+}
+
+.dashboard-tabs .tab {
+  padding: 7px 12px;
 }
 
 .dashboard-welcome h1 {
   font-size: 24px;
-  margin: 4px 0;
+  margin: 2px 0;
 }
 
 .dashboard-welcome .lede {
   font-size: 13px;
   line-height: 1.3;
   margin: 0;
+}
+
+.dashboard-panel .student-header {
+  margin-top: 0;
+}
+
+.dashboard-history .section-header h2 {
+  margin-bottom: 2px;
+}
+
+.dashboard-history .account-tabs {
+  gap: 4px;
+  margin: 2px 0 6px;
 }
 
 .history-filters {

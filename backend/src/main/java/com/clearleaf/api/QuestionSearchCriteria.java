@@ -8,6 +8,7 @@ public record QuestionSearchCriteria(
         String questionType,
         String difficulty,
         String workflowStatus,
+        List<String> workflowStatuses,
         UUID taxonomyNodeId,
         boolean includeDescendants,
         UUID curriculumId,
@@ -22,5 +23,16 @@ public record QuestionSearchCriteria(
         return Stream.of(curriculumId, editionId, gradeId, subjectId, chapterId, topicId)
                 .filter(value -> value != null)
                 .toList();
+    }
+
+    public List<String> normalizedWorkflowStatuses() {
+        if (workflowStatuses != null && !workflowStatuses.isEmpty()) {
+            return workflowStatuses.stream()
+                    .filter(value -> value != null && !value.isBlank())
+                    .map(value -> value.trim().toUpperCase())
+                    .distinct()
+                    .toList();
+        }
+        return workflowStatus == null || workflowStatus.isBlank() ? List.of() : List.of(workflowStatus.trim().toUpperCase());
     }
 }

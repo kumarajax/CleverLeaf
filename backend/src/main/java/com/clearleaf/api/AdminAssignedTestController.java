@@ -60,6 +60,14 @@ public class AdminAssignedTestController {
         return tests.adminResults(jwt.getSubject(), versionId);
     }
 
+    @GetMapping("/{versionId}/results/{assignmentId}")
+    public AdminAssignedTestResult result(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable("versionId") UUID versionId,
+            @PathVariable("assignmentId") UUID assignmentId) {
+        return tests.adminResult(jwt.getSubject(), versionId, assignmentId);
+    }
+
     @PostMapping("/{versionId}/assignments")
     @ResponseStatus(HttpStatus.CREATED)
     public AdminAssignedTestResult assignStudent(
@@ -72,5 +80,13 @@ public class AdminAssignedTestController {
     @PostMapping("/{versionId}/publish-results")
     public AdminAssignedTestSummary publishResults(@AuthenticationPrincipal Jwt jwt, @PathVariable("versionId") UUID versionId) {
         return tests.publishResults(jwt.getSubject(), versionId);
+    }
+
+    @PostMapping("/{versionId}/results/{assignmentId}/publish")
+    public AdminAssignedTestResult publishStudentResult(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable("versionId") UUID versionId,
+            @PathVariable("assignmentId") UUID assignmentId) {
+        return tests.publishStudentResult(jwt.getSubject(), versionId, assignmentId);
     }
 }

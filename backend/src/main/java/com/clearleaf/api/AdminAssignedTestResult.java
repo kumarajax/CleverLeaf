@@ -11,6 +11,7 @@ public record AdminAssignedTestResult(
         Instant assignedAt,
         Instant startedAt,
         Instant submittedAt,
+        Instant resultsPublishedAt,
         Integer scorePoints,
         int maxPoints,
         StudentTestAttemptResponse attempt) {

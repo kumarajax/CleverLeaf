@@ -4,6 +4,7 @@ import com.clearleaf.api.entity.QuestionEntity;
 import org.springframework.data.jpa.domain.Specification;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.UUID;
 
 public final class QuestionSpecifications {
@@ -20,6 +21,12 @@ public final class QuestionSpecifications {
 
     public static Specification<QuestionEntity> workflowStatus(String value) {
         return equal("workflowStatus", value);
+    }
+
+    public static Specification<QuestionEntity> workflowStatuses(List<String> values) {
+        return (root, query, criteriaBuilder) -> values == null || values.isEmpty()
+                ? criteriaBuilder.conjunction()
+                : root.get("workflowStatus").in(values);
     }
 
     public static Specification<QuestionEntity> textSearch(String value) {

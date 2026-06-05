@@ -40,6 +40,9 @@ public class AssignedTestAssignmentEntity {
     @Column(name = "submitted_at")
     private Instant submittedAt;
 
+    @Column(name = "results_published_at")
+    private Instant resultsPublishedAt;
+
     @Column(name = "reset_at")
     private Instant resetAt;
 
@@ -63,6 +66,8 @@ public class AssignedTestAssignmentEntity {
     public void setStartedAt(Instant startedAt) { this.startedAt = startedAt; }
     public Instant getSubmittedAt() { return submittedAt; }
     public void setSubmittedAt(Instant submittedAt) { this.submittedAt = submittedAt; }
+    public Instant getResultsPublishedAt() { return resultsPublishedAt; }
+    public void setResultsPublishedAt(Instant resultsPublishedAt) { this.resultsPublishedAt = resultsPublishedAt; }
     public Instant getResetAt() { return resetAt; }
     public void setResetAt(Instant resetAt) { this.resetAt = resetAt; }
 }

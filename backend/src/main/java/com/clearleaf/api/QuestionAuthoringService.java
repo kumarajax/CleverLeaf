@@ -103,7 +103,7 @@ public class QuestionAuthoringService {
         Specification<QuestionEntity> specification = Specification
                 .where(QuestionSpecifications.questionType(criteria.questionType()))
                 .and(QuestionSpecifications.difficulty(criteria.difficulty()))
-                .and(QuestionSpecifications.workflowStatus(criteria.workflowStatus()))
+                .and(QuestionSpecifications.workflowStatuses(criteria.normalizedWorkflowStatuses()))
                 .and(QuestionSpecifications.textSearch(criteria.search()));
         Set<UUID> eligibleNodes = eligibleTaxonomyNodes(criteria);
         if (eligibleNodes != null) {

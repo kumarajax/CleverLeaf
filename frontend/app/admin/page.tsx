@@ -111,6 +111,7 @@ type AdminAssignedTestResult = {
   assignedAt: string;
   startedAt?: string | null;
   submittedAt?: string | null;
+  resultsPublishedAt?: string | null;
   scorePoints?: number | null;
   maxPoints: number;
   attempt?: AdminResultAttempt | null;
@@ -257,6 +258,7 @@ const requestTimeoutMs = 10000;
 const taxonomyPageSize = 100;
 const allTaxonomyPageSize = 500;
 const questionPageSize = 25;
+const assignedTestWorkflowStatuses = ["ACTIVE", "APPROVED", "PRACTICE"];
 const nodeKeyPattern = /^[A-Z0-9]+(?:_[A-Z0-9]+)*$/;
 const taxonomyParentKeys: Record<string, string | null> = {
   CURRICULUM: null,
@@ -473,12 +475,15 @@ export default function AdminPage() {
   const [importSummaries, setImportSummaries] = useState<Record<string, BulkImportSummary>>({});
   const [csvError, setCsvError] = useState("");
   const [activeTab, setActiveTab] = useState<"taxonomy" | "manual" | "import" | "tests">("taxonomy");
+  const [testTab, setTestTab] = useState<"create" | "assign" | "results">("create");
   const [importTab, setImportTab] = useState<"csv" | "json">("csv");
   const [expandedTaxonomyIds, setExpandedTaxonomyIds] = useState<string[]>([]);
   const [expandedQuestionTaxonomyIds, setExpandedQuestionTaxonomyIds] = useState<string[]>([]);
   const [expandedQuestionIds, setExpandedQuestionIds] = useState<string[]>([]);
   const [assignedTests, setAssignedTests] = useState<AdminAssignedTestSummary[]>([]);
   const [assignedTestResults, setAssignedTestResults] = useState<AdminAssignedTestResult[]>([]);
+  const [assignedTestResultDetails, setAssignedTestResultDetails] = useState<Record<string, AdminAssignedTestResult>>({});
+  const [expandedAssignedResultId, setExpandedAssignedResultId] = useState("");
   const [assignedTestRows, setAssignedTestRows] = useState<AssignedTestImportRow[]>([]);
   const [selectedAssignedTestVersionId, setSelectedAssignedTestVersionId] = useState("");
   const [assignedTestImportFile, setAssignedTestImportFile] = useState<File | null>(null);
@@ -593,6 +598,7 @@ export default function AdminPage() {
       .map((id) => byId.get(id))
       .filter((question): question is AdminQuestion => Boolean(question));
   }, [questions, testQuestionResults, selectedAssignedQuestionIds]);
+  const submittedAssignedTestResults = useMemo(() => assignedTestResults.filter((result) => result.status === "SUBMITTED"), [assignedTestResults]);
 
   function authHeaders(token = currentToken): Record<string, string> {
     return token ? { Authorization: `Bearer ${token}` } : {};
@@ -733,7 +739,7 @@ export default function AdminPage() {
       if (questionNodeFilterId) parameters.set("taxonomyNodeId", questionNodeFilterId);
       if (questionTypeFilter) parameters.set("questionType", questionTypeFilter);
       if (questionDifficultyFilter) parameters.set("difficulty", questionDifficultyFilter);
-      if (questionWorkflowFilter) parameters.set("workflowStatus", questionWorkflowFilter);
+      assignedTestWorkflowStatuses.forEach((workflowStatus) => parameters.append("workflowStatuses", workflowStatus));
       const response = await fetch(`${apiBaseUrl}/api/admin/questions/cursor?${parameters.toString()}`, {
         headers: authHeaders(token),
       });
@@ -745,7 +751,7 @@ export default function AdminPage() {
       const nextStack = result.nextCursor
         ? [...cursorStack.slice(0, cursorIndex + 1), result.nextCursor]
         : cursorStack.slice(0, cursorIndex + 1);
-      setTestQuestionResults(result.content ?? []);
+      setTestQuestionResults((result.content ?? []).filter((question) => question.taxonomyNodeStatus === "ACTIVE"));
       setTestQuestionCursorStack(nextStack);
       setTestQuestionCursorIndex(cursorIndex);
       setTestQuestionNextCursor(result.nextCursor);
@@ -776,6 +782,26 @@ export default function AdminPage() {
       throw new Error(body.error || `Request failed with ${response.status}`);
     }
     setAssignedTestResults(Array.isArray(body) ? body : []);
+    setAssignedTestResultDetails({});
+    setExpandedAssignedResultId("");
+  }
+
+  async function loadAssignedTestResultDetail(result: AdminAssignedTestResult) {
+    if (!selectedAssignedTestVersionId) return;
+    if (expandedAssignedResultId === result.assignmentId) {
+      setExpandedAssignedResultId("");
+      return;
+    }
+    setAssignedTestError("");
+    const response = await fetch(`${apiBaseUrl}/api/admin/assigned-tests/${selectedAssignedTestVersionId}/results/${result.assignmentId}`, {
+      headers: authHeaders(),
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(body.error || `Request failed with ${response.status}`);
+    }
+    setAssignedTestResultDetails((current) => ({ ...current, [result.assignmentId]: body }));
+    setExpandedAssignedResultId(result.assignmentId);
   }
 
   async function createAssignedTest(event: FormEvent) {
@@ -913,6 +939,21 @@ export default function AdminPage() {
     }
     setStatus("Results published.");
     await Promise.all([loadAssignedTests(), loadAssignedTestResults(versionId)]);
+  }
+
+  async function publishAssignedTestStudentResult(result: AdminAssignedTestResult) {
+    if (!selectedAssignedTestVersionId) return;
+    setAssignedTestError("");
+    const response = await fetch(`${apiBaseUrl}/api/admin/assigned-tests/${selectedAssignedTestVersionId}/results/${result.assignmentId}/publish`, {
+      method: "POST",
+      headers: authHeaders(),
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(body.error || `Request failed with ${response.status}`);
+    }
+    setStatus(`Published result for ${result.studentSubject}.`);
+    await loadAssignedTestResults(selectedAssignedTestVersionId);
   }
 
   function loadQuestionCardPage(taxonomyNodeId: string, cursorIndex: number) {
@@ -2162,9 +2203,17 @@ export default function AdminPage() {
 
             {assignedTestError ? <p className="notice error">{assignedTestError}</p> : null}
 
+            <div className="account-tabs import-tabs" role="tablist" aria-label="Assigned test administration">
+              <button type="button" role="tab" aria-selected={testTab === "create"} className={testTab === "create" ? "tab active" : "tab"} onClick={() => setTestTab("create")}>Create Tests</button>
+              <button type="button" role="tab" aria-selected={testTab === "assign"} className={testTab === "assign" ? "tab active" : "tab"} onClick={() => setTestTab("assign")}>Assign Test(s)</button>
+              <button type="button" role="tab" aria-selected={testTab === "results"} className={testTab === "results" ? "tab active" : "tab"} onClick={() => setTestTab("results")}>Results</button>
+            </div>
+
+            {testTab === "create" ? (
+              <>
             <form className="card account-form" onSubmit={createAssignedTest}>
               <div className="section-header compact-section-header">
-                <h3>Create assigned test</h3>
+                <h3>Create test</h3>
                 <p>{selectedAssignedQuestionIds.length} selected question(s)</p>
               </div>
               <div className="form-grid">
@@ -2261,12 +2310,7 @@ export default function AdminPage() {
               </label>
               <label className="inline-select">
                 Workflow
-                <select value={questionWorkflowFilter} onChange={(event) => {
-                  resetTestQuestionCursor();
-                  setQuestionWorkflowFilter(event.target.value);
-                }}>
-                  {workflowStatusLookups.map((lookup) => <option key={lookup.id} value={lookup.lookupCode === "ALL" ? "" : lookup.lookupCode}>{lookup.lookupMeaning}</option>)}
-                </select>
+                <span className="muted">Active, Approved, Practice</span>
               </label>
             </div>
 
@@ -2300,7 +2344,10 @@ export default function AdminPage() {
                 </div>
               </div>
             </div>
+              </>
+            ) : null}
 
+            {testTab === "assign" ? (
             <div className="card import-step-card">
               <div className="section-header compact-section-header">
                 <h3>Assign tests</h3>
@@ -2386,10 +2433,13 @@ export default function AdminPage() {
                 </div>
               ) : null}
             </div>
+            ) : null}
 
+            {testTab === "results" ? (
             <div className="card table-card">
               <div className="section-header compact-section-header">
-                <h3>Tests and results</h3>
+                <h3>Results</h3>
+                <p>{submittedAssignedTestResults.length} submitted of {assignedTestResults.length} assigned student(s)</p>
               </div>
               <div className="dashboard-actions">
                 <label className="inline-select">
@@ -2402,11 +2452,11 @@ export default function AdminPage() {
                   </select>
                 </label>
                 <button type="button" className="secondary-button compact-button" onClick={() => loadAssignedTests().catch((exception) => setAssignedTestError(exception instanceof Error ? exception.message : "Unable to load tests."))}>Refresh</button>
-                <button type="button" className="primary-button compact-button" disabled={!selectedAssignedTestVersionId} onClick={() => publishAssignedTestResults().catch((exception) => setAssignedTestError(exception instanceof Error ? exception.message : "Unable to publish results."))}>Publish results</button>
+                <button type="button" className="primary-button compact-button" disabled={!selectedAssignedTestVersionId || submittedAssignedTestResults.length === 0} onClick={() => publishAssignedTestResults().catch((exception) => setAssignedTestError(exception instanceof Error ? exception.message : "Unable to publish results."))}>Publish all submitted</button>
               </div>
               <div className="table-wrap">
                 <table className="data-table">
-                  <thead><tr><th>Student</th><th>Status</th><th>Assigned</th><th>Submitted</th><th>Score</th></tr></thead>
+                  <thead><tr><th>Student</th><th>Status</th><th>Assigned</th><th>Submitted</th><th>Score</th><th>Published</th><th>Actions</th></tr></thead>
                   <tbody>
                     {assignedTestResults.map((result) => (
                       <Fragment key={result.assignmentId}>
@@ -2416,12 +2466,23 @@ export default function AdminPage() {
                           <td>{formatDateTime(result.assignedAt)}</td>
                           <td>{formatDateTime(result.submittedAt)}</td>
                           <td>{result.scorePoints ?? 0} / {result.maxPoints}</td>
+                          <td>{result.resultsPublishedAt ? formatDateTime(result.resultsPublishedAt) : "Not published"}</td>
+                          <td>
+                            <div className="dashboard-actions compact-result-actions">
+                              <button type="button" className="secondary-button compact-button" disabled={result.status !== "SUBMITTED"} onClick={() => loadAssignedTestResultDetail(result).catch((exception) => setAssignedTestError(exception instanceof Error ? exception.message : "Unable to load result detail."))}>
+                                {expandedAssignedResultId === result.assignmentId ? "Hide" : "Edit result"}
+                              </button>
+                              <button type="button" className="primary-button compact-button" disabled={result.status !== "SUBMITTED" || Boolean(result.resultsPublishedAt)} onClick={() => publishAssignedTestStudentResult(result).catch((exception) => setAssignedTestError(exception instanceof Error ? exception.message : "Unable to publish student result."))}>
+                                Publish
+                              </button>
+                            </div>
+                          </td>
                         </tr>
-                        {result.attempt?.questions?.length ? (
+                        {expandedAssignedResultId === result.assignmentId && assignedTestResultDetails[result.assignmentId]?.attempt?.questions?.length ? (
                           <tr key={`${result.assignmentId}-review`}>
-                            <td colSpan={5}>
+                            <td colSpan={7}>
                               <div className="admin-result-review">
-                                {result.attempt.questions.map((question) => (
+                                {assignedTestResultDetails[result.assignmentId].attempt!.questions.map((question) => (
                                   <div key={question.attemptQuestionId} className="admin-result-question">
                                     <strong>{question.questionNumber}. {question.questionText}</strong>
                                     <span>Your answer: {resultSubmittedAnswerText(question)}</span>
@@ -2436,12 +2497,13 @@ export default function AdminPage() {
                       </Fragment>
                     ))}
                     {assignedTestResults.length === 0 ? (
-                      <tr><td colSpan={5}>No assignments or results for this test yet.</td></tr>
+                      <tr><td colSpan={7}>No assignments or results for this test yet.</td></tr>
                     ) : null}
                   </tbody>
                 </table>
               </div>
             </div>
+            ) : null}
           </section>
         ) : null}
 

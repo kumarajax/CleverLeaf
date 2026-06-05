@@ -43,6 +43,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 @Service
 public class AssignedTestService {
+    private static final Set<String> ASSIGNED_TEST_WORKFLOW_STATUSES = Set.of("ACTIVE", "APPROVED", "PRACTICE");
+
     private final AdminTestRepository adminTests;
     private final AdminTestVersionRepository versions;
     private final AssignedTestAssignmentRepository assignments;
@@ -121,6 +123,7 @@ public class AssignedTestService {
             UUID questionId = questionIds.get(index);
             QuestionEntity question = questions.findById(questionId)
                     .orElseThrow(() -> new IllegalArgumentException("Unknown question: " + questionId));
+            validateAssignedTestQuestion(question);
             AdminTestVersionQuestionEntity versionQuestion = new AdminTestVersionQuestionEntity();
             versionQuestion.setId(UUID.randomUUID());
             versionQuestion.setVersion(version);
@@ -166,8 +169,17 @@ public class AssignedTestService {
         AdminTestVersionEntity version = requireCreatorVersion(creatorSubject, versionId);
         return assignments.findByVersion_Test_CreatorSubjectOrderByAssignedAtDesc(requireSubject(creatorSubject)).stream()
                 .filter(assignment -> assignment.getVersion().getId().equals(version.getId()))
-                .map(this::toAdminResult)
+                .map(assignment -> toAdminResult(assignment, false))
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public AdminAssignedTestResult adminResult(String creatorSubject, UUID versionId, UUID assignmentId) {
+        AdminTestVersionEntity version = requireCreatorVersion(creatorSubject, versionId);
+        AssignedTestAssignmentEntity assignment = assignments.findById(assignmentId)
+                .filter(candidate -> candidate.getVersion().getId().equals(version.getId()))
+                .orElseThrow(() -> new IllegalArgumentException("Unknown assigned test result: " + assignmentId));
+        return toAdminResult(assignment, true);
     }
 
     @Transactional
@@ -183,15 +195,34 @@ public class AssignedTestService {
                     created.setStatus("ASSIGNED");
                     return assignments.save(created);
                 });
-        return toAdminResult(assignment);
+        return toAdminResult(assignment, false);
     }
 
     @Transactional
     public AdminAssignedTestSummary publishResults(String creatorSubject, UUID versionId) {
         AdminTestVersionEntity version = requireCreatorVersion(creatorSubject, versionId);
-        version.setResultsPublishedAt(Instant.now());
+        Instant now = Instant.now();
+        version.setResultsPublishedAt(now);
+        assignments.findByVersion_Test_CreatorSubjectOrderByAssignedAtDesc(requireSubject(creatorSubject)).stream()
+                .filter(assignment -> assignment.getVersion().getId().equals(version.getId()))
+                .filter(assignment -> "SUBMITTED".equals(assignment.getStatus()))
+                .forEach(assignment -> assignment.setResultsPublishedAt(now));
         versions.save(version);
         return toSummary(version);
+    }
+
+    @Transactional
+    public AdminAssignedTestResult publishStudentResult(String creatorSubject, UUID versionId, UUID assignmentId) {
+        AdminTestVersionEntity version = requireCreatorVersion(creatorSubject, versionId);
+        AssignedTestAssignmentEntity assignment = assignments.findById(assignmentId)
+                .filter(candidate -> candidate.getVersion().getId().equals(version.getId()))
+                .orElseThrow(() -> new IllegalArgumentException("Unknown assigned test result: " + assignmentId));
+        if (!"SUBMITTED".equals(assignment.getStatus())) {
+            throw new IllegalStateException("Only submitted test results can be published");
+        }
+        assignment.setResultsPublishedAt(Instant.now());
+        assignments.save(assignment);
+        return toAdminResult(assignment, false);
     }
 
     @Transactional(readOnly = true)
@@ -199,7 +230,7 @@ public class AssignedTestService {
         List<String> identifiers = requireIdentifiers(studentIdentifiers);
         return assignments.findByStudentSubjectInOrderByAssignedAtDesc(identifiers)
                 .stream()
-                .filter(assignment -> resultsOnly == (assignment.getVersion().getResultsPublishedAt() != null && "SUBMITTED".equals(assignment.getStatus())))
+                .filter(assignment -> resultsOnly == (isResultPublished(assignment) && "SUBMITTED".equals(assignment.getStatus())))
                 .map(this::toStudentSummary)
                 .toList();
     }
@@ -225,7 +256,7 @@ public class AssignedTestService {
         AssignedTestAssignmentEntity assignment = findStudentAssignment(studentIdentifiers, assignmentId);
         TestAttemptEntity attempt = attempts.findByAssignment_Id(assignment.getId())
                 .orElseThrow(() -> new IllegalArgumentException("Assigned test has not been started"));
-        if ("SUBMITTED".equals(attempt.getStatus()) && assignment.getVersion().getResultsPublishedAt() == null) {
+        if ("SUBMITTED".equals(attempt.getStatus()) && !isResultPublished(assignment)) {
             return toAttemptResponse(attempt, false);
         }
         return toAttemptResponse(attempt);
@@ -235,7 +266,7 @@ public class AssignedTestService {
     public StudentTestQuestion getAssignedQuestion(Collection<String> studentIdentifiers, UUID assignmentId, UUID attemptQuestionId) {
         TestAttemptEntity attempt = findStudentAttempt(studentIdentifiers, assignmentId);
         TestAttemptQuestionEntity question = findAttemptQuestion(attempt, attemptQuestionId);
-        boolean reveal = "SUBMITTED".equals(attempt.getStatus()) && attempt.getAssignment().getVersion().getResultsPublishedAt() != null;
+        boolean reveal = "SUBMITTED".equals(attempt.getStatus()) && isResultPublished(attempt.getAssignment());
         return toQuestion(question, reveal);
     }
 
@@ -264,7 +295,7 @@ public class AssignedTestService {
             attempt.getAssignment().setSubmittedAt(now);
             attempts.save(attempt);
         }
-        return toAttemptResponse(attempt, attempt.getAssignment().getVersion().getResultsPublishedAt() != null);
+        return toAttemptResponse(attempt, isResultPublished(attempt.getAssignment()));
     }
 
     private void processImportJob(UUID jobId) {
@@ -429,6 +460,19 @@ public class AssignedTestService {
         return version;
     }
 
+    private void validateAssignedTestQuestion(QuestionEntity question) {
+        if (!ASSIGNED_TEST_WORKFLOW_STATUSES.contains(question.getWorkflowStatus())) {
+            throw new IllegalArgumentException("Assigned tests can only use ACTIVE, APPROVED, or PRACTICE questions");
+        }
+        TaxonomyNodeEntity node = question.getChildTaxonomyNode();
+        while (node != null) {
+            if (!"ACTIVE".equals(node.getStatus())) {
+                throw new IllegalArgumentException("Assigned tests can only use questions from ACTIVE taxonomy branches");
+            }
+            node = node.getParentNode();
+        }
+    }
+
     private AssignedTestAssignmentEntity findStudentAssignment(Collection<String> studentIdentifiers, UUID assignmentId) {
         return assignments.findByIdAndStudentSubjectIn(assignmentId, requireIdentifiers(studentIdentifiers))
                 .orElseThrow(() -> new IllegalArgumentException("Unknown assigned test: " + assignmentId));
@@ -493,7 +537,7 @@ public class AssignedTestService {
                         .toList());
     }
 
-    private AdminAssignedTestResult toAdminResult(AssignedTestAssignmentEntity assignment) {
+    private AdminAssignedTestResult toAdminResult(AssignedTestAssignmentEntity assignment, boolean includeAttempt) {
         TestAttemptEntity attempt = attempts.findByAssignment_Id(assignment.getId()).orElse(null);
         return new AdminAssignedTestResult(
                 assignment.getId(),
@@ -503,9 +547,10 @@ public class AssignedTestService {
                 assignment.getAssignedAt(),
                 assignment.getStartedAt(),
                 assignment.getSubmittedAt(),
+                assignment.getResultsPublishedAt(),
                 attempt == null ? null : attempt.getScorePoints(),
                 attempt == null ? assignment.getVersion().getQuestions().size() : attempt.getMaxPoints(),
-                attempt == null ? null : toAttemptResponse(attempt, true));
+                includeAttempt && attempt != null ? toAttemptResponse(attempt, true) : null);
     }
 
     private StudentAssignedTestSummary toStudentSummary(AssignedTestAssignmentEntity assignment) {
@@ -522,9 +567,13 @@ public class AssignedTestService {
                 assignment.getAssignedAt(),
                 assignment.getStartedAt(),
                 assignment.getSubmittedAt(),
-                assignment.getVersion().getResultsPublishedAt() == null || attempt == null ? null : attempt.getScorePoints(),
+                !isResultPublished(assignment) || attempt == null ? null : attempt.getScorePoints(),
                 attempt == null ? assignment.getVersion().getQuestions().size() : attempt.getMaxPoints(),
-                assignment.getVersion().getResultsPublishedAt() != null);
+                isResultPublished(assignment));
+    }
+
+    private boolean isResultPublished(AssignedTestAssignmentEntity assignment) {
+        return assignment.getResultsPublishedAt() != null || assignment.getVersion().getResultsPublishedAt() != null;
     }
 
     private AssignedTestImportJobResponse toJob(AssignedTestImportJobEntity job) {
