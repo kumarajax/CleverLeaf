@@ -871,6 +871,19 @@ h1 {
   overflow-x: hidden;
 }
 
+.embedded-admin-shell {
+  min-height: 0;
+  overflow: visible;
+}
+
+.embedded-admin-panel {
+  border: 0;
+  border-radius: 0;
+  margin: 0;
+  max-width: none;
+  padding: 0;
+}
+
 .section {
   margin-top: 16px;
   padding-top: 14px;

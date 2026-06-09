@@ -428,7 +428,11 @@ function readPage<T>(body: unknown): { content: T[]; page: PageMetadata } {
   return { content, page };
 }
 
-export default function AdminPage() {
+type AdminConsoleProps = {
+  embedded?: boolean;
+};
+
+export function AdminConsole({ embedded = false }: AdminConsoleProps) {
   const router = useRouter();
   const { applicationName } = useApplicationConfig();
   const [loading, setLoading] = useState(true);
@@ -1744,6 +1748,15 @@ export default function AdminPage() {
   }
 
   if (loading) {
+    if (embedded) {
+      return (
+        <section className="admin-panel embedded-admin-panel">
+          <div className="eyebrow">{applicationName} Admin</div>
+          <h1>Loading admin console</h1>
+          <p className="lede">Verifying session and loading taxonomy.</p>
+        </section>
+      );
+    }
     return (
       <main className="account-shell">
         <section className="account-panel">
@@ -1763,14 +1776,16 @@ export default function AdminPage() {
   const createFormTitle = taxonomyForm.parentId ? "Create child node" : "Create root taxonomy";
 
   return (
-    <main className="admin-shell">
-      <section className="admin-panel">
+    <main className={embedded ? "admin-shell embedded-admin-shell" : "admin-shell"}>
+      <section className={embedded ? "admin-panel embedded-admin-panel" : "admin-panel"}>
+        {!embedded ? (
         <div className="admin-topbar">
           <a className="secondary-button compact-button admin-action-button" href="/dashboard">Dashboard</a>
           <div className="admin-topbar-actions">
             <button type="button" className="secondary-button compact-button admin-action-button" onClick={signOut}>Log out</button>
           </div>
         </div>
+        ) : null}
         <div className="account-tabs">
           <button type="button" className={activeTab === "taxonomy" ? "tab active" : "tab"} onClick={() => setActiveTab("taxonomy")}>Taxonomy</button>
           <button type="button" className={activeTab === "manual" ? "tab active" : "tab"} onClick={() => setActiveTab("manual")}>Manual question</button>
@@ -1781,6 +1796,7 @@ export default function AdminPage() {
           }}>Import</button>
         </div>
 
+        {activeTab !== "tests" ? (
         <div className="admin-taxonomy-context">
           <strong>Root taxonomy:</strong>
           <span>{selectedRootTaxonomyNode?.displayName ?? "None selected"}</span>
@@ -1788,6 +1804,7 @@ export default function AdminPage() {
           <strong>Selected node:</strong>
           <span>{selectedTaxonomyNode?.displayName ?? "None selected"}</span>
         </div>
+        ) : null}
 
         {activeTab === "taxonomy" ? (
           <section className="section">
@@ -2255,16 +2272,11 @@ export default function AdminPage() {
 
         {activeTab === "tests" ? (
           <section className="section">
-            <div className="section-header">
-              <h2>Tests</h2>
-              <p>Create draft tests, activate them for assignment, and review published test results.</p>
-            </div>
-
             {assignedTestError ? <p className="notice error">{assignedTestError}</p> : null}
 
             <div className="account-tabs import-tabs" role="tablist" aria-label="Assigned test administration">
-              <button type="button" role="tab" aria-selected={testTab === "history"} className={testTab === "history" ? "tab active" : "tab"} onClick={() => setTestTab("history")}>Manage Tests</button>
               <button type="button" role="tab" aria-selected={testTab === "create"} className={testTab === "create" ? "tab active" : "tab"} onClick={() => setTestTab("create")}>Create Tests</button>
+              <button type="button" role="tab" aria-selected={testTab === "history"} className={testTab === "history" ? "tab active" : "tab"} onClick={() => setTestTab("history")}>Manage Tests</button>
               <button type="button" role="tab" aria-selected={testTab === "assign"} className={testTab === "assign" ? "tab active" : "tab"} onClick={() => setTestTab("assign")}>Assign Test(s)</button>
               <button type="button" role="tab" aria-selected={testTab === "results"} className={testTab === "results" ? "tab active" : "tab"} onClick={() => setTestTab("results")}>Results</button>
             </div>
@@ -2779,4 +2791,8 @@ export default function AdminPage() {
       </section>
     </main>
   );
+}
+
+export default function AdminPage() {
+  return <AdminConsole />;
 }

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { AdminConsole } from "../admin/page";
 import { useApplicationConfig } from "../useApplicationConfig";
 
 type Session = {
@@ -285,13 +286,7 @@ export default function DashboardPage() {
         </div>
 
         {isAdmin && dashboardTab === "configure" ? (
-          <section className="dashboard-admin-panel">
-            <div>
-              <h2>Configure Taxonomy and Questions</h2>
-              <p>Manage taxonomy nodes, question imports, manual authoring, and review workflows.</p>
-            </div>
-            <a className="primary-button" href="/admin">Configure</a>
-          </section>
+          <AdminConsole embedded />
         ) : null}
 
         {dashboardTab === "take" ? (
