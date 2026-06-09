@@ -5,6 +5,7 @@ import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -37,6 +38,17 @@ public class AdminAssignedTestController {
     @GetMapping("/{versionId}")
     public AdminAssignedTestDetail get(@AuthenticationPrincipal Jwt jwt, @PathVariable("versionId") UUID versionId) {
         return tests.adminTest(jwt.getSubject(), versionId);
+    }
+
+    @PostMapping("/{versionId}/activate")
+    public AdminAssignedTestSummary activate(@AuthenticationPrincipal Jwt jwt, @PathVariable("versionId") UUID versionId) {
+        return tests.activateTest(jwt.getSubject(), versionId);
+    }
+
+    @DeleteMapping("/{versionId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(@AuthenticationPrincipal Jwt jwt, @PathVariable("versionId") UUID versionId) {
+        tests.deleteTest(jwt.getSubject(), versionId);
     }
 
     @PostMapping("/assignment-imports")

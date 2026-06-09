@@ -14,4 +14,6 @@ public interface AssignedTestAssignmentRepository extends JpaRepository<Assigned
     List<AssignedTestAssignmentEntity> findByStudentSubjectOrderByAssignedAtDesc(String studentSubject);
     List<AssignedTestAssignmentEntity> findByStudentSubjectInOrderByAssignedAtDesc(Collection<String> studentSubjects);
     List<AssignedTestAssignmentEntity> findByVersion_Test_CreatorSubjectOrderByAssignedAtDesc(String creatorSubject);
+    long countByVersion_Id(UUID versionId);
+    long countByVersion_IdAndStatus(UUID versionId, String status);
 }

@@ -100,6 +100,8 @@ type AdminAssignedTestSummary = {
   availableFrom?: string | null;
   availableUntil?: string | null;
   resultsPublishedAt?: string | null;
+  assignedCount: number;
+  submittedCount: number;
   createdAt: string;
 };
 
@@ -360,6 +362,23 @@ function formatDateTime(value?: string | null) {
   }).format(new Date(value));
 }
 
+function displayAdminTestStatus(test: AdminAssignedTestSummary) {
+  const now = Date.now();
+  const availableUntil = test.availableUntil ? new Date(test.availableUntil).getTime() : null;
+  if (test.assignedCount > 0 && test.submittedCount >= test.assignedCount) return "COMPLETED";
+  if (availableUntil && availableUntil < now && test.status !== "DRAFT") return "EXPIRED";
+  return test.status;
+}
+
+function availabilityLabel(test: AdminAssignedTestSummary) {
+  const now = Date.now();
+  const from = test.availableFrom ? new Date(test.availableFrom).getTime() : null;
+  const until = test.availableUntil ? new Date(test.availableUntil).getTime() : null;
+  if (from && from > now) return "Upcoming";
+  if (until && until < now) return "Expired";
+  return "Open";
+}
+
 function usesQuestionOptions(questionType: string) {
   return ["SINGLE_SELECT", "MULTIPLE_SELECT", "TRUE_FALSE"].includes(questionType);
 }
@@ -422,6 +441,7 @@ export default function AdminPage() {
   const [questionTypeLookups, setQuestionTypeLookups] = useState<LookupResponse[]>([]);
   const [difficultyLookups, setDifficultyLookups] = useState<LookupResponse[]>([]);
   const [workflowStatusLookups, setWorkflowStatusLookups] = useState<LookupResponse[]>([]);
+  const [adminTestStatusLookups, setAdminTestStatusLookups] = useState<LookupResponse[]>([]);
   const [allNodes, setAllNodes] = useState<TaxonomyNode[]>([]);
   const [taxonomyNodes, setTaxonomyNodes] = useState<TaxonomyNode[]>([]);
   const [taxonomyPage, setTaxonomyPage] = useState<PageMetadata>({ number: 0, size: taxonomyPageSize, totalElements: 0, totalPages: 0 });
@@ -475,7 +495,7 @@ export default function AdminPage() {
   const [importSummaries, setImportSummaries] = useState<Record<string, BulkImportSummary>>({});
   const [csvError, setCsvError] = useState("");
   const [activeTab, setActiveTab] = useState<"taxonomy" | "manual" | "import" | "tests">("taxonomy");
-  const [testTab, setTestTab] = useState<"create" | "assign" | "results">("create");
+  const [testTab, setTestTab] = useState<"history" | "create" | "assign" | "results">("history");
   const [importTab, setImportTab] = useState<"csv" | "json">("csv");
   const [expandedTaxonomyIds, setExpandedTaxonomyIds] = useState<string[]>([]);
   const [expandedQuestionTaxonomyIds, setExpandedQuestionTaxonomyIds] = useState<string[]>([]);
@@ -599,6 +619,9 @@ export default function AdminPage() {
       .filter((question): question is AdminQuestion => Boolean(question));
   }, [questions, testQuestionResults, selectedAssignedQuestionIds]);
   const submittedAssignedTestResults = useMemo(() => assignedTestResults.filter((result) => result.status === "SUBMITTED"), [assignedTestResults]);
+  const adminTestStatusMeaningByCode = useMemo(() => new Map(adminTestStatusLookups.map((lookup) => [lookup.lookupCode, lookup.lookupMeaning])), [adminTestStatusLookups]);
+  const assignableAssignedTests = useMemo(() => assignedTests.filter((test) => test.status === "ACTIVE" || test.status === "PUBLISHED"), [assignedTests]);
+  const resultEligibleAssignedTests = useMemo(() => assignedTests.filter((test) => ["PUBLISHED", "COMPLETED", "EXPIRED"].includes(displayAdminTestStatus(test))), [assignedTests]);
 
   function authHeaders(token = currentToken): Record<string, string> {
     return token ? { Authorization: `Bearer ${token}` } : {};
@@ -716,7 +739,36 @@ export default function AdminPage() {
     }
     const rows = Array.isArray(body) ? body : [];
     setAssignedTests(rows);
-    setSelectedAssignedTestVersionId((current) => current || rows[0]?.versionId || "");
+    setSelectedAssignedTestVersionId((current) => rows.some((row: AdminAssignedTestSummary) => row.versionId === current) ? current : rows[0]?.versionId || "");
+  }
+
+  async function activateAssignedTest(test: AdminAssignedTestSummary) {
+    setAssignedTestError("");
+    const response = await fetch(`${apiBaseUrl}/api/admin/assigned-tests/${test.versionId}/activate`, {
+      method: "POST",
+      headers: authHeaders(),
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(body.error || `Request failed with ${response.status}`);
+    }
+    setStatus(`Activated ${test.publicKey}.`);
+    await loadAssignedTests();
+  }
+
+  async function deleteAssignedTest(test: AdminAssignedTestSummary) {
+    setAssignedTestError("");
+    const response = await fetch(`${apiBaseUrl}/api/admin/assigned-tests/${test.versionId}`, {
+      method: "DELETE",
+      headers: authHeaders(),
+    });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      throw new Error(body.error || `Request failed with ${response.status}`);
+    }
+    setStatus(`Deleted ${test.publicKey}.`);
+    setSelectedAssignedTestVersionId((current) => current === test.versionId ? "" : current);
+    await loadAssignedTests();
   }
 
   function resetTestQuestionCursor() {
@@ -832,7 +884,7 @@ export default function AdminPage() {
       if (!response.ok) {
         throw new Error(body.error || `Request failed with ${response.status}`);
       }
-      setStatus("Assigned test created.");
+      setStatus("Draft test created.");
       setAssignedTestForm({ publicKey: "", name: "", timeAllowedMinutes: 30, availableFrom: "", availableUntil: "" });
       setSelectedAssignedQuestionIds([]);
       await loadAssignedTests();
@@ -923,7 +975,7 @@ export default function AdminPage() {
     }
     setManualAssignmentStudentSubject("");
     setStatus("Test assigned to student.");
-    await loadAssignedTestResults(selectedAssignedTestVersionId);
+    await Promise.all([loadAssignedTests(), loadAssignedTestResults(selectedAssignedTestVersionId)]);
   }
 
   async function publishAssignedTestResults(versionId = selectedAssignedTestVersionId) {
@@ -992,18 +1044,20 @@ export default function AdminPage() {
       }
       setRoles(payloadRoles);
       setQuestionForm((current) => ({ ...current, actor: parsed.email ?? payload?.email ?? current.actor }));
-      const [meResponse, levelResponse, questionTypeResponse, difficultyResponse, workflowStatusResponse] = await Promise.all([
+      const [meResponse, levelResponse, questionTypeResponse, difficultyResponse, workflowStatusResponse, adminTestStatusResponse] = await Promise.all([
         fetch(`${apiBaseUrl}/api/me`, { headers: { Authorization: `Bearer ${parsed.accessToken}` } }),
         fetch(`${apiBaseUrl}/api/common/lookups?lookupType=TAXONOMY_TYPE&status=ACTIVE`, { headers: { Authorization: `Bearer ${parsed.accessToken}` } }),
         fetch(`${apiBaseUrl}/api/common/lookups?lookupType=QUESTION_TYPE&status=ACTIVE`, { headers: { Authorization: `Bearer ${parsed.accessToken}` } }),
         fetch(`${apiBaseUrl}/api/common/lookups?lookupType=QUESTION_DIFFICULTY&status=ACTIVE`, { headers: { Authorization: `Bearer ${parsed.accessToken}` } }),
         fetch(`${apiBaseUrl}/api/common/lookups?lookupType=QUESTION_WORKFLOW_STATUS&status=ACTIVE`, { headers: { Authorization: `Bearer ${parsed.accessToken}` } }),
+        fetch(`${apiBaseUrl}/api/common/lookups?lookupType=ADMIN_TEST_STATUS&status=ACTIVE`, { headers: { Authorization: `Bearer ${parsed.accessToken}` } }),
       ]);
       const meBody = await meResponse.json().catch(() => ({}));
       const levelBody = await levelResponse.json().catch(() => []);
       const questionTypeBody = await questionTypeResponse.json().catch(() => []);
       const difficultyBody = await difficultyResponse.json().catch(() => []);
       const workflowStatusBody = await workflowStatusResponse.json().catch(() => []);
+      const adminTestStatusBody = await adminTestStatusResponse.json().catch(() => []);
       if (!meResponse.ok) {
         throw new Error(meBody.error || `Request failed with ${meResponse.status}`);
       }
@@ -1019,12 +1073,16 @@ export default function AdminPage() {
       if (!workflowStatusResponse.ok) {
         throw new Error(workflowStatusBody.error || `Request failed with ${workflowStatusResponse.status}`);
       }
+      if (!adminTestStatusResponse.ok) {
+        throw new Error(adminTestStatusBody.error || `Request failed with ${adminTestStatusResponse.status}`);
+      }
       setMe(meBody);
       setRoles(meBody.roles ?? payloadRoles);
       const levelLookups = readPage<LookupResponse>(levelBody).content;
       const questionTypeLookups = readPage<LookupResponse>(questionTypeBody).content;
       const difficultyLookups = readPage<LookupResponse>(difficultyBody).content;
       const workflowStatusLookups = readPage<LookupResponse>(workflowStatusBody).content;
+      const adminTestStatusLookups = readPage<LookupResponse>(adminTestStatusBody).content;
       setLevelTypes(levelLookups.map((lookup) => ({
         id: lookup.id,
         levelKey: lookup.lookupCode,
@@ -1036,6 +1094,7 @@ export default function AdminPage() {
       setQuestionTypeLookups(questionTypeLookups);
       setDifficultyLookups(difficultyLookups);
       setWorkflowStatusLookups(workflowStatusLookups);
+      setAdminTestStatusLookups(adminTestStatusLookups);
       const initialLoads = await Promise.allSettled([
         loadAllTaxonomy(parsed.accessToken),
         loadTaxonomy("ACTIVE", parsed.accessToken),
@@ -2197,24 +2256,76 @@ export default function AdminPage() {
         {activeTab === "tests" ? (
           <section className="section">
             <div className="section-header">
-              <h2>Assigned tests</h2>
-              <p>Create a fixed test from existing questions, then assign it to students by CSV.</p>
+              <h2>Tests</h2>
+              <p>Create draft tests, activate them for assignment, and review published test results.</p>
             </div>
 
             {assignedTestError ? <p className="notice error">{assignedTestError}</p> : null}
 
             <div className="account-tabs import-tabs" role="tablist" aria-label="Assigned test administration">
+              <button type="button" role="tab" aria-selected={testTab === "history"} className={testTab === "history" ? "tab active" : "tab"} onClick={() => setTestTab("history")}>Manage Tests</button>
               <button type="button" role="tab" aria-selected={testTab === "create"} className={testTab === "create" ? "tab active" : "tab"} onClick={() => setTestTab("create")}>Create Tests</button>
               <button type="button" role="tab" aria-selected={testTab === "assign"} className={testTab === "assign" ? "tab active" : "tab"} onClick={() => setTestTab("assign")}>Assign Test(s)</button>
               <button type="button" role="tab" aria-selected={testTab === "results"} className={testTab === "results" ? "tab active" : "tab"} onClick={() => setTestTab("results")}>Results</button>
             </div>
 
+            {testTab === "history" ? (
+            <div className="card table-card">
+              <div className="section-header compact-section-header">
+                <h3>Historical tests</h3>
+                <p>{assignedTests.length} test(s)</p>
+              </div>
+              <div className="dashboard-actions">
+                <button type="button" className="secondary-button compact-button" onClick={() => loadAssignedTests().catch((exception) => setAssignedTestError(exception instanceof Error ? exception.message : "Unable to load tests."))}>Refresh</button>
+              </div>
+              <div className="table-wrap">
+                <table className="data-table">
+                  <thead><tr><th>Public key</th><th>Name</th><th>Status</th><th>Availability</th><th>Questions</th><th>Assigned</th><th>Submitted</th><th>Results</th><th>Created</th><th>Actions</th></tr></thead>
+                  <tbody>
+                    {assignedTests.map((test) => {
+                      const displayStatus = displayAdminTestStatus(test);
+                      const statusLabel = adminTestStatusMeaningByCode.get(displayStatus) ?? displayStatus;
+                      const canActivate = test.status === "DRAFT";
+                      const canDelete = test.status === "DRAFT" || test.status === "ACTIVE";
+                      return (
+                        <tr key={test.versionId}>
+                          <td>{test.publicKey}</td>
+                          <td>{test.name}</td>
+                          <td>{statusLabel}</td>
+                          <td>{availabilityLabel(test)}<br /><small>{formatDateTime(test.availableFrom)} - {formatDateTime(test.availableUntil)}</small></td>
+                          <td>{test.questionCount}</td>
+                          <td>{test.assignedCount}</td>
+                          <td>{test.submittedCount}</td>
+                          <td>{test.resultsPublishedAt ? formatDateTime(test.resultsPublishedAt) : "Not published"}</td>
+                          <td>{formatDateTime(test.createdAt)}</td>
+                          <td>
+                            <div className="table-actions">
+                              {canActivate ? (
+                                <button type="button" className="secondary-button compact-button" onClick={() => activateAssignedTest(test).catch((exception) => setAssignedTestError(exception instanceof Error ? exception.message : "Unable to activate test."))}>Activate</button>
+                              ) : null}
+                              {canDelete ? (
+                                <button type="button" className="secondary-button compact-button" onClick={() => deleteAssignedTest(test).catch((exception) => setAssignedTestError(exception instanceof Error ? exception.message : "Unable to delete test."))}>Delete</button>
+                              ) : <span className="muted">Locked</span>}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {assignedTests.length === 0 ? (
+                      <tr><td colSpan={10}>No tests created yet.</td></tr>
+                    ) : null}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            ) : null}
+
             {testTab === "create" ? (
               <>
             <form className="card account-form" onSubmit={createAssignedTest}>
               <div className="section-header compact-section-header">
-                <h3>Create test</h3>
-                <p>{selectedAssignedQuestionIds.length} selected question(s)</p>
+                <h3>Create draft test</h3>
+                <p>{selectedAssignedQuestionIds.length} selected question(s). Activate the draft before assigning it.</p>
               </div>
               <div className="form-grid">
                 <label>
@@ -2263,7 +2374,7 @@ export default function AdminPage() {
               </div>
               <div className="dashboard-actions">
                 <button type="submit" className="primary-button compact-button" disabled={creatingAssignedTest}>
-                  {creatingAssignedTest ? "Creating..." : "Create test"}
+                  {creatingAssignedTest ? "Creating..." : "Create draft"}
                 </button>
                 <button type="button" className="secondary-button compact-button" onClick={() => setSelectedAssignedQuestionIds([])}>Clear selected</button>
               </div>
@@ -2357,8 +2468,8 @@ export default function AdminPage() {
                 <label className="inline-select">
                   Test
                   <select value={selectedAssignedTestVersionId} onChange={(event) => setSelectedAssignedTestVersionId(event.target.value)}>
-                    <option value="">Select test</option>
-                    {assignedTests.map((test) => (
+                    <option value="">Select active or published test</option>
+                    {assignableAssignedTests.map((test) => (
                       <option key={test.versionId} value={test.versionId}>{test.publicKey} - {test.name}</option>
                     ))}
                   </select>
@@ -2381,7 +2492,7 @@ export default function AdminPage() {
               </div>
               <div className="section-header compact-section-header">
                 <h3>Bulk assignment CSV</h3>
-                <p>CSV columns: TestPublicKey, StudentSubject</p>
+                <p>CSV columns: TestPublicKey, StudentSubject. Draft tests must be activated before assignment.</p>
               </div>
               <div className="dashboard-actions import-actions">
                 <button type="button" className="secondary-button compact-button" onClick={() => {
@@ -2446,7 +2557,7 @@ export default function AdminPage() {
                   Test
                   <select value={selectedAssignedTestVersionId} onChange={(event) => setSelectedAssignedTestVersionId(event.target.value)}>
                     <option value="">Select test</option>
-                    {assignedTests.map((test) => (
+                    {resultEligibleAssignedTests.map((test) => (
                       <option key={test.versionId} value={test.versionId}>{test.publicKey} - {test.name}</option>
                     ))}
                   </select>

@@ -1352,6 +1352,12 @@ h1 {
   background: #fbfdf9;
 }
 
+.table-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 .admin-shell .account-tabs {
   gap: 8px;
   margin: 12px 0;

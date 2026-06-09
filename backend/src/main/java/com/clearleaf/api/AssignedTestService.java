@@ -44,6 +44,9 @@ import org.springframework.transaction.support.TransactionTemplate;
 @Service
 public class AssignedTestService {
     private static final Set<String> ASSIGNED_TEST_WORKFLOW_STATUSES = Set.of("ACTIVE", "APPROVED", "PRACTICE");
+    private static final String TEST_STATUS_DRAFT = "DRAFT";
+    private static final String TEST_STATUS_ACTIVE = "ACTIVE";
+    private static final String TEST_STATUS_PUBLISHED = "PUBLISHED";
 
     private final AdminTestRepository adminTests;
     private final AdminTestVersionRepository versions;
@@ -108,7 +111,7 @@ public class AssignedTestService {
         test.setPublicKey(publicKey);
         test.setName(requireText(request.name(), "name"));
         test.setCreatorSubject(subject);
-        test.setStatus("ACTIVE");
+        test.setStatus(TEST_STATUS_DRAFT);
 
         AdminTestVersionEntity version = new AdminTestVersionEntity();
         version.setId(UUID.randomUUID());
@@ -138,6 +141,34 @@ public class AssignedTestService {
     @Transactional(readOnly = true)
     public AdminAssignedTestDetail adminTest(String creatorSubject, UUID versionId) {
         return toDetail(requireCreatorVersion(creatorSubject, versionId));
+    }
+
+    @Transactional
+    public AdminAssignedTestSummary activateTest(String creatorSubject, UUID versionId) {
+        AdminTestVersionEntity version = requireCreatorVersion(creatorSubject, versionId);
+        AdminTestEntity test = version.getTest();
+        if (!TEST_STATUS_DRAFT.equals(test.getStatus())) {
+            throw new IllegalStateException("Only draft tests can be activated");
+        }
+        if (version.getQuestions().isEmpty()) {
+            throw new IllegalStateException("At least one question is required before activating a test");
+        }
+        test.setStatus(TEST_STATUS_ACTIVE);
+        adminTests.save(test);
+        return toSummary(version);
+    }
+
+    @Transactional
+    public void deleteTest(String creatorSubject, UUID versionId) {
+        AdminTestVersionEntity version = requireCreatorVersion(creatorSubject, versionId);
+        AdminTestEntity test = version.getTest();
+        if (TEST_STATUS_PUBLISHED.equals(test.getStatus())) {
+            throw new IllegalStateException("Published tests cannot be deleted");
+        }
+        if (!Set.of(TEST_STATUS_DRAFT, TEST_STATUS_ACTIVE).contains(test.getStatus())) {
+            throw new IllegalStateException("Only draft or active tests can be deleted");
+        }
+        adminTests.delete(test);
     }
 
     @Transactional
@@ -185,6 +216,7 @@ public class AssignedTestService {
     @Transactional
     public AdminAssignedTestResult assignStudent(String creatorSubject, UUID versionId, AssignAdminTestRequest request) {
         AdminTestVersionEntity version = requireCreatorVersion(creatorSubject, versionId);
+        ensureAssignable(version);
         String studentSubject = requireText(request == null ? null : request.studentSubject(), "studentSubject");
         AssignedTestAssignmentEntity assignment = assignments.findByVersion_IdAndStudentSubject(version.getId(), studentSubject)
                 .orElseGet(() -> {
@@ -195,6 +227,7 @@ public class AssignedTestService {
                     created.setStatus("ASSIGNED");
                     return assignments.save(created);
                 });
+        publishTest(version);
         return toAdminResult(assignment, false);
     }
 
@@ -240,6 +273,9 @@ public class AssignedTestService {
         AssignedTestAssignmentEntity assignment = findStudentAssignment(studentIdentifiers, assignmentId);
         AdminTestVersionEntity version = assignment.getVersion();
         Instant now = Instant.now();
+        if (!TEST_STATUS_PUBLISHED.equals(version.getTest().getStatus())) {
+            throw new IllegalStateException("Assigned test has not been published");
+        }
         if (version.getAvailableFrom() != null && now.isBefore(version.getAvailableFrom())) {
             throw new IllegalStateException("Assigned test is not available yet");
         }
@@ -368,6 +404,9 @@ public class AssignedTestService {
                 } else if (!job.getActorSubject().equals(test.getCreatorSubject())) {
                     rowStatus = "FAILED";
                     message = "Only the test creator can assign this test";
+                } else if (!isAssignableStatus(test.getStatus())) {
+                    rowStatus = "FAILED";
+                    message = "Only active or published tests can be assigned";
                 } else if (assignments.findByVersion_IdAndStudentSubject(version.getId(), cleanSubject).isPresent()) {
                     rowStatus = "SKIPPED";
                     message = "Assignment already exists";
@@ -379,6 +418,7 @@ public class AssignedTestService {
                     assignment.setStatus("ASSIGNED");
                     assignment.setImportJob(job);
                     assignments.save(assignment);
+                    publishTest(version);
                     rowStatus = "IMPORTED";
                     message = "Assigned";
                 }
@@ -473,6 +513,24 @@ public class AssignedTestService {
         }
     }
 
+    private void ensureAssignable(AdminTestVersionEntity version) {
+        if (!isAssignableStatus(version.getTest().getStatus())) {
+            throw new IllegalStateException("Only active or published tests can be assigned. Activate the test first.");
+        }
+    }
+
+    private boolean isAssignableStatus(String status) {
+        return TEST_STATUS_ACTIVE.equals(status) || TEST_STATUS_PUBLISHED.equals(status);
+    }
+
+    private void publishTest(AdminTestVersionEntity version) {
+        AdminTestEntity test = version.getTest();
+        if (TEST_STATUS_ACTIVE.equals(test.getStatus())) {
+            test.setStatus(TEST_STATUS_PUBLISHED);
+            adminTests.save(test);
+        }
+    }
+
     private AssignedTestAssignmentEntity findStudentAssignment(Collection<String> studentIdentifiers, UUID assignmentId) {
         return assignments.findByIdAndStudentSubjectIn(assignmentId, requireIdentifiers(studentIdentifiers))
                 .orElseThrow(() -> new IllegalArgumentException("Unknown assigned test: " + assignmentId));
@@ -515,6 +573,8 @@ public class AssignedTestService {
                 version.getAvailableFrom(),
                 version.getAvailableUntil(),
                 version.getResultsPublishedAt(),
+                assignments.countByVersion_Id(version.getId()),
+                assignments.countByVersion_IdAndStatus(version.getId(), "SUBMITTED"),
                 test.getCreatedAt());
     }
 
