@@ -256,7 +256,7 @@ export default function DashboardPage() {
 
   return (
     <main className="student-shell">
-      <section className="student-panel dashboard-panel">
+      <section className={dashboardTab === "configure" ? "student-panel dashboard-panel configure-dashboard-panel" : "student-panel dashboard-panel"}>
         <div className="dashboard-topbar">
           <details className="profile-menu">
             <summary>{studentName}</summary>

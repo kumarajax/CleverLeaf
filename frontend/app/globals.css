@@ -311,6 +311,18 @@ h1 {
   gap: 8px;
 }
 
+.configure-dashboard-panel {
+  max-width: min(1500px, calc(100vw - 48px));
+}
+
+.configure-dashboard-panel.dashboard-panel {
+  gap: 0;
+}
+
+.configure-dashboard-panel .dashboard-tabs {
+  margin-bottom: 0;
+}
+
 .dashboard-topbar {
   align-items: center;
   display: flex;
@@ -872,8 +884,13 @@ h1 {
 }
 
 .embedded-admin-shell {
+  display: block;
+  margin: 0;
+  max-width: none;
   min-height: 0;
   overflow: visible;
+  padding: 0;
+  width: 100%;
 }
 
 .embedded-admin-panel {
@@ -882,6 +899,24 @@ h1 {
   margin: 0;
   max-width: none;
   padding: 0;
+  width: 100%;
+}
+
+.embedded-admin-shell .account-tabs {
+  margin: 0 0 6px;
+}
+
+.embedded-admin-panel .section {
+  margin-top: 8px;
+}
+
+.embedded-admin-panel .admin-taxonomy-context {
+  margin-top: 6px;
+  padding: 6px 8px;
+}
+
+.embedded-admin-panel .split-layout {
+  margin-top: 8px;
 }
 
 .section {
