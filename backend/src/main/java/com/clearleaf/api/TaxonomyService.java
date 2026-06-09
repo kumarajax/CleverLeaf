@@ -142,8 +142,16 @@ public class TaxonomyService {
     @Transactional
     public void deleteUnused(UUID id) {
         UUID nodeId = requireUuid(id, "id");
-        if (nodes.existsByParentNode_Id(nodeId) || questions.existsByTaxonomyAssignments_TaxonomyNode_Id(nodeId)) {
-            throw new IllegalStateException("Referenced taxonomy nodes must be deactivated instead of deleted");
+        boolean hasChildNodes = nodes.existsByParentNode_Id(nodeId);
+        boolean hasQuestions = questions.existsByTaxonomyAssignments_TaxonomyNode_Id(nodeId);
+        if (hasChildNodes && hasQuestions) {
+            throw new IllegalStateException("This taxonomy node cannot be deleted because it has child nodes and is referenced by questions. Deactivate it instead.");
+        }
+        if (hasChildNodes) {
+            throw new IllegalStateException("This taxonomy node cannot be deleted because it has child nodes. Deactivate it instead.");
+        }
+        if (hasQuestions) {
+            throw new IllegalStateException("This taxonomy node cannot be deleted because it is referenced by questions. Deactivate it instead.");
         }
         nodes.deleteById(nodeId);
     }
