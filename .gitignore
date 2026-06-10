@@ -4,3 +4,4 @@ target/
 .next/
 node_modules/
 *.log
+LongTermGoal.md
