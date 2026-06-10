@@ -59,8 +59,9 @@ public class StudentTestService {
             throw new IllegalArgumentException("student subject is required");
         }
         UUID taxonomyNodeId = requireUuid(request == null ? null : request.taxonomyNodeId(), "taxonomyNodeId");
-        String difficulty = normalizeDifficulty(request.difficulty());
-        int questionCount = request.questionCount() <= 0 ? 10 : Math.min(request.questionCount(), 50);
+        String difficulty = normalizeDifficulty(request == null ? null : request.difficulty());
+        int questionCount = request == null || request.questionCount() <= 0 ? 10 : Math.min(request.questionCount(), 50);
+        int timePerQuestion = secondsPerQuestion(request == null ? null : request.secondsPerQuestion(), difficulty);
         TaxonomyNodeEntity taxonomy = taxonomyNodes.findById(taxonomyNodeId)
                 .orElseThrow(() -> new IllegalArgumentException("Unknown taxonomy node: " + taxonomyNodeId));
         List<UUID> taxonomyNodeIds = descendantIds(taxonomy.getId());
@@ -73,12 +74,12 @@ public class StudentTestService {
         TestAttemptEntity attempt = new TestAttemptEntity();
         attempt.setId(UUID.randomUUID());
         attempt.setStudentSubject(studentSubject);
-        attempt.setTestName(defaultTestName(request.testName(), taxonomy, difficulty));
+        attempt.setTestName(defaultTestName(request == null ? null : request.testName(), taxonomy, difficulty));
         attempt.setTaxonomyNode(taxonomy);
         attempt.setDifficulty(difficulty);
         attempt.setStatus("IN_PROGRESS");
         attempt.setStartedAt(now);
-        attempt.setExpiresAt(now.plusSeconds((long) secondsPerQuestion(difficulty) * questionCount));
+        attempt.setExpiresAt(now.plusSeconds((long) timePerQuestion * questionCount));
         attempt.setMaxPoints(questionCount);
 
         for (int index = 0; index < selected.size(); index++) {
@@ -481,7 +482,13 @@ public class StudentTestService {
         return Set.of("SINGLE_SELECT", "MULTIPLE_SELECT", "TRUE_FALSE").contains(question.getQuestionType().toUpperCase(Locale.ROOT));
     }
 
-    private int secondsPerQuestion(String difficulty) {
+    private int secondsPerQuestion(Integer configuredSeconds, String difficulty) {
+        if (configuredSeconds != null) {
+            if (configuredSeconds < 10 || configuredSeconds > 3600) {
+                throw new IllegalArgumentException("Seconds per question must be between 10 and 3600");
+            }
+            return configuredSeconds;
+        }
         return switch (difficulty) {
             case "EASY" -> 60;
             case "HARD" -> 30;

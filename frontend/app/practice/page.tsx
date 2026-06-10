@@ -31,11 +31,11 @@ type StudentTaxonomyNode = {
 
 type Difficulty = "EASY" | "MEDIUM" | "HARD" | "MIXED";
 
-const difficultyOptions: Array<{ value: Difficulty; label: string; time: string }> = [
-  { value: "EASY", label: "Easy", time: "60 sec/question" },
-  { value: "MEDIUM", label: "Medium", time: "45 sec/question" },
-  { value: "HARD", label: "Hard", time: "30 sec/question" },
-  { value: "MIXED", label: "Mixed", time: "Even spread" },
+const difficultyOptions: Array<{ value: Difficulty; label: string; defaultSeconds: number; hint: string }> = [
+  { value: "EASY", label: "Easy", defaultSeconds: 60, hint: "Default 60 sec/question" },
+  { value: "MEDIUM", label: "Medium", defaultSeconds: 45, hint: "Default 45 sec/question" },
+  { value: "HARD", label: "Hard", defaultSeconds: 30, hint: "Default 30 sec/question" },
+  { value: "MIXED", label: "Mixed", defaultSeconds: 45, hint: "Even spread" },
 ];
 
 function readStoredSession() {
@@ -88,6 +88,7 @@ export default function PracticePage() {
   const [query, setQuery] = useState("");
   const [difficulty, setDifficulty] = useState<Difficulty>("MEDIUM");
   const [questionCount, setQuestionCount] = useState(10);
+  const [secondsPerQuestion, setSecondsPerQuestion] = useState(45);
   const [testName, setTestName] = useState("");
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
@@ -197,6 +198,7 @@ export default function PracticePage() {
           taxonomyNodeId: selectedTaxonomy.id,
           difficulty,
           questionCount,
+          secondsPerQuestion,
           testName: testName.trim() || `${selectedTaxonomy.displayName} Test`,
         }),
       });
@@ -225,6 +227,9 @@ export default function PracticePage() {
             <span>{studentGrade ? `Default grade: ${studentGrade.replace(/\b\w/g, (letter) => letter.toUpperCase())}` : "No grade found in profile"}</span>
           </div>
         </div>
+
+        {status ? <p className="notice success">{status}</p> : null}
+        {error ? <p className="notice error">{error}</p> : null}
 
         <div className="student-layout">
           <section className="student-search-panel">
@@ -299,21 +304,31 @@ export default function PracticePage() {
                   type="button"
                   key={option.value}
                   className={difficulty === option.value ? "difficulty-card active" : "difficulty-card"}
-                  onClick={() => setDifficulty(option.value)}
+                  onClick={() => {
+                    setDifficulty(option.value);
+                    setSecondsPerQuestion(option.defaultSeconds);
+                  }}
                 >
                   <strong>{option.label}</strong>
-                  <span>{option.time}</span>
+                  <span>{option.hint}</span>
                 </button>
               ))}
             </div>
-            <button type="button" className="primary-button" disabled={starting} onClick={startTest}>
-              {starting ? "Starting..." : "Start test"}
+            <label>
+              Seconds per question
+              <input
+                type="number"
+                min="10"
+                max="3600"
+                value={secondsPerQuestion}
+                onChange={(event) => setSecondsPerQuestion(Math.max(10, Math.min(3600, Number(event.target.value) || 10)))}
+              />
+            </label>
+            <button type="button" className="primary-button" disabled={starting || !selectedTaxonomy} onClick={startTest}>
+              {starting ? "Starting..." : selectedTaxonomy ? "Start test" : "Select a topic"}
             </button>
           </aside>
         </div>
-
-        {status ? <p className="notice success">{status}</p> : null}
-        {error ? <p className="notice error">{error}</p> : null}
       </section>
     </main>
   );

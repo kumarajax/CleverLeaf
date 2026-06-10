@@ -1796,6 +1796,9 @@ export function AdminConsole({ embedded = false }: AdminConsoleProps) {
           }}>Import</button>
         </div>
 
+        {error ? <p className="notice error">{error}</p> : null}
+        {status ? <p className="notice success">{status}</p> : null}
+
         {activeTab !== "tests" ? (
         <div className="admin-taxonomy-context">
           <strong>Root taxonomy:</strong>
@@ -2785,9 +2788,6 @@ export function AdminConsole({ embedded = false }: AdminConsoleProps) {
             ) : null}
           </section>
         ) : null}
-
-        {error ? <p className="notice error">{error}</p> : null}
-        {status ? <p className="notice success">{status}</p> : null}
       </section>
     </main>
   );

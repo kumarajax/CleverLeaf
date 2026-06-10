@@ -6,5 +6,6 @@ public record CreateStudentTestRequest(
         UUID taxonomyNodeId,
         String difficulty,
         int questionCount,
-        String testName) {
+        String testName,
+        Integer secondsPerQuestion) {
 }

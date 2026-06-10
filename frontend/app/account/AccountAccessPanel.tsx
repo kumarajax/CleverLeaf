@@ -157,6 +157,9 @@ export function AccountAccessPanel({ showBackLink = true }: AccountAccessPanelPr
         <button type="button" className={mode === "login" ? "tab active" : "tab"} onClick={() => setMode("login")}>Log in</button>
         <button type="button" className={mode === "signup" ? "tab active" : "tab"} onClick={() => setMode("signup")}>Sign up</button>
       </div>
+      {signedInEmail ? <p className="notice success">Signed in as {signedInEmail}.</p> : null}
+      {status ? <p className="notice success">{status}</p> : null}
+      {error ? <p className="notice error">{error}</p> : null}
       {mode === "login" ? (
         <form className="account-form" onSubmit={login}>
           <label>Email<input type="email" value={loginEmail} onChange={(event) => setLoginEmail(event.target.value)} autoComplete="email" /></label>
@@ -178,9 +181,6 @@ export function AccountAccessPanel({ showBackLink = true }: AccountAccessPanelPr
           <button className="primary-button" disabled={submitting}>{submitting ? "Submitting..." : approvalRequired ? "Request approval" : "Create account"}</button>
         </form>
       )}
-      {signedInEmail ? <p className="notice success">Signed in as {signedInEmail}.</p> : null}
-      {status ? <p className="notice success">{status}</p> : null}
-      {error ? <p className="notice error">{error}</p> : null}
     </section>
   );
 }

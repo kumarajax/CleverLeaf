@@ -278,7 +278,7 @@ export default function DashboardPage() {
 
         <div className="account-tabs dashboard-tabs" role="tablist" aria-label="Dashboard sections">
           <button type="button" role="tab" aria-selected={dashboardTab === "history"} className={dashboardTab === "history" ? "tab active" : "tab"} onClick={() => setDashboardTab("history")}>Historical Tests</button>
-          <button type="button" role="tab" aria-selected={dashboardTab === "take"} className={dashboardTab === "take" ? "tab active" : "tab"} onClick={() => setDashboardTab("take")}>Take Test</button>
+          <button type="button" role="tab" aria-selected={dashboardTab === "take"} className={dashboardTab === "take" ? "tab active" : "tab"} onClick={() => router.push("/practice")}>Take Test</button>
           <button type="button" role="tab" aria-selected={dashboardTab === "assigned"} className={dashboardTab === "assigned" ? "tab active" : "tab"} onClick={() => setDashboardTab("assigned")}>Assigned Tests</button>
           {isAdmin ? (
             <button type="button" role="tab" aria-selected={dashboardTab === "configure"} className={dashboardTab === "configure" ? "tab active" : "tab"} onClick={() => setDashboardTab("configure")}>Configure</button>

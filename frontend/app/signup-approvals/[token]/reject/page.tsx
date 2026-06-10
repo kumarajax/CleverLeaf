@@ -30,5 +30,5 @@ export default function RejectSignupPage() {
     setMessage(body.message);
   }
 
-  return <main className="account-shell"><form className="account-panel account-form" onSubmit={reject}><h1>Reject signup</h1><p>{label}</p><label>Reason sent to applicant<textarea value={reason} onChange={(event) => setReason(event.target.value)} /></label><button className="primary-button">Reject request</button>{message ? <p className="notice success">{message}</p> : null}{error ? <p className="notice error">{error}</p> : null}</form></main>;
+  return <main className="account-shell"><form className="account-panel account-form" onSubmit={reject}><h1>Reject signup</h1>{message ? <p className="notice success">{message}</p> : null}{error ? <p className="notice error">{error}</p> : null}<p>{label}</p><label>Reason sent to applicant<textarea value={reason} onChange={(event) => setReason(event.target.value)} /></label><button className="primary-button">Reject request</button></form></main>;
 }
