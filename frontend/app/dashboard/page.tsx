@@ -23,7 +23,7 @@ type TestAttemptSummary = {
   taxonomyNodeId: string;
   taxonomyName: string;
   taxonomyPath: string;
-  difficulty: "EASY" | "MEDIUM" | "HARD";
+  difficulty: "EASY" | "MEDIUM" | "HARD" | "MIXED";
   status: string;
   startedAt: string;
   submittedAt?: string | null;

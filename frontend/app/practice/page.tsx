@@ -29,12 +29,13 @@ type StudentTaxonomyNode = {
   questionCount: number;
 };
 
-type Difficulty = "EASY" | "MEDIUM" | "HARD";
+type Difficulty = "EASY" | "MEDIUM" | "HARD" | "MIXED";
 
 const difficultyOptions: Array<{ value: Difficulty; label: string; time: string }> = [
   { value: "EASY", label: "Easy", time: "60 sec/question" },
   { value: "MEDIUM", label: "Medium", time: "45 sec/question" },
   { value: "HARD", label: "Hard", time: "30 sec/question" },
+  { value: "MIXED", label: "Mixed", time: "Even spread" },
 ];
 
 function readStoredSession() {

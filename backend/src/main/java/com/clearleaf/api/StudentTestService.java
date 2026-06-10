@@ -17,6 +17,7 @@ import java.time.ZoneOffset;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -63,12 +64,7 @@ public class StudentTestService {
         TaxonomyNodeEntity taxonomy = taxonomyNodes.findById(taxonomyNodeId)
                 .orElseThrow(() -> new IllegalArgumentException("Unknown taxonomy node: " + taxonomyNodeId));
         List<UUID> taxonomyNodeIds = descendantIds(taxonomy.getId());
-        List<QuestionEntity> eligible = questions.findRandomEligibleForTest(
-                taxonomyNodeIds,
-                difficulty,
-                TESTABLE_WORKFLOW_STATUSES,
-                PageRequest.of(0, questionCount * 3));
-        List<QuestionEntity> selected = uniqueQuestions(eligible, questionCount);
+        List<QuestionEntity> selected = selectRandomQuestions(taxonomyNodeIds, difficulty, questionCount);
         if (selected.size() < questionCount) {
             throw new IllegalArgumentException("Only " + selected.size() + " matching question(s) are available for this test");
         }
@@ -104,6 +100,52 @@ public class StudentTestService {
             if (uniqueById.size() == questionCount) break;
         }
         return uniqueById.values().stream().toList();
+    }
+
+    private List<QuestionEntity> selectRandomQuestions(List<UUID> taxonomyNodeIds, String difficulty, int questionCount) {
+        if (!"MIXED".equals(difficulty)) {
+            return uniqueQuestions(questions.findRandomEligibleForTest(
+                    taxonomyNodeIds,
+                    difficulty,
+                    TESTABLE_WORKFLOW_STATUSES,
+                    PageRequest.of(0, questionCount * 3)), questionCount);
+        }
+
+        List<String> buckets = new ArrayList<>(List.of("EASY", "MEDIUM", "HARD"));
+        Collections.shuffle(buckets);
+        Map<UUID, QuestionEntity> selected = new LinkedHashMap<>();
+        int base = questionCount / buckets.size();
+        int remainder = questionCount % buckets.size();
+        for (int index = 0; index < buckets.size(); index++) {
+            int target = base + (index < remainder ? 1 : 0);
+            if (target <= 0) continue;
+            String bucket = buckets.get(index);
+            List<QuestionEntity> bucketQuestions = questions.findRandomEligibleForTest(
+                    taxonomyNodeIds,
+                    bucket,
+                    TESTABLE_WORKFLOW_STATUSES,
+                    PageRequest.of(0, target * 3));
+            for (QuestionEntity question : bucketQuestions) {
+                selected.putIfAbsent(question.getId(), question);
+                if (selected.size() >= questionCount) break;
+                long currentBucketCount = selected.values().stream()
+                        .filter(current -> bucket.equalsIgnoreCase(current.getDifficulty()))
+                        .count();
+                if (currentBucketCount >= target) break;
+            }
+        }
+        if (selected.size() < questionCount) {
+            List<QuestionEntity> fallback = questions.findRandomEligibleForTestDifficulties(
+                    taxonomyNodeIds,
+                    List.of("EASY", "MEDIUM", "HARD"),
+                    TESTABLE_WORKFLOW_STATUSES,
+                    PageRequest.of(0, (questionCount - selected.size()) * 6));
+            for (QuestionEntity question : fallback) {
+                selected.putIfAbsent(question.getId(), question);
+                if (selected.size() >= questionCount) break;
+            }
+        }
+        return selected.values().stream().toList();
     }
 
     @Transactional(readOnly = true)
@@ -456,7 +498,7 @@ public class StudentTestService {
 
     private String normalizeDifficulty(String value) {
         String normalized = value == null || value.isBlank() ? "MEDIUM" : value.trim().toUpperCase(Locale.ROOT);
-        if (!Set.of("EASY", "MEDIUM", "HARD").contains(normalized)) {
+        if (!Set.of("EASY", "MEDIUM", "HARD", "MIXED").contains(normalized)) {
             throw new IllegalArgumentException("Invalid difficulty: " + value);
         }
         return normalized;

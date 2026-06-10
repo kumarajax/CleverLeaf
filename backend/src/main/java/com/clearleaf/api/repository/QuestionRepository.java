@@ -40,6 +40,24 @@ public interface QuestionRepository extends JpaRepository<QuestionEntity, UUID>,
             Pageable pageable);
 
     @Query("""
+            select question
+            from QuestionEntity question
+            where exists (
+                select 1
+                from question.taxonomyAssignments assignment
+                where assignment.taxonomyNode.id in :taxonomyNodeIds
+            )
+              and upper(question.difficulty) in :difficulties
+              and upper(question.workflowStatus) in :workflowStatuses
+            order by function('random')
+            """)
+    List<QuestionEntity> findRandomEligibleForTestDifficulties(
+            @Param("taxonomyNodeIds") Collection<UUID> taxonomyNodeIds,
+            @Param("difficulties") Collection<String> difficulties,
+            @Param("workflowStatuses") Collection<String> workflowStatuses,
+            Pageable pageable);
+
+    @Query("""
             select count(distinct question.id)
             from QuestionEntity question
             where exists (

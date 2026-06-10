@@ -262,9 +262,21 @@ export default function StudentTestPage() {
     return attempt.navigation[currentIndex + 1].attemptQuestionId;
   }
 
+  function previousQuestionId() {
+    if (!attempt || !currentQuestion) return "";
+    const currentIndex = attempt.navigation.findIndex((item) => item.attemptQuestionId === currentQuestion.attemptQuestionId);
+    if (currentIndex <= 0) return "";
+    return attempt.navigation[currentIndex - 1].attemptQuestionId;
+  }
+
   function nextQuestion() {
     const nextId = nextQuestionId();
     if (nextId) loadQuestion(nextId);
+  }
+
+  function previousQuestion() {
+    const previousId = previousQuestionId();
+    if (previousId) loadQuestion(previousId);
   }
 
   function toggleOption(key: string) {
@@ -416,12 +428,19 @@ export default function StudentTestPage() {
 
         {!submitted ? (
           <div className="dashboard-actions">
+            {previousQuestionId() ? (
+              <button type="button" className="secondary-button" disabled={loading} onClick={previousQuestion}>
+                Previous
+              </button>
+            ) : null}
             <button type="button" className="primary-button" disabled={loading || saving || questionSubmitted} onClick={submitCurrentQuestion}>
               Submit
             </button>
-            <button type="button" className="secondary-button" disabled={loading || !nextQuestionId()} onClick={nextQuestion}>
-              Next
-            </button>
+            {nextQuestionId() ? (
+              <button type="button" className="secondary-button" disabled={loading} onClick={nextQuestion}>
+                Next
+              </button>
+            ) : null}
           </div>
         ) : null}
       </section>
