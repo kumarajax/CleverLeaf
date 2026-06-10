@@ -139,7 +139,7 @@ public class QuestionAuthoringService {
         if (request == null || request.question() == null) {
             throw new IllegalArgumentException("question is required");
         }
-        List<String> errors = validator.validate(request.question());
+        List<String> errors = validator.validate(request.question(), request.allowIncomplete());
         if (!errors.isEmpty()) {
             throw new IllegalArgumentException("Question is invalid: " + String.join("; ", errors));
         }
@@ -147,7 +147,7 @@ public class QuestionAuthoringService {
         QuestionDraft draft = request.question();
         List<QuestionTaxonomyAssignment> assignments = assignments(request);
         List<QuestionAnswer> answers = request.answers() == null ? List.of() : request.answers();
-        validateAnswers(draft.type(), draft.workflowStatus(), answers);
+        validateAnswers(draft.type(), draft.workflowStatus(), answers, request.allowIncomplete());
 
         question.setQuestionType(draft.type().name());
         question.setDifficulty(draft.difficulty().name());
@@ -292,7 +292,10 @@ public class QuestionAuthoringService {
                 .toLowerCase(java.util.Locale.ROOT);
     }
 
-    private void validateAnswers(QuestionType type, WorkflowStatus workflowStatus, List<QuestionAnswer> answers) {
+    private void validateAnswers(QuestionType type, WorkflowStatus workflowStatus, List<QuestionAnswer> answers, boolean allowIncomplete) {
+        if (allowIncomplete) {
+            return;
+        }
         if (workflowStatus == WorkflowStatus.DRAFT || workflowStatus == WorkflowStatus.MISSING_ANSWER) {
             return;
         }

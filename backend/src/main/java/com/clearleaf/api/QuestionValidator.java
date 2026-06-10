@@ -7,6 +7,10 @@ import java.util.Set;
 
 public class QuestionValidator {
     public List<String> validate(QuestionDraft question) {
+        return validate(question, false);
+    }
+
+    public List<String> validate(QuestionDraft question, boolean allowIncomplete) {
         List<String> errors = new ArrayList<>();
         if (question == null) {
             return List.of("Question is required");
@@ -34,11 +38,11 @@ public class QuestionValidator {
                 errors.add("Ready-for-test questions require a license category");
             }
         }
-        validateOptions(question, errors);
+        validateOptions(question, errors, allowIncomplete);
         return errors;
     }
 
-    private void validateOptions(QuestionDraft question, List<String> errors) {
+    private void validateOptions(QuestionDraft question, List<String> errors, boolean allowIncomplete) {
         if (question.type() == null) {
             return;
         }
@@ -48,8 +52,9 @@ public class QuestionValidator {
             return;
         }
         List<QuestionOption> options = question.options() == null ? List.of() : question.options();
-        if ((question.workflowStatus() == WorkflowStatus.DRAFT || question.workflowStatus() == WorkflowStatus.MISSING_ANSWER)
-                && options.isEmpty()) {
+        if (options.isEmpty() && (allowIncomplete
+                || question.workflowStatus() == WorkflowStatus.DRAFT
+                || question.workflowStatus() == WorkflowStatus.MISSING_ANSWER)) {
             return;
         }
         if (options.stream().anyMatch(option -> option == null || option.text() == null || option.text().isBlank())) {
@@ -60,6 +65,9 @@ public class QuestionValidator {
         Set<String> keys = new HashSet<>();
         if (options.stream().anyMatch(option -> option.key() == null || !keys.add(option.key()))) {
             errors.add("Option keys must be present and unique");
+        }
+        if (allowIncomplete) {
+            return;
         }
         if (question.type() == QuestionType.SINGLE_SELECT && correctCount != 1) {
             errors.add("Single-select questions require exactly one correct option");

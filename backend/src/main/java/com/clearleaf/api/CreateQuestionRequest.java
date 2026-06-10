@@ -9,9 +9,10 @@ public record CreateQuestionRequest(
         QuestionDraft question,
         List<QuestionTaxonomyAssignment> taxonomyAssignments,
         List<QuestionAnswer> answers,
-        List<String> tags) {
+        List<String> tags,
+        boolean allowIncomplete) {
 
     public CreateQuestionRequest(UUID taxonomyNodeId, String actor, QuestionDraft question) {
-        this(taxonomyNodeId, actor, question, null, null, null);
+        this(taxonomyNodeId, actor, question, null, null, null, false);
     }
 }

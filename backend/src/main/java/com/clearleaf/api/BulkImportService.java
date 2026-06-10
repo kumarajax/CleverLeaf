@@ -65,7 +65,6 @@ public class BulkImportService {
         return new BulkImportPreviewResponse(objectKey, step.name(), rows.size(), (int) valid, rows.size() - (int) valid, rows);
     }
 
-    @Transactional
     public BulkImportSummary importStep(BulkImportStep step, String objectKey, String actor) {
         List<BulkImportRowResult> previewRows = parseRows(step, objectKey);
         List<BulkImportRowResult> results = new ArrayList<>();
@@ -318,7 +317,8 @@ public class BulkImportService {
                 existing == null ? null : existing.getAnswers().stream()
                         .map(answer -> new QuestionAnswer(answer.getAnswerValue(), answer.getAnswerType(), answer.getToleranceValue(), answer.getCaseSensitive()))
                         .toList(),
-                splitTags(values.get("tags")));
+                splitTags(values.get("tags")),
+                true);
         UUID questionId = existing == null
                 ? authoring.create(request).id()
                 : authoring.update(existing.getId(), request).id();
