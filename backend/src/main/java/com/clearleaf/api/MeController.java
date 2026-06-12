@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import com.clearleaf.api.repository.TenantUserMembershipRepository;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -13,6 +14,12 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api")
 public class MeController {
+    private final TenantUserMembershipRepository memberships;
+
+    public MeController(TenantUserMembershipRepository memberships) {
+        this.memberships = memberships;
+    }
+
     @GetMapping("/me")
     public MeResponse me(@AuthenticationPrincipal Jwt jwt) {
         return new MeResponse(
@@ -22,7 +29,19 @@ public class MeController {
                 jwt.getClaimAsString("name"),
                 realmRoles(jwt),
                 clientRoles(jwt),
+                tenantMemberships(jwt.getSubject()),
                 jwt.getIssuer() == null ? null : jwt.getIssuer().toString());
+    }
+
+    private List<TenantMembershipResponse> tenantMemberships(String subject) {
+        return memberships.findByUserSubjectAndStatusOrderByTenant_TenantNameAsc(subject, "ACTIVE")
+                .stream()
+                .map(membership -> new TenantMembershipResponse(
+                        membership.getTenant().getId(),
+                        membership.getTenant().getTenantName(),
+                        membership.getRole(),
+                        membership.getStatus()))
+                .toList();
     }
 
     private List<String> realmRoles(Jwt jwt) {

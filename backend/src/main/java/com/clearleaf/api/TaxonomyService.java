@@ -53,25 +53,25 @@ public class TaxonomyService {
     }
 
     @Transactional(readOnly = true)
-    public Page<TaxonomyNode> listNodes(String status, UUID parentNodeId, boolean includeDescendants, Pageable pageable) {
+    public Page<TaxonomyNode> listNodes(UUID tenantId, String status, UUID parentNodeId, boolean includeDescendants, Pageable pageable) {
         String normalized = normalizeStatusFilter(status);
         if (parentNodeId == null) {
-            Specification<TaxonomyNodeEntity> specification = statusSpecification(normalized);
+            Specification<TaxonomyNodeEntity> specification = tenantSpecification(tenantId).and(statusSpecification(normalized));
             return nodes.findAll(specification, pageable).map(this::toNode);
         }
-        TaxonomyNodeEntity parent = findNode(parentNodeId);
+        TaxonomyNodeEntity parent = findNode(tenantId, parentNodeId);
         if (includeDescendants) {
-            return subtree(parent.getId(), normalized, pageable);
+            return subtree(tenantId, parent.getId(), normalized, pageable);
         }
-        Specification<TaxonomyNodeEntity> specification = statusSpecification(normalized)
+        Specification<TaxonomyNodeEntity> specification = tenantSpecification(tenantId).and(statusSpecification(normalized))
                 .and((root, query, criteriaBuilder) -> criteriaBuilder.equal(root.get("parentNode").get("id"), parent.getId()));
         return nodes.findAll(specification, pageable).map(this::toNode);
     }
 
     @Transactional(readOnly = true)
-    public List<StudentTaxonomyNode> searchActiveStudentTaxonomy(String query) {
+    public List<StudentTaxonomyNode> searchActiveStudentTaxonomy(UUID tenantId, String query) {
         String normalizedQuery = query == null ? "" : query.trim().toLowerCase(Locale.ROOT);
-        return nodes.findAll(statusSpecification("ACTIVE"), Sort.by(Sort.Order.asc("sortOrder"), Sort.Order.asc("displayName")))
+        return nodes.findAll(tenantSpecification(tenantId).and(statusSpecification("ACTIVE")), Sort.by(Sort.Order.asc("sortOrder"), Sort.Order.asc("displayName")))
                 .stream()
                 .map(this::toStudentNode)
                 .filter(node -> node.questionCount() > 0)
@@ -83,14 +83,15 @@ public class TaxonomyService {
     }
 
     @Transactional
-    public TaxonomyNode createNode(CreateTaxonomyNodeRequest request) {
+    public TaxonomyNode createNode(UUID tenantId, CreateTaxonomyNodeRequest request) {
         String levelKey = normalizeLevelKey(requireText(request.levelKey(), "levelKey"));
         LookupEntity level = lookupOrCreateTaxonomyLevel(levelKey);
-        TaxonomyNodeEntity parent = validateParent(request.parentId());
+        TaxonomyNodeEntity parent = validateParent(tenantId, request.parentId());
         String nodeKey = normalizeNodeKey(request.nodeKey());
 
         TaxonomyNodeEntity node = new TaxonomyNodeEntity();
         node.setId(UUID.randomUUID());
+        node.setTenantId(tenantId);
         node.setLevelType(level);
         node.setParentNode(parent);
         node.setRootTaxonomyNode(parent == null ? node : rootTaxonomyNode(parent));
@@ -104,17 +105,17 @@ public class TaxonomyService {
     }
 
     @Transactional
-    public TaxonomyNode updateNode(UUID id, UpdateTaxonomyNodeRequest request) {
-        TaxonomyNodeEntity current = findNode(requireUuid(id, "id"));
+    public TaxonomyNode updateNode(UUID tenantId, UUID id, UpdateTaxonomyNodeRequest request) {
+        TaxonomyNodeEntity current = findNode(tenantId, requireUuid(id, "id"));
         String levelKey = normalizeLevelKey(requireText(request.levelKey(), "levelKey"));
         LookupEntity level = lookupOrCreateTaxonomyLevel(levelKey);
-        TaxonomyNodeEntity parent = validateParent(request.parentId());
+        TaxonomyNodeEntity parent = validateParent(tenantId, request.parentId());
         String nodeKey = normalizeNodeKey(request.nodeKey());
-        if (parent != null && isDescendant(parent.getId(), current.getId())) {
+        if (parent != null && isDescendant(tenantId, parent.getId(), current.getId())) {
             throw new IllegalArgumentException("Parent taxonomy node cannot be a descendant of the node being updated");
         }
         TaxonomyNodeEntity newRoot = parent == null ? current : rootTaxonomyNode(parent);
-        List<TaxonomyNodeEntity> subtree = subtreeEntities(current.getId());
+        List<TaxonomyNodeEntity> subtree = subtreeEntities(tenantId, current.getId());
         validateSubtreeRootNodeKeys(subtree, current.getId(), newRoot, nodeKey);
 
         current.setLevelType(level);
@@ -128,21 +129,22 @@ public class TaxonomyService {
         current.setStatus(normalizeStatus(request.status(), current.getStatus()));
         current.setSortOrder(request.sortOrder());
         TaxonomyNodeEntity saved = nodes.save(current);
-        reassignSubtreeRoots(current.getId(), newRoot);
+        reassignSubtreeRoots(tenantId, current.getId(), newRoot);
         return toNode(saved);
     }
 
     @Transactional
-    public void deactivate(UUID id) {
-        TaxonomyNodeEntity current = findNode(requireUuid(id, "id"));
+    public void deactivate(UUID tenantId, UUID id) {
+        TaxonomyNodeEntity current = findNode(tenantId, requireUuid(id, "id"));
         current.setStatus("INACTIVE");
         nodes.save(current);
     }
 
     @Transactional
-    public void deleteUnused(UUID id) {
+    public void deleteUnused(UUID tenantId, UUID id) {
         UUID nodeId = requireUuid(id, "id");
-        boolean hasChildNodes = nodes.existsByParentNode_Id(nodeId);
+        TaxonomyNodeEntity current = findNode(tenantId, nodeId);
+        boolean hasChildNodes = nodes.existsByParentNode_IdAndTenantId(nodeId, tenantId);
         boolean hasQuestions = questions.existsByTaxonomyAssignments_TaxonomyNode_Id(nodeId);
         if (hasChildNodes && hasQuestions) {
             throw new IllegalStateException("This taxonomy node cannot be deleted because it has child nodes and is referenced by questions. Deactivate it instead.");
@@ -153,13 +155,13 @@ public class TaxonomyService {
         if (hasQuestions) {
             throw new IllegalStateException("This taxonomy node cannot be deleted because it is referenced by questions. Deactivate it instead.");
         }
-        nodes.deleteById(nodeId);
+        nodes.delete(current);
     }
 
     @Transactional
-    public TaxonomyCloneResponse cloneEdition(CloneTaxonomyEditionRequest request) {
+    public TaxonomyCloneResponse cloneEdition(UUID tenantId, CloneTaxonomyEditionRequest request) {
         UUID sourceEditionId = requireUuid(request.sourceEditionId(), "sourceEditionId");
-        TaxonomyNodeEntity source = findNode(sourceEditionId);
+        TaxonomyNodeEntity source = findNode(tenantId, sourceEditionId);
         if (!"EDITION".equals(levelCode(source))) {
             throw new IllegalArgumentException("sourceEditionId must point to an edition node");
         }
@@ -169,13 +171,13 @@ public class TaxonomyService {
         }
         String clonedKey = requireText(request.clonedEditionKey(), "clonedEditionKey");
         String clonedName = requireText(request.clonedEditionDisplayName(), "clonedEditionDisplayName");
-        TaxonomyNodeEntity clone = cloneSubtree(source, curriculum, clonedKey, clonedName, true, new java.util.HashSet<>());
+        TaxonomyNodeEntity clone = cloneSubtree(tenantId, source, curriculum, clonedKey, clonedName, true, new java.util.HashSet<>());
         return new TaxonomyCloneResponse(clone.getId(), curriculum.getId(), clone.getNodeKey(), clone.getDisplayName(), clone.getStatus());
     }
 
     @Transactional
-    public TaxonomyCloneResponse activateEdition(UUID editionId) {
-        TaxonomyNodeEntity edition = findNode(requireUuid(editionId, "editionId"));
+    public TaxonomyCloneResponse activateEdition(UUID tenantId, UUID editionId) {
+        TaxonomyNodeEntity edition = findNode(tenantId, requireUuid(editionId, "editionId"));
         if (!"EDITION".equals(levelCode(edition))) {
             throw new IllegalArgumentException("editionId must point to an edition node");
         }
@@ -184,11 +186,11 @@ public class TaxonomyService {
             throw new IllegalArgumentException("edition must be attached to a curriculum node");
         }
 
-        List<TaxonomyNodeEntity> siblingEditions = nodes.findByParentNode_IdAndIdNotOrderBySortOrderAscDisplayNameAsc(curriculum.getId(), edition.getId());
+        List<TaxonomyNodeEntity> siblingEditions = nodes.findByParentNode_IdAndTenantIdAndIdNotOrderBySortOrderAscDisplayNameAsc(curriculum.getId(), tenantId, edition.getId());
         for (TaxonomyNodeEntity sibling : siblingEditions) {
-            setSubtreeStatus(sibling.getId(), "INACTIVE");
+            setSubtreeStatus(tenantId, sibling.getId(), "INACTIVE");
         }
-        setSubtreeStatus(edition.getId(), "ACTIVE");
+        setSubtreeStatus(tenantId, edition.getId(), "ACTIVE");
 
         TaxonomyEditionStateEntity editionState = editionStates.findByCurriculumId(curriculum.getId())
                 .orElseGet(TaxonomyEditionStateEntity::new);
@@ -199,12 +201,13 @@ public class TaxonomyService {
         return new TaxonomyCloneResponse(edition.getId(), curriculum.getId(), edition.getNodeKey(), edition.getDisplayName(), "ACTIVE");
     }
 
-    private TaxonomyNodeEntity cloneSubtree(TaxonomyNodeEntity source, TaxonomyNodeEntity targetParent, String rootKey, String rootDisplayName, boolean root, Set<UUID> visited) {
+    private TaxonomyNodeEntity cloneSubtree(UUID tenantId, TaxonomyNodeEntity source, TaxonomyNodeEntity targetParent, String rootKey, String rootDisplayName, boolean root, Set<UUID> visited) {
         if (!visited.add(source.getId())) {
             throw new IllegalStateException("Cannot clone taxonomy with cyclic parent relationships");
         }
         TaxonomyNodeEntity clone = new TaxonomyNodeEntity();
         clone.setId(UUID.randomUUID());
+        clone.setTenantId(tenantId);
         clone.setLevelType(source.getLevelType());
         clone.setParentNode(targetParent);
         TaxonomyNodeEntity rootNode = targetParent == null ? clone : rootTaxonomyNode(targetParent);
@@ -217,13 +220,13 @@ public class TaxonomyService {
         clone.setClonedFromNode(source);
         validateRootNodeKeyAvailable(rootNode, nodeKey, clone.getId());
         TaxonomyNodeEntity saved = nodes.save(clone);
-        for (TaxonomyNodeEntity child : nodes.findByParentNode_IdOrderBySortOrderAscDisplayNameAsc(source.getId())) {
-            cloneSubtree(child, saved, child.getNodeKey(), child.getDisplayName(), false, visited);
+        for (TaxonomyNodeEntity child : nodes.findByParentNode_IdAndTenantIdOrderBySortOrderAscDisplayNameAsc(source.getId(), tenantId)) {
+            cloneSubtree(tenantId, child, saved, child.getNodeKey(), child.getDisplayName(), false, visited);
         }
         return saved;
     }
 
-    private void setSubtreeStatus(UUID rootId, String status) {
+    private void setSubtreeStatus(UUID tenantId, UUID rootId, String status) {
         Deque<UUID> queue = new ArrayDeque<>();
         Set<UUID> visited = new java.util.HashSet<>();
         queue.add(rootId);
@@ -232,18 +235,18 @@ public class TaxonomyService {
             if (!visited.add(currentId)) {
                 continue;
             }
-            TaxonomyNodeEntity current = findNode(currentId);
+            TaxonomyNodeEntity current = findNode(tenantId, currentId);
             current.setStatus(status);
             nodes.save(current);
-            for (TaxonomyNodeEntity child : nodes.findByParentNode_IdOrderBySortOrderAscDisplayNameAsc(currentId)) {
+            for (TaxonomyNodeEntity child : nodes.findByParentNode_IdAndTenantIdOrderBySortOrderAscDisplayNameAsc(currentId, tenantId)) {
                 queue.addLast(child.getId());
             }
         }
     }
 
-    private TaxonomyNodeEntity validateParent(UUID parentId) {
+    private TaxonomyNodeEntity validateParent(UUID tenantId, UUID parentId) {
         if (parentId == null) return null;
-        TaxonomyNodeEntity parent = findNode(parentId);
+        TaxonomyNodeEntity parent = findNode(tenantId, parentId);
         if (!"ACTIVE".equals(parent.getStatus())) {
             throw new IllegalArgumentException("Parent taxonomy node is missing or inactive");
         }
@@ -257,8 +260,8 @@ public class TaxonomyService {
         return node.getParentNode();
     }
 
-    private TaxonomyNodeEntity findNode(UUID id) {
-        return nodes.findById(id)
+    private TaxonomyNodeEntity findNode(UUID tenantId, UUID id) {
+        return nodes.findByIdAndTenantId(id, tenantId)
                 .orElseThrow(() -> new IllegalArgumentException("Unknown taxonomy node: " + id));
     }
 
@@ -277,8 +280,8 @@ public class TaxonomyService {
         return current;
     }
 
-    private boolean isDescendant(UUID nodeId, UUID ancestorId) {
-        TaxonomyNodeEntity current = findNode(nodeId);
+    private boolean isDescendant(UUID tenantId, UUID nodeId, UUID ancestorId) {
+        TaxonomyNodeEntity current = findNode(tenantId, nodeId);
         Set<UUID> visited = new java.util.HashSet<>();
         while (current != null) {
             if (!visited.add(current.getId())) {
@@ -292,7 +295,7 @@ public class TaxonomyService {
         return false;
     }
 
-    private List<TaxonomyNodeEntity> subtreeEntities(UUID rootId) {
+    private List<TaxonomyNodeEntity> subtreeEntities(UUID tenantId, UUID rootId) {
         Deque<UUID> queue = new ArrayDeque<>();
         List<TaxonomyNodeEntity> result = new java.util.ArrayList<>();
         Set<UUID> visited = new java.util.HashSet<>();
@@ -302,9 +305,9 @@ public class TaxonomyService {
             if (!visited.add(currentId)) {
                 continue;
             }
-            TaxonomyNodeEntity current = findNode(currentId);
+            TaxonomyNodeEntity current = findNode(tenantId, currentId);
             result.add(current);
-            for (TaxonomyNodeEntity child : nodes.findByParentNode_IdOrderBySortOrderAscDisplayNameAsc(currentId)) {
+            for (TaxonomyNodeEntity child : nodes.findByParentNode_IdAndTenantIdOrderBySortOrderAscDisplayNameAsc(currentId, tenantId)) {
                 queue.addLast(child.getId());
             }
         }
@@ -312,7 +315,7 @@ public class TaxonomyService {
     }
 
     private void validateRootNodeKeyAvailable(TaxonomyNodeEntity root, String nodeKey, UUID currentId) {
-        if (nodes.existsByRootTaxonomyNode_IdAndNodeKeyAndIdNot(root.getId(), nodeKey, currentId)) {
+        if (nodes.existsByRootTaxonomyNode_IdAndTenantIdAndNodeKeyAndIdNot(root.getId(), root.getTenantId(), nodeKey, currentId)) {
             throw new IllegalArgumentException("nodeKey already exists under root taxonomy: " + root.getNodeKey());
         }
     }
@@ -331,14 +334,14 @@ public class TaxonomyService {
             if (!seenKeys.add(nodeKey)) {
                 throw new IllegalArgumentException("Duplicate nodeKey inside taxonomy subtree: " + nodeKey);
             }
-            if (nodes.existsByRootTaxonomyNode_IdAndNodeKeyAndIdNotIn(newRoot.getId(), nodeKey, subtreeIds)) {
+            if (nodes.existsByRootTaxonomyNode_IdAndTenantIdAndNodeKeyAndIdNotIn(newRoot.getId(), newRoot.getTenantId(), nodeKey, subtreeIds)) {
                 throw new IllegalArgumentException("nodeKey already exists under root taxonomy: " + newRoot.getNodeKey());
             }
         }
     }
 
-    private void reassignSubtreeRoots(UUID rootId, TaxonomyNodeEntity newRoot) {
-        for (TaxonomyNodeEntity node : subtreeEntities(rootId)) {
+    private void reassignSubtreeRoots(UUID tenantId, UUID rootId, TaxonomyNodeEntity newRoot) {
+        for (TaxonomyNodeEntity node : subtreeEntities(tenantId, rootId)) {
             if (!newRoot.getId().equals(node.getRootTaxonomyNode() == null ? null : node.getRootTaxonomyNode().getId())) {
                 node.setRootTaxonomyNode(newRoot);
                 nodes.save(node);
@@ -369,7 +372,7 @@ public class TaxonomyService {
                 lookup.isActive());
     }
 
-    private Page<TaxonomyNode> subtree(UUID rootId, String statusFilter, Pageable pageable) {
+    private Page<TaxonomyNode> subtree(UUID tenantId, UUID rootId, String statusFilter, Pageable pageable) {
         Deque<UUID> queue = new ArrayDeque<>();
         List<UUID> ids = new java.util.ArrayList<>();
         Set<UUID> visited = new java.util.HashSet<>();
@@ -379,7 +382,7 @@ public class TaxonomyService {
             if (!visited.add(currentId)) {
                 continue;
             }
-            for (TaxonomyNodeEntity child : nodes.findByParentNode_IdOrderBySortOrderAscDisplayNameAsc(currentId)) {
+            for (TaxonomyNodeEntity child : nodes.findByParentNode_IdAndTenantIdOrderBySortOrderAscDisplayNameAsc(currentId, tenantId)) {
                 if (!visited.contains(child.getId()) && statusMatches(child.getStatus(), statusFilter)) {
                     ids.add(child.getId());
                 }
@@ -421,10 +424,10 @@ public class TaxonomyService {
                 levelCode(entity),
                 gradeLabel(entity),
                 taxonomyPath(entity),
-                questions.countTestableByTaxonomyNodeIds(descendantIds(entity.getId()), TESTABLE_WORKFLOW_STATUSES));
+                questions.countTestableByTaxonomyNodeIds(descendantIds(entity.getTenantId(), entity.getId()), TESTABLE_WORKFLOW_STATUSES));
     }
 
-    private List<UUID> descendantIds(UUID rootId) {
+    private List<UUID> descendantIds(UUID tenantId, UUID rootId) {
         Deque<UUID> queue = new ArrayDeque<>();
         List<UUID> result = new java.util.ArrayList<>();
         Set<UUID> visited = new java.util.HashSet<>();
@@ -435,7 +438,7 @@ public class TaxonomyService {
                 continue;
             }
             result.add(currentId);
-            for (TaxonomyNodeEntity child : nodes.findByParentNode_IdOrderBySortOrderAscDisplayNameAsc(currentId)) {
+            for (TaxonomyNodeEntity child : nodes.findByParentNode_IdAndTenantIdOrderBySortOrderAscDisplayNameAsc(currentId, tenantId)) {
                 queue.addLast(child.getId());
             }
         }
@@ -547,6 +550,10 @@ public class TaxonomyService {
             return Specification.where(null);
         }
         return (root, query, criteriaBuilder) -> criteriaBuilder.equal(root.get("status"), normalizedStatus);
+    }
+
+    private Specification<TaxonomyNodeEntity> tenantSpecification(UUID tenantId) {
+        return (root, query, criteriaBuilder) -> criteriaBuilder.equal(root.get("tenantId"), tenantId);
     }
 
     private Specification<LookupEntity> levelStatusSpecification(String status) {

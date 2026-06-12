@@ -21,6 +21,7 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
@@ -39,6 +40,12 @@ public class SecurityConfig {
     @Value("${app.cors.allowed-origins}")
     private String allowedOrigins;
 
+    private final TenantAdminAuthorizationFilter tenantAdminAuthorizationFilter;
+
+    public SecurityConfig(TenantAdminAuthorizationFilter tenantAdminAuthorizationFilter) {
+        this.tenantAdminAuthorizationFilter = tenantAdminAuthorizationFilter;
+    }
+
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         return http
@@ -49,9 +56,10 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/me").authenticated()
-                        .requestMatchers("/api/admin/**").hasAnyRole("administrator", "reviewer", "content_creator")
+                        .requestMatchers("/api/admin/**").authenticated()
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(oauth -> oauth.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())))
+                .addFilterAfter(tenantAdminAuthorizationFilter, BearerTokenAuthenticationFilter.class)
                 .build();
     }
 
@@ -63,7 +71,7 @@ public class SecurityConfig {
                 .filter(origin -> !origin.isBlank())
                 .toList());
         configuration.setAllowedMethods(java.util.List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(java.util.List.of("Authorization", "Content-Type"));
+        configuration.setAllowedHeaders(java.util.List.of("Authorization", "Content-Type", TenantAuthorizationService.TENANT_HEADER));
         configuration.setExposedHeaders(java.util.List.of("Location"));
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/api/**", configuration);

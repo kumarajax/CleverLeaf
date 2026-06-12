@@ -21,6 +21,9 @@ public class TaxonomyNodeEntity {
     @Id
     private UUID id;
 
+    @Column(name = "tenant_id", nullable = false)
+    private UUID tenantId;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "level_type_id", nullable = false)
     private LookupEntity levelType;
@@ -81,6 +84,14 @@ public class TaxonomyNodeEntity {
 
     public void setId(UUID id) {
         this.id = id;
+    }
+
+    public UUID getTenantId() {
+        return tenantId;
+    }
+
+    public void setTenantId(UUID tenantId) {
+        this.tenantId = tenantId;
     }
 
     public LookupEntity getLevelType() {

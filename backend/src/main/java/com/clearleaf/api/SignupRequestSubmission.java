@@ -5,5 +5,8 @@ public record SignupRequestSubmission(
         String displayName,
         String password,
         String legalVersion,
-        boolean termsAccepted) {
+        boolean termsAccepted,
+        String accountType,
+        String tenantName,
+        boolean joinDemoTenant) {
 }

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useApplicationConfig } from "../useApplicationConfig";
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8081";
+const defaultTenantId = "00000000-0000-0000-0000-000000000100";
 
 type Session = {
   email?: string;
@@ -22,6 +23,14 @@ type MeResponse = {
   email?: string;
   name?: string;
   roles?: string[];
+  tenantMemberships?: TenantMembership[];
+};
+
+type TenantMembership = {
+  tenantId: string;
+  tenantName: string;
+  role: string;
+  status: string;
 };
 
 type TaxonomyNode = {
@@ -441,6 +450,8 @@ export function AdminConsole({ embedded = false }: AdminConsoleProps) {
   const [session, setSession] = useState<Session | null>(null);
   const [me, setMe] = useState<MeResponse | null>(null);
   const [roles, setRoles] = useState<string[]>([]);
+  const [selectedTenantId, setSelectedTenantId] = useState("");
+  const [tenantResolved, setTenantResolved] = useState(false);
   const [levelTypes, setLevelTypes] = useState<TaxonomyLevelType[]>([]);
   const [questionTypeLookups, setQuestionTypeLookups] = useState<LookupResponse[]>([]);
   const [difficultyLookups, setDifficultyLookups] = useState<LookupResponse[]>([]);
@@ -627,15 +638,19 @@ export function AdminConsole({ embedded = false }: AdminConsoleProps) {
   const assignableAssignedTests = useMemo(() => assignedTests.filter((test) => test.status === "ACTIVE" || test.status === "PUBLISHED"), [assignedTests]);
   const resultEligibleAssignedTests = useMemo(() => assignedTests.filter((test) => ["PUBLISHED", "COMPLETED", "EXPIRED"].includes(displayAdminTestStatus(test))), [assignedTests]);
 
-  function authHeaders(token = currentToken): Record<string, string> {
-    return token ? { Authorization: `Bearer ${token}` } : {};
+  function authHeaders(token = currentToken, tenantId = selectedTenantId): Record<string, string> {
+    const resolvedTenantId = tenantId || defaultTenantId;
+    return token ? { Authorization: `Bearer ${token}`, "X-CleverLeaf-Tenant-Id": resolvedTenantId } : { "X-CleverLeaf-Tenant-Id": resolvedTenantId };
   }
 
-  function isAdmin(payloadRoles: string[]) {
-    return payloadRoles.includes("administrator");
+  function adminTenantId(profile: MeResponse, payloadRoles: string[]) {
+    const adminMembership = (profile.tenantMemberships ?? [])
+      .find((membership) => membership.role === "ADMIN" && membership.status === "ACTIVE");
+    if (adminMembership) return adminMembership.tenantId;
+    return payloadRoles.includes("administrator") ? defaultTenantId : "";
   }
 
-  async function loadTaxonomy(filter: string, token = currentToken, page = taxonomyPageIndex) {
+  async function loadTaxonomy(filter: string, token = currentToken, page = taxonomyPageIndex, tenantId = selectedTenantId) {
     const parameters = new URLSearchParams({
       status: filter,
       page: String(page),
@@ -644,7 +659,7 @@ export function AdminConsole({ embedded = false }: AdminConsoleProps) {
     parameters.append("sort", "sortOrder,asc");
     parameters.append("sort", "displayName,asc");
     const response = await fetch(`${apiBaseUrl}/api/admin/taxonomy/nodes?${parameters.toString()}`, {
-      headers: authHeaders(token),
+      headers: authHeaders(token, tenantId),
     });
     const body = await response.json().catch(() => []);
     if (!response.ok) {
@@ -657,7 +672,7 @@ export function AdminConsole({ embedded = false }: AdminConsoleProps) {
     setSelectedTaxonomyNodeId((current) => (result.content.some((node) => node.id === current) ? current : (result.content.length > 0 ? result.content[0].id : "")));
   }
 
-  async function loadAllTaxonomy(token = currentToken) {
+  async function loadAllTaxonomy(token = currentToken, tenantId = selectedTenantId) {
     const parameters = new URLSearchParams({
       status: "ALL",
       page: "0",
@@ -666,7 +681,7 @@ export function AdminConsole({ embedded = false }: AdminConsoleProps) {
     parameters.append("sort", "sortOrder,asc");
     parameters.append("sort", "displayName,asc");
     const response = await fetch(`${apiBaseUrl}/api/admin/taxonomy/nodes?${parameters.toString()}`, {
-      headers: authHeaders(token),
+      headers: authHeaders(token, tenantId),
     });
     const body = await response.json().catch(() => []);
     if (!response.ok) {
@@ -1040,12 +1055,9 @@ export function AdminConsole({ embedded = false }: AdminConsoleProps) {
         return;
       }
       setSession(parsed);
+      setTenantResolved(false);
       const payload = decodePayload(parsed.accessToken);
       const payloadRoles = payload?.realm_access?.roles ?? [];
-      if (!isAdmin(payloadRoles)) {
-        router.replace("/dashboard");
-        return;
-      }
       setRoles(payloadRoles);
       setQuestionForm((current) => ({ ...current, actor: parsed.email ?? payload?.email ?? current.actor }));
       const [meResponse, levelResponse, questionTypeResponse, difficultyResponse, workflowStatusResponse, adminTestStatusResponse] = await Promise.all([
@@ -1082,6 +1094,12 @@ export function AdminConsole({ embedded = false }: AdminConsoleProps) {
       }
       setMe(meBody);
       setRoles(meBody.roles ?? payloadRoles);
+      const tenantId = adminTenantId(meBody, meBody.roles ?? payloadRoles);
+      if (!tenantId) {
+        throw new Error("Tenant admin access is required");
+      }
+      setSelectedTenantId(tenantId);
+      setTenantResolved(true);
       const levelLookups = readPage<LookupResponse>(levelBody).content;
       const questionTypeLookups = readPage<LookupResponse>(questionTypeBody).content;
       const difficultyLookups = readPage<LookupResponse>(difficultyBody).content;
@@ -1100,8 +1118,8 @@ export function AdminConsole({ embedded = false }: AdminConsoleProps) {
       setWorkflowStatusLookups(workflowStatusLookups);
       setAdminTestStatusLookups(adminTestStatusLookups);
       const initialLoads = await Promise.allSettled([
-        loadAllTaxonomy(parsed.accessToken),
-        loadTaxonomy("ACTIVE", parsed.accessToken),
+        loadAllTaxonomy(parsed.accessToken, tenantId),
+        loadTaxonomy("ACTIVE", parsed.accessToken, taxonomyPageIndex, tenantId),
       ]);
       const failures = initialLoads.filter((result): result is PromiseRejectedResult => result.status === "rejected");
       if (failures.length > 0) {
@@ -1132,24 +1150,24 @@ export function AdminConsole({ embedded = false }: AdminConsoleProps) {
   }
 
   useEffect(() => {
-    if (!currentToken) return;
+    if (!currentToken || !tenantResolved) return;
     loadTaxonomy(taxonomyFilter).catch((exception) =>
       setError(exception instanceof Error ? exception.message : "Unable to load taxonomy.")
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [taxonomyFilter, taxonomyPageIndex, currentToken]);
+  }, [taxonomyFilter, taxonomyPageIndex, currentToken, tenantResolved, selectedTenantId]);
 
   useEffect(() => {
     if (activeTab !== "manual") return;
-    if (!currentToken) return;
+    if (!currentToken || !tenantResolved) return;
     loadQuestions(currentToken).catch((exception) =>
       setError(exception instanceof Error ? exception.message : "Unable to load questions.")
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, currentToken, questionCursorIndex, questionNodeFilterId, selectedTaxonomyNodeId, questionTypeFilter, questionDifficultyFilter, questionWorkflowFilter]);
+  }, [activeTab, currentToken, tenantResolved, selectedTenantId, questionCursorIndex, questionNodeFilterId, selectedTaxonomyNodeId, questionTypeFilter, questionDifficultyFilter, questionWorkflowFilter]);
 
   useEffect(() => {
-    if (activeTab !== "tests" || !currentToken) return;
+    if (activeTab !== "tests" || !currentToken || !tenantResolved) return;
     Promise.all([
       loadAssignedTests(currentToken),
       loadTestQuestionSearch(currentToken, testQuestionCursorIndex, testQuestionCursorStack),
@@ -1157,23 +1175,23 @@ export function AdminConsole({ embedded = false }: AdminConsoleProps) {
       setAssignedTestError(exception instanceof Error ? exception.message : "Unable to load assigned test data.")
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, currentToken, questionSearch, questionNodeFilterId, questionTypeFilter, questionDifficultyFilter, questionWorkflowFilter]);
+  }, [activeTab, currentToken, tenantResolved, selectedTenantId, questionSearch, questionNodeFilterId, questionTypeFilter, questionDifficultyFilter, questionWorkflowFilter]);
 
   useEffect(() => {
-    if (activeTab !== "tests" || !selectedAssignedTestVersionId) return;
+    if (activeTab !== "tests" || !selectedAssignedTestVersionId || !tenantResolved) return;
     loadAssignedTestResults(selectedAssignedTestVersionId).catch((exception) =>
       setAssignedTestError(exception instanceof Error ? exception.message : "Unable to load assigned test results.")
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, selectedAssignedTestVersionId]);
+  }, [activeTab, selectedAssignedTestVersionId, tenantResolved, selectedTenantId]);
 
   useEffect(() => {
-    if (activeTab !== "import" || !currentToken || importMetadata.length > 0) return;
+    if (activeTab !== "import" || !currentToken || !tenantResolved || importMetadata.length > 0) return;
     loadImportMetadata().catch((exception) =>
       setCsvError(exception instanceof Error ? exception.message : "Unable to load import metadata.")
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, currentToken, importMetadata.length]);
+  }, [activeTab, currentToken, tenantResolved, selectedTenantId, importMetadata.length]);
 
   useEffect(() => {
     if (!questionForm.taxonomyNodeId && selectedTaxonomyNodeId) {

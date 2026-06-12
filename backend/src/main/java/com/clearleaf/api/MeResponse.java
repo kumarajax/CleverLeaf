@@ -10,5 +10,6 @@ public record MeResponse(
         String name,
         List<String> roles,
         Map<String, List<String>> clientRoles,
+        List<TenantMembershipResponse> tenantMemberships,
         String issuer) {
 }

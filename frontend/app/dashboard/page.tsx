@@ -15,6 +15,14 @@ type ProfilePayload = {
   email?: string;
   name?: string;
   roles?: string[];
+  tenantMemberships?: TenantMembership[];
+};
+
+type TenantMembership = {
+  tenantId: string;
+  tenantName: string;
+  role: string;
+  status: string;
 };
 
 type TestAttemptSummary = {
@@ -247,7 +255,8 @@ export default function DashboardPage() {
   }
 
   const roles = profile?.roles ?? [];
-  const isAdmin = roles.includes("administrator");
+  const isAdmin = roles.includes("administrator")
+    || (profile?.tenantMemberships ?? []).some((membership) => membership.role === "ADMIN" && membership.status === "ACTIVE");
   const studentName = shortName(profile, session);
 
   function resetHistoryPage() {

@@ -64,6 +64,21 @@ public class SignupRequestEntity {
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
 
+    @Column(name = "account_type", nullable = false)
+    private String accountType;
+
+    @Column(name = "tenant_id")
+    private UUID tenantId;
+
+    @Column(name = "requested_tenant_name")
+    private String requestedTenantName;
+
+    @Column(name = "join_demo_tenant", nullable = false)
+    private boolean joinDemoTenant;
+
+    @Column(name = "invitation_id")
+    private UUID invitationId;
+
     @PrePersist
     void setCreatedAt() {
         if (createdAt == null) {
@@ -197,5 +212,45 @@ public class SignupRequestEntity {
 
     public void setReviewReason(String reviewReason) {
         this.reviewReason = reviewReason;
+    }
+
+    public String getAccountType() {
+        return accountType;
+    }
+
+    public void setAccountType(String accountType) {
+        this.accountType = accountType;
+    }
+
+    public UUID getTenantId() {
+        return tenantId;
+    }
+
+    public void setTenantId(UUID tenantId) {
+        this.tenantId = tenantId;
+    }
+
+    public String getRequestedTenantName() {
+        return requestedTenantName;
+    }
+
+    public void setRequestedTenantName(String requestedTenantName) {
+        this.requestedTenantName = requestedTenantName;
+    }
+
+    public boolean isJoinDemoTenant() {
+        return joinDemoTenant;
+    }
+
+    public void setJoinDemoTenant(boolean joinDemoTenant) {
+        this.joinDemoTenant = joinDemoTenant;
+    }
+
+    public UUID getInvitationId() {
+        return invitationId;
+    }
+
+    public void setInvitationId(UUID invitationId) {
+        this.invitationId = invitationId;
     }
 }

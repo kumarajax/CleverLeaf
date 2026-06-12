@@ -1,7 +1,13 @@
 package com.clearleaf.api;
 
 import com.clearleaf.api.entity.SignupRequestEntity;
+import com.clearleaf.api.entity.TenantEntity;
+import com.clearleaf.api.entity.TenantInvitationEntity;
+import com.clearleaf.api.entity.TenantUserMembershipEntity;
 import com.clearleaf.api.repository.SignupRequestRepository;
+import com.clearleaf.api.repository.TenantInvitationRepository;
+import com.clearleaf.api.repository.TenantRepository;
+import com.clearleaf.api.repository.TenantUserMembershipRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
@@ -41,6 +47,9 @@ public class SignupApprovalService {
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     private final SignupRequestRepository signupRequests;
+    private final TenantRepository tenants;
+    private final TenantUserMembershipRepository memberships;
+    private final TenantInvitationRepository invitations;
     private final ObjectMapper objectMapper;
     private final JavaMailSender mailSender;
     private final HttpClient httpClient = HttpClient.newHttpClient();
@@ -59,6 +68,9 @@ public class SignupApprovalService {
 
     public SignupApprovalService(
             SignupRequestRepository signupRequests,
+            TenantRepository tenants,
+            TenantUserMembershipRepository memberships,
+            TenantInvitationRepository invitations,
             ObjectMapper objectMapper,
             JavaMailSender mailSender,
             @Value("${app.keycloak.base-url}") String keycloakBaseUrl,
@@ -74,6 +86,9 @@ public class SignupApprovalService {
             @Value("${app.signup.token-days:7}") int tokenDays,
             @Value("${spring.mail.username:}") String mailFrom) {
         this.signupRequests = signupRequests;
+        this.tenants = tenants;
+        this.memberships = memberships;
+        this.invitations = invitations;
         this.objectMapper = objectMapper;
         this.mailSender = mailSender;
         this.keycloakBaseUrl = trimTrailingSlash(keycloakBaseUrl);
@@ -95,6 +110,9 @@ public class SignupApprovalService {
         String email = normalizeEmail(submission == null ? null : submission.email());
         String displayName = trimToNull(submission == null ? null : submission.displayName());
         String password = submission == null ? null : submission.password();
+        String accountType = normalizeAccountType(submission == null ? null : submission.accountType());
+        String tenantName = trimToNull(submission == null ? null : submission.tenantName());
+        boolean joinDemoTenant = submission != null && submission.joinDemoTenant();
         if (email == null || !email.contains("@")) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A valid email address is required");
         }
@@ -107,8 +125,10 @@ public class SignupApprovalService {
         if (keycloakUserExists(email)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "An account already exists for this email");
         }
+        SignupTenantSelection tenantSelection = validateSignupTenantSelection(email, accountType, tenantName, joinDemoTenant);
         if (!approvalRequired) {
-            createKeycloakStudent(email, displayName, password);
+            String userId = createKeycloakStudent(email, displayName, password);
+            applyApprovedTenantSelection(userId, email, tenantSelection, "self-signup");
             sendApplicantCreatedEmail(email);
             return status("CREATED", "Account created successfully. You can now sign in.", email, displayName);
         }
@@ -123,6 +143,11 @@ public class SignupApprovalService {
         request.setId(UUID.randomUUID());
         request.setEmail(email);
         request.setDisplayName(displayName);
+        request.setAccountType(accountType);
+        request.setTenantId(tenantSelection.tenantId());
+        request.setRequestedTenantName(tenantSelection.requestedTenantName());
+        request.setJoinDemoTenant(tenantSelection.joinDemoTenant());
+        request.setInvitationId(tenantSelection.invitationId());
         request.setEncryptedPassword(encryptedPassword.cipherText());
         request.setPasswordNonce(encryptedPassword.nonce());
         request.setStatus("PENDING");
@@ -148,8 +173,9 @@ public class SignupApprovalService {
     @Transactional
     public SignupRequestStatusRecord approve(String token) {
         SignupRequestEntity request = findPendingByToken(token, true);
-        createKeycloakStudent(request.getEmail(), request.getDisplayName(),
+        String userId = createKeycloakStudent(request.getEmail(), request.getDisplayName(),
                 decryptPassword(request.getEncryptedPassword(), request.getPasswordNonce()));
+        applyApprovedTenantSelection(userId, request.getEmail(), SignupTenantSelection.from(request), "approval");
         request.setStatus("APPROVED");
         request.setReviewedAt(OffsetDateTime.now());
         request.setReviewedAction("APPROVED");
@@ -198,7 +224,7 @@ public class SignupApprovalService {
         return request;
     }
 
-    private void createKeycloakStudent(String email, String displayName, String password) {
+    private String createKeycloakStudent(String email, String displayName, String password) {
         String adminToken = adminAccessToken();
         try {
             String fallbackName = email.substring(0, email.indexOf('@'));
@@ -222,13 +248,95 @@ public class SignupApprovalService {
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
                 throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Unable to create Keycloak user");
             }
-            assignStudentRole(userId(response, email, adminToken), adminToken);
+            String userId = userId(response, email, adminToken);
+            assignStudentRole(userId, adminToken);
+            return userId;
         } catch (IOException ex) {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Unable to create Keycloak user", ex);
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Unable to create Keycloak user", ex);
         }
+    }
+
+    private SignupTenantSelection validateSignupTenantSelection(
+            String email,
+            String accountType,
+            String tenantName,
+            boolean joinDemoTenant) {
+        if ("ADMIN".equals(accountType)) {
+            String requiredTenantName = requireTenantName(tenantName);
+            if ("DEMO".equalsIgnoreCase(requiredTenantName)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "DEMO tenant already exists");
+            }
+            if (tenants.existsByTenantNameIgnoreCase(requiredTenantName)) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Tenant name already exists");
+            }
+            return new SignupTenantSelection(accountType, null, requiredTenantName, joinDemoTenant, null);
+        }
+        if (tenantName == null) {
+            return new SignupTenantSelection(accountType, null, null, joinDemoTenant, null);
+        }
+        TenantInvitationEntity invitation = invitations
+                .findFirstByTenant_TenantNameIgnoreCaseAndEmailIgnoreCaseAndStatus(tenantName, email, "PENDING")
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.FORBIDDEN, "A tenant invitation is required to join this tenant"));
+        if (invitation.getExpiresAt().isBefore(OffsetDateTime.now())) {
+            invitation.setStatus("EXPIRED");
+            invitations.save(invitation);
+            throw new ResponseStatusException(HttpStatus.GONE, "Tenant invitation has expired");
+        }
+        return new SignupTenantSelection(invitation.getRole(), invitation.getTenant().getId(),
+                invitation.getTenant().getTenantName(), joinDemoTenant, invitation.getId());
+    }
+
+    private void applyApprovedTenantSelection(
+            String userId,
+            String email,
+            SignupTenantSelection selection,
+            String createdBySubject) {
+        if ("ADMIN".equals(selection.accountType()) && selection.tenantId() == null) {
+            TenantEntity tenant = new TenantEntity();
+            tenant.setId(UUID.randomUUID());
+            tenant.setTenantName(selection.requestedTenantName());
+            tenant.setTenantKey(tenantKey(selection.requestedTenantName()));
+            tenant.setTenantType("CUSTOMER");
+            tenant.setStatus("ACTIVE");
+            tenants.save(tenant);
+            createMembership(tenant, userId, email, "ADMIN", createdBySubject);
+        } else if (selection.tenantId() != null) {
+            TenantEntity tenant = tenants.findById(selection.tenantId())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unknown tenant"));
+            createMembership(tenant, userId, email, selection.accountType(), createdBySubject);
+            if (selection.invitationId() != null) {
+                invitations.findById(selection.invitationId()).ifPresent(invitation -> {
+                    invitation.setStatus("ACCEPTED");
+                    invitation.setAcceptedAt(OffsetDateTime.now());
+                    invitations.save(invitation);
+                });
+            }
+        }
+        if (selection.joinDemoTenant()) {
+            TenantEntity demo = tenants.findById(TenantEntity.DEMO_TENANT_ID)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "DEMO tenant is missing"));
+            createMembership(demo, userId, email, "STUDENT", createdBySubject);
+        }
+    }
+
+    private void createMembership(TenantEntity tenant, String userId, String email, String role, String createdBySubject) {
+        if (memberships.existsByTenant_IdAndUserSubjectAndStatus(tenant.getId(), userId, "ACTIVE")
+                || memberships.existsByTenant_IdAndEmailIgnoreCaseAndStatus(tenant.getId(), email, "ACTIVE")) {
+            return;
+        }
+        TenantUserMembershipEntity membership = new TenantUserMembershipEntity();
+        membership.setId(UUID.randomUUID());
+        membership.setTenant(tenant);
+        membership.setUserSubject(userId);
+        membership.setEmail(email);
+        membership.setRole(role);
+        membership.setStatus("ACTIVE");
+        membership.setCreatedBySubject(createdBySubject);
+        memberships.save(membership);
     }
 
     private String userId(HttpResponse<String> response, String email, String adminToken) throws IOException, InterruptedException {
@@ -415,6 +523,34 @@ public class SignupApprovalService {
         return trimmed == null ? null : trimmed.toLowerCase();
     }
 
+    private String normalizeAccountType(String value) {
+        String trimmed = trimToNull(value);
+        if (trimmed == null) return "STUDENT";
+        String normalized = trimmed.toUpperCase();
+        if (!normalized.equals("ADMIN") && !normalized.equals("STUDENT")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "accountType must be ADMIN or STUDENT");
+        }
+        return normalized;
+    }
+
+    private String requireTenantName(String value) {
+        String tenantName = trimToNull(value);
+        if (tenantName == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tenant name is required for admin signup");
+        }
+        if (tenantName.length() > 256) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tenant name must be 256 characters or fewer");
+        }
+        return tenantName;
+    }
+
+    private String tenantKey(String tenantName) {
+        String normalized = tenantName.trim().toUpperCase()
+                .replaceAll("[^A-Z0-9]+", "_")
+                .replaceAll("^_+|_+$", "");
+        return normalized.isBlank() ? UUID.randomUUID().toString() : normalized;
+    }
+
     private String trimToNull(String value) {
         if (value == null) return null;
         String trimmed = value.trim();
@@ -435,4 +571,20 @@ public class SignupApprovalService {
     }
 
     private record EncryptedPassword(String cipherText, String nonce) {}
+
+    private record SignupTenantSelection(
+            String accountType,
+            UUID tenantId,
+            String requestedTenantName,
+            boolean joinDemoTenant,
+            UUID invitationId) {
+        private static SignupTenantSelection from(SignupRequestEntity request) {
+            return new SignupTenantSelection(
+                    request.getAccountType(),
+                    request.getTenantId(),
+                    request.getRequestedTenantName(),
+                    request.isJoinDemoTenant(),
+                    request.getInvitationId());
+        }
+    }
 }

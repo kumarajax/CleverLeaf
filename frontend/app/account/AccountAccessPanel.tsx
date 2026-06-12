@@ -41,6 +41,9 @@ export function AccountAccessPanel({ showBackLink = true }: AccountAccessPanelPr
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [accountType, setAccountType] = useState<"STUDENT" | "ADMIN">("STUDENT");
+  const [tenantName, setTenantName] = useState("");
+  const [joinDemoTenant, setJoinDemoTenant] = useState(true);
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -89,6 +92,7 @@ export function AccountAccessPanel({ showBackLink = true }: AccountAccessPanelPr
     if (!email.trim() || !password || !confirmPassword) return setError("Email and password are required.");
     if (password !== confirmPassword) return setError("Passwords do not match.");
     if (password.length < 8) return setError("Password must be at least 8 characters.");
+    if (accountType === "ADMIN" && !tenantName.trim()) return setError("Tenant name is required for admin signup.");
     if (captchaInput.trim().toUpperCase() !== captchaCode) return setError("Captcha code did not match.");
     if (!termsAccepted) return setError(`You must accept the ${applicationName} terms.`);
     setSubmitting(true);
@@ -96,7 +100,16 @@ export function AccountAccessPanel({ showBackLink = true }: AccountAccessPanelPr
       const response = await fetch(`${apiBaseUrl}/api/public/signup-requests`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim(), displayName: name.trim(), password, legalVersion, termsAccepted }),
+        body: JSON.stringify({
+          email: email.trim(),
+          displayName: name.trim(),
+          password,
+          legalVersion,
+          termsAccepted,
+          accountType,
+          tenantName: tenantName.trim(),
+          joinDemoTenant,
+        }),
       });
       const nextMessage = await message(response);
       if (!response.ok) throw new Error(nextMessage);
@@ -105,6 +118,9 @@ export function AccountAccessPanel({ showBackLink = true }: AccountAccessPanelPr
       setEmail("");
       setPassword("");
       setConfirmPassword("");
+      setAccountType("STUDENT");
+      setTenantName("");
+      setJoinDemoTenant(true);
       setCaptchaInput("");
       setCaptchaCode(captcha());
       setTermsAccepted(false);
@@ -171,6 +187,14 @@ export function AccountAccessPanel({ showBackLink = true }: AccountAccessPanelPr
         <form className="account-form" onSubmit={submit}>
           <label>Name<input value={name} onChange={(event) => setName(event.target.value)} autoComplete="name" /></label>
           <label>Email<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" /></label>
+          <label>Account type
+            <select value={accountType} onChange={(event) => setAccountType(event.target.value as "STUDENT" | "ADMIN")}>
+              <option value="STUDENT">Student</option>
+              <option value="ADMIN">Admin</option>
+            </select>
+          </label>
+          <label>Tenant name<input value={tenantName} onChange={(event) => setTenantName(event.target.value)} placeholder={accountType === "ADMIN" ? "Create a unique tenant" : "Invitation-only tenant name"} /></label>
+          <label className="check"><input type="checkbox" checked={joinDemoTenant} onChange={(event) => setJoinDemoTenant(event.target.checked)} />Register for DEMO tenant.</label>
           <div className="form-grid">
             <label>Password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="new-password" /></label>
             <label>Confirm password<input type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} autoComplete="new-password" /></label>
