@@ -85,6 +85,14 @@ export function AccountAccessPanel({ showBackLink = true }: AccountAccessPanelPr
     setStatus("Signed out.");
   }
 
+  function cancelSignup() {
+    if (window.history.length > 1) {
+      window.history.back();
+      return;
+    }
+    window.location.href = "/";
+  }
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
@@ -159,8 +167,8 @@ export function AccountAccessPanel({ showBackLink = true }: AccountAccessPanelPr
 
   return (
     <section className="account-panel">
-      {showBackLink ? <a className="back-link" href="/">← Back to {applicationName}</a> : null}
-      <div className="eyebrow">{applicationName} Account</div>
+      {showBackLink && mode === "login" ? <a className="back-link" href="/">← Back to {applicationName}</a> : null}
+      {mode === "login" ? <div className="eyebrow">{applicationName} Account</div> : null}
       <h1>{mode === "login" ? "Welcome back" : "Create an account"}</h1>
       <p className="lede">
         {mode === "login"
@@ -184,25 +192,41 @@ export function AccountAccessPanel({ showBackLink = true }: AccountAccessPanelPr
           {signedInEmail ? <button type="button" className="secondary-button" onClick={signOut}>Sign out</button> : null}
         </form>
       ) : (
-        <form className="account-form" onSubmit={submit}>
-          <label>Name<input value={name} onChange={(event) => setName(event.target.value)} autoComplete="name" /></label>
-          <label>Email<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" /></label>
-          <label>Account type
-            <select value={accountType} onChange={(event) => setAccountType(event.target.value as "STUDENT" | "ADMIN")}>
-              <option value="STUDENT">Student</option>
-              <option value="ADMIN">Admin</option>
-            </select>
-          </label>
-          <label>Tenant name<input value={tenantName} onChange={(event) => setTenantName(event.target.value)} placeholder={accountType === "ADMIN" ? "Create a unique tenant" : "Invitation-only tenant name"} /></label>
-          <label className="check"><input type="checkbox" checked={joinDemoTenant} onChange={(event) => setJoinDemoTenant(event.target.checked)} />Register for DEMO tenant.</label>
-          <div className="form-grid">
-            <label>Password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="new-password" /></label>
-            <label>Confirm password<input type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} autoComplete="new-password" /></label>
+        <form className="account-form signup-form" onSubmit={submit}>
+          <div className="signup-section">
+            <div className="form-grid signup-field-grid">
+              <label>Name<input value={name} onChange={(event) => setName(event.target.value)} autoComplete="name" /></label>
+              <label>Email<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" /></label>
+            </div>
+            <div className="form-grid signup-field-grid">
+              <label>Account type
+                <select value={accountType} onChange={(event) => setAccountType(event.target.value as "STUDENT" | "ADMIN")}>
+                  <option value="STUDENT">Student</option>
+                  <option value="ADMIN">Admin</option>
+                </select>
+              </label>
+              <label>Tenant name<input value={tenantName} onChange={(event) => setTenantName(event.target.value)} placeholder={accountType === "ADMIN" ? "Create a unique tenant" : "Invitation-only tenant name"} /></label>
+            </div>
+            <label className="check check-card"><input type="checkbox" checked={joinDemoTenant} onChange={(event) => setJoinDemoTenant(event.target.checked)} /><span>Register for DEMO tenant.</span></label>
           </div>
-          <div className="captcha"><strong>{captchaCode}</strong><button type="button" onClick={() => setCaptchaCode(captcha())}>Refresh</button></div>
-          <label>Enter captcha<input value={captchaInput} onChange={(event) => setCaptchaInput(event.target.value)} autoComplete="off" /></label>
-          <label className="check"><input type="checkbox" checked={termsAccepted} onChange={(event) => setTermsAccepted(event.target.checked)} />I accept the <a href="/terms">{applicationName} terms</a>.</label>
-          <button className="primary-button" disabled={submitting}>{submitting ? "Submitting..." : approvalRequired ? "Request approval" : "Create account"}</button>
+
+          <div className="signup-section">
+            <div className="form-grid signup-field-grid">
+              <label>Password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="new-password" /></label>
+              <label>Confirm password<input type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} autoComplete="new-password" /></label>
+            </div>
+          </div>
+
+          <div className="signup-section">
+            <div className="captcha"><strong>{captchaCode}</strong><button type="button" onClick={() => setCaptchaCode(captcha())}>Refresh</button></div>
+            <label>Enter captcha<input value={captchaInput} onChange={(event) => setCaptchaInput(event.target.value)} autoComplete="off" /></label>
+            <label className="check check-card"><input type="checkbox" checked={termsAccepted} onChange={(event) => setTermsAccepted(event.target.checked)} /><span>I accept the <a href="/terms">{applicationName} terms</a>.</span></label>
+          </div>
+
+          <div className="signup-actions">
+            <button className="primary-button" disabled={submitting}>{submitting ? "Submitting..." : approvalRequired ? "Request approval" : "Create account"}</button>
+            <button type="button" className="secondary-button" onClick={cancelSignup}>Cancel</button>
+          </div>
         </form>
       )}
     </section>

@@ -132,4 +132,12 @@ public class TenantInvitationEntity {
     public void setCreatedBySubject(String createdBySubject) {
         this.createdBySubject = createdBySubject;
     }
+
+    public OffsetDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public OffsetDateTime getUpdatedAt() {
+        return updatedAt;
+    }
 }

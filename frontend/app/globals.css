@@ -151,7 +151,9 @@ h1 {
   min-width: 0;
 }
 
-.account-form input, .account-form textarea {
+.account-form input,
+.account-form textarea,
+.account-form select {
   border: 1px solid #b9ccc0;
   border-radius: 7px;
   font: inherit;
@@ -164,6 +166,22 @@ h1 {
 .account-form textarea {
   min-height: 120px;
   resize: vertical;
+}
+
+.signup-form {
+  gap: 16px;
+}
+
+.signup-section {
+  display: grid;
+  gap: 12px;
+}
+
+.signup-field-grid {
+  align-items: start;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .form-grid > * {
@@ -185,6 +203,38 @@ h1 {
   align-items: center;
   display: flex !important;
   grid-template-columns: 18px 1fr;
+}
+
+.check input {
+  flex: 0 0 auto;
+  min-height: 18px;
+  width: 18px;
+}
+
+.check-card {
+  align-items: flex-start;
+  background: #f8fbf7;
+  border: 1px solid #d8e6dc;
+  border-radius: 8px;
+  color: #354b42;
+  gap: 10px;
+  padding: 10px 12px;
+}
+
+.check-card span {
+  line-height: 1.35;
+  min-width: 0;
+}
+
+.signup-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-start;
+}
+
+.signup-actions .primary-button,
+.signup-actions .secondary-button {
+  min-width: 140px;
 }
 
 .notice {
@@ -345,8 +395,51 @@ h1 {
 .dashboard-topbar {
   align-items: center;
   display: flex;
+  gap: 10px;
   justify-content: flex-end;
   min-height: 0;
+}
+
+.notification-button {
+  align-items: center;
+  background: #eef5ef;
+  border: 1px solid #c8d8cd;
+  border-radius: 999px;
+  color: #245d3b;
+  cursor: pointer;
+  display: inline-flex;
+  height: 34px;
+  justify-content: center;
+  position: relative;
+  width: 34px;
+}
+
+.notification-button::before {
+  content: "\1F514";
+  font-size: 15px;
+  line-height: 1;
+}
+
+.notification-button.active {
+  background: #dceee0;
+  border-color: #36734d;
+}
+
+.notification-badge {
+  align-items: center;
+  background: #b3261e;
+  border-radius: 999px;
+  color: white;
+  display: inline-flex;
+  font-size: 10px;
+  font-weight: 700;
+  height: 16px;
+  justify-content: center;
+  min-width: 16px;
+  padding: 0 4px;
+  position: absolute;
+  right: -4px;
+  top: -5px;
 }
 
 .profile-menu {
@@ -502,6 +595,59 @@ h1 {
 .dashboard-history .account-tabs {
   gap: 4px;
   margin: 2px 0 6px;
+}
+
+.tenant-security-panel {
+  gap: 8px;
+}
+
+.tenant-security-tabs {
+  margin-top: 0;
+}
+
+.tenant-security-card {
+  display: grid;
+  gap: 12px;
+}
+
+.tenant-invite-form {
+  align-items: end;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(220px, 420px) auto;
+}
+
+.tenant-invite-form .primary-button {
+  min-height: 36px;
+}
+
+.tenant-security-card select {
+  border: 1px solid #b9ccc0;
+  border-radius: 7px;
+  font: inherit;
+  min-height: 32px;
+  min-width: 120px;
+  padding: 6px 8px;
+}
+
+.role-lock {
+  color: #5b6d66;
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 6px 0;
+}
+
+.notifications-panel {
+  gap: 8px;
+}
+
+.notification-row {
+  grid-template-columns: minmax(0, 1.1fr) minmax(180px, 1fr) minmax(130px, 0.7fr) auto;
+}
+
+.notification-row .history-actions {
+  gap: 6px;
 }
 
 .history-filters {
@@ -1678,6 +1824,17 @@ h1 {
     min-width: 0;
   }
   .student-layout {
+    grid-template-columns: 1fr;
+  }
+  .signup-field-grid {
+    grid-template-columns: 1fr;
+  }
+  .signup-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+  .tenant-invite-form {
+    align-items: stretch;
     grid-template-columns: 1fr;
   }
   .dashboard-workspace {

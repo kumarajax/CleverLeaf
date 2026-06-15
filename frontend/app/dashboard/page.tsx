@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AdminConsole } from "../admin/page";
 import { PracticeCenter } from "../practice/page";
@@ -67,6 +67,32 @@ type PageResponse<T> = {
   last: boolean;
 };
 
+type TenantSecurityMembership = {
+  membershipId: string;
+  tenantId: string;
+  email: string;
+  role: "ADMIN" | "STUDENT";
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type TenantInvitation = {
+  invitationId: string;
+  tenantId: string;
+  email: string;
+  role: "ADMIN" | "STUDENT";
+  status: string;
+  expiresAt: string;
+};
+
+type UserTenantInvitation = TenantInvitation & {
+  tenantName: string;
+  createdAt: string;
+};
+
+const defaultTenantId = "00000000-0000-0000-0000-000000000100";
+
 function readStoredSession() {
   return localStorage.getItem("clearleaf.auth");
 }
@@ -105,6 +131,253 @@ function formatDate(value?: string | null) {
   }).format(new Date(value));
 }
 
+function NotificationsPanel({
+  invitations,
+  loading,
+  actionInvitationId,
+  onAccept,
+  onReject,
+}: {
+  invitations: UserTenantInvitation[];
+  loading: boolean;
+  actionInvitationId: string;
+  onAccept: (invitation: UserTenantInvitation) => void;
+  onReject: (invitation: UserTenantInvitation) => void;
+}) {
+  return (
+    <section className="dashboard-history notifications-panel">
+      <div className="section-header">
+        <h2>Notifications</h2>
+        <p>{loading ? "Loading invitations..." : `${invitations.length} pending invitation(s)`}</p>
+      </div>
+      <div className="history-list">
+        {invitations.map((invitation) => (
+          <article className="history-row notification-row" key={invitation.invitationId}>
+            <div>
+              <strong>{invitation.tenantName}</strong>
+              <span>{invitation.email}</span>
+            </div>
+            <div className="history-meta">
+              <span>Tenant invitation</span>
+              <span>Role: {invitation.role}</span>
+              <span>Expires: {formatDate(invitation.expiresAt)}</span>
+            </div>
+            <div className="history-score">
+              <strong>{invitation.status}</strong>
+              <span>Created {formatDate(invitation.createdAt)}</span>
+            </div>
+            <div className="history-actions">
+              <button
+                type="button"
+                className="primary-button compact-button"
+                disabled={actionInvitationId === invitation.invitationId}
+                onClick={() => onAccept(invitation)}
+              >
+                {actionInvitationId === invitation.invitationId ? "Working..." : "Accept"}
+              </button>
+              <button
+                type="button"
+                className="secondary-button compact-button"
+                disabled={actionInvitationId === invitation.invitationId}
+                onClick={() => onReject(invitation)}
+              >
+                Reject
+              </button>
+            </div>
+          </article>
+        ))}
+        {!loading && invitations.length === 0 ? <p className="notice warning">No pending invitations.</p> : null}
+      </div>
+    </section>
+  );
+}
+
+function TenantSecurityPanel({
+  apiBaseUrl,
+  token,
+  tenantId,
+  tenantName,
+}: {
+  apiBaseUrl: string;
+  token: string;
+  tenantId: string;
+  tenantName: string;
+}) {
+  const [activeTab, setActiveTab] = useState<"invite" | "roles">("invite");
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [memberships, setMemberships] = useState<TenantSecurityMembership[]>([]);
+  const [invitations, setInvitations] = useState<TenantInvitation[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [submittingInvite, setSubmittingInvite] = useState(false);
+  const [updatingMembershipId, setUpdatingMembershipId] = useState("");
+  const [status, setStatus] = useState("");
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!token || !tenantId) return;
+    loadSecurityData().catch((exception) => {
+      setError(exception instanceof Error ? exception.message : "Unable to load tenant security.");
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, tenantId]);
+
+  async function tenantRequest(path: string, init?: RequestInit) {
+    const response = await fetch(`${apiBaseUrl}${path}`, {
+      ...init,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+        "X-CleverLeaf-Tenant-Id": tenantId,
+        ...(init?.headers ?? {}),
+      },
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(body.error || body.message || `Request failed with ${response.status}`);
+    return body;
+  }
+
+  async function loadSecurityData() {
+    setLoading(true);
+    setError("");
+    try {
+      const [membershipBody, invitationBody] = await Promise.all([
+        tenantRequest("/api/admin/tenant/memberships"),
+        tenantRequest("/api/admin/tenant/invitations"),
+      ]);
+      setMemberships(Array.isArray(membershipBody) ? membershipBody : []);
+      setInvitations(Array.isArray(invitationBody) ? invitationBody : []);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function inviteStudent(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const email = inviteEmail.trim();
+    if (!email) return setError("Email is required.");
+    setSubmittingInvite(true);
+    setError("");
+    setStatus("");
+    try {
+      await tenantRequest("/api/admin/tenant/invitations", {
+        method: "POST",
+        body: JSON.stringify({ email, role: "STUDENT" }),
+      });
+      setInviteEmail("");
+      setStatus(`Invitation sent to ${email}.`);
+      await loadSecurityData();
+    } catch (exception) {
+      setError(exception instanceof Error ? exception.message : "Unable to invite user.");
+    } finally {
+      setSubmittingInvite(false);
+    }
+  }
+
+  async function updateRole(membership: TenantSecurityMembership, role: "ADMIN" | "STUDENT") {
+    if (membership.role === role) return;
+    setUpdatingMembershipId(membership.membershipId);
+    setError("");
+    setStatus("");
+    try {
+      const updated = await tenantRequest(`/api/admin/tenant/memberships/${membership.membershipId}/role`, {
+        method: "PUT",
+        body: JSON.stringify({ role }),
+      }) as TenantSecurityMembership;
+      setMemberships((current) => current.map((item) => item.membershipId === updated.membershipId ? updated : item));
+      setStatus(`${membership.email} is now ${role.toLowerCase()}.`);
+    } catch (exception) {
+      setError(exception instanceof Error ? exception.message : "Unable to update role.");
+    } finally {
+      setUpdatingMembershipId("");
+    }
+  }
+
+  const pendingInvitations = invitations.filter((invitation) => invitation.status === "PENDING");
+
+  return (
+    <section className="dashboard-history tenant-security-panel">
+      <div className="section-header">
+        <h2>Tenant Security</h2>
+        <p>{tenantName} tenant</p>
+      </div>
+      {error ? <p className="notice error">{error}</p> : null}
+      {status ? <p className="notice success">{status}</p> : null}
+      <div className="account-tabs import-tabs tenant-security-tabs" role="tablist" aria-label="Tenant security tabs">
+        <button type="button" role="tab" aria-selected={activeTab === "invite"} className={activeTab === "invite" ? "tab active" : "tab"} onClick={() => setActiveTab("invite")}>Invite Users</button>
+        <button type="button" role="tab" aria-selected={activeTab === "roles"} className={activeTab === "roles" ? "tab active" : "tab"} onClick={() => setActiveTab("roles")}>Roles</button>
+      </div>
+
+      {activeTab === "invite" ? (
+        <div className="card table-card tenant-security-card">
+          <div className="section-header compact-section-header">
+            <h3>Invite student</h3>
+            <p>{pendingInvitations.length} pending invitation(s)</p>
+          </div>
+          <form className="account-form tenant-invite-form" onSubmit={inviteStudent}>
+            <label>Email<input type="email" value={inviteEmail} onChange={(event) => setInviteEmail(event.target.value)} placeholder="student@example.com" /></label>
+            <button className="primary-button compact-button" disabled={submittingInvite}>{submittingInvite ? "Sending..." : "Invite Student"}</button>
+          </form>
+          <div className="table-wrap">
+            <table className="data-table">
+              <thead><tr><th>Email</th><th>Role</th><th>Status</th><th>Expires</th></tr></thead>
+              <tbody>
+                {invitations.map((invitation) => (
+                  <tr key={invitation.invitationId}>
+                    <td>{invitation.email}</td>
+                    <td>{invitation.role}</td>
+                    <td>{invitation.status}</td>
+                    <td>{formatDate(invitation.expiresAt)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {!loading && invitations.length === 0 ? <p className="notice warning">No invitations found.</p> : null}
+          </div>
+        </div>
+      ) : null}
+
+      {activeTab === "roles" ? (
+        <div className="card table-card tenant-security-card">
+          <div className="section-header compact-section-header">
+            <h3>Tenant roles</h3>
+            <p>{loading ? "Loading members..." : `${memberships.length} active member(s)`}</p>
+          </div>
+          <div className="table-wrap">
+            <table className="data-table">
+              <thead><tr><th>Email</th><th>Role</th><th>Status</th><th>Updated</th><th>Assign role</th></tr></thead>
+              <tbody>
+                {memberships.map((membership) => (
+                  <tr key={membership.membershipId}>
+                    <td>{membership.email}</td>
+                    <td>{membership.role}</td>
+                    <td>{membership.status}</td>
+                    <td>{formatDate(membership.updatedAt)}</td>
+                    <td>
+                      {membership.role === "ADMIN" ? (
+                        <span className="role-lock">Admin retained</span>
+                      ) : (
+                        <select
+                          value={membership.role}
+                          disabled={updatingMembershipId === membership.membershipId}
+                          onChange={(event) => updateRole(membership, event.target.value as "ADMIN" | "STUDENT")}
+                        >
+                          <option value="STUDENT">Student</option>
+                          <option value="ADMIN">Admin</option>
+                        </select>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {!loading && memberships.length === 0 ? <p className="notice warning">No tenant members found.</p> : null}
+          </div>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const { applicationName } = useApplicationConfig();
@@ -122,9 +395,12 @@ export default function DashboardPage() {
   const [startingAttemptId, setStartingAttemptId] = useState("");
   const [assignedTests, setAssignedTests] = useState<StudentAssignedTestSummary[]>([]);
   const [assignedResults, setAssignedResults] = useState<StudentAssignedTestSummary[]>([]);
-  const [dashboardTab, setDashboardTab] = useState<"history" | "take" | "assigned" | "configure">("history");
+  const [dashboardTab, setDashboardTab] = useState<"history" | "take" | "assigned" | "configure" | "tenant-security" | "notifications">("history");
   const [assignedTab, setAssignedTab] = useState<"assigned" | "results">("assigned");
   const [startingAssignmentId, setStartingAssignmentId] = useState("");
+  const [tenantInvitations, setTenantInvitations] = useState<UserTenantInvitation[]>([]);
+  const [loadingInvitations, setLoadingInvitations] = useState(false);
+  const [actionInvitationId, setActionInvitationId] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -153,6 +429,7 @@ export default function DashboardPage() {
     if (!session?.accessToken) return;
     loadHistory(session.accessToken);
     loadAssignedTests(session.accessToken);
+    loadTenantInvitations(session.accessToken);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.accessToken, historyPage, taxonomyFilter, dateFromFilter, dateToFilter]);
 
@@ -216,6 +493,47 @@ export default function DashboardPage() {
     }
   }
 
+  async function loadTenantInvitations(token: string) {
+    setLoadingInvitations(true);
+    try {
+      const body = await request("/api/student/tenant-invitations", token);
+      setTenantInvitations(Array.isArray(body) ? body : []);
+    } catch (exception) {
+      setError(exception instanceof Error ? exception.message : "Unable to load notifications.");
+    } finally {
+      setLoadingInvitations(false);
+    }
+  }
+
+  async function acceptTenantInvitation(invitation: UserTenantInvitation) {
+    if (!session?.accessToken) return;
+    setActionInvitationId(invitation.invitationId);
+    setError("");
+    try {
+      await request(`/api/student/tenant-invitations/${invitation.invitationId}/accept`, session.accessToken, { method: "POST" });
+      setTenantInvitations((current) => current.filter((item) => item.invitationId !== invitation.invitationId));
+      await loadProfile(session.accessToken);
+    } catch (exception) {
+      setError(exception instanceof Error ? exception.message : "Unable to accept invitation.");
+    } finally {
+      setActionInvitationId("");
+    }
+  }
+
+  async function rejectTenantInvitation(invitation: UserTenantInvitation) {
+    if (!session?.accessToken) return;
+    setActionInvitationId(invitation.invitationId);
+    setError("");
+    try {
+      await request(`/api/student/tenant-invitations/${invitation.invitationId}/reject`, session.accessToken, { method: "POST" });
+      setTenantInvitations((current) => current.filter((item) => item.invitationId !== invitation.invitationId));
+    } catch (exception) {
+      setError(exception instanceof Error ? exception.message : "Unable to reject invitation.");
+    } finally {
+      setActionInvitationId("");
+    }
+  }
+
   async function startAssignedTest(assignmentId: string) {
     if (!session?.accessToken) return;
     setStartingAssignmentId(assignmentId);
@@ -256,8 +574,12 @@ export default function DashboardPage() {
   }
 
   const roles = profile?.roles ?? [];
+  const adminMembership = (profile?.tenantMemberships ?? [])
+    .find((membership) => membership.role === "ADMIN" && membership.status === "ACTIVE");
   const isAdmin = roles.includes("administrator")
-    || (profile?.tenantMemberships ?? []).some((membership) => membership.role === "ADMIN" && membership.status === "ACTIVE");
+    || Boolean(adminMembership);
+  const selectedAdminTenantId = adminMembership?.tenantId ?? (roles.includes("administrator") ? defaultTenantId : "");
+  const selectedAdminTenantName = adminMembership?.tenantName ?? (roles.includes("administrator") ? "DEMO" : "");
   const studentName = shortName(profile, session);
 
   function resetHistoryPage() {
@@ -266,8 +588,16 @@ export default function DashboardPage() {
 
   return (
     <main className="student-shell">
-      <section className={dashboardTab === "configure" ? "student-panel dashboard-panel configure-dashboard-panel" : "student-panel dashboard-panel"}>
+      <section className={dashboardTab === "configure" || dashboardTab === "tenant-security" ? "student-panel dashboard-panel configure-dashboard-panel" : "student-panel dashboard-panel"}>
         <div className="dashboard-topbar">
+          <button
+            type="button"
+            className={dashboardTab === "notifications" ? "notification-button active" : "notification-button"}
+            aria-label="Notifications"
+            onClick={() => setDashboardTab("notifications")}
+          >
+            {tenantInvitations.length > 0 ? <span className="notification-badge">{tenantInvitations.length}</span> : null}
+          </button>
           <details className="profile-menu">
             <summary>{studentName}</summary>
             <div className="profile-menu-items">
@@ -294,12 +624,34 @@ export default function DashboardPage() {
               {isAdmin ? (
                 <button type="button" role="tab" aria-selected={dashboardTab === "configure"} className={dashboardTab === "configure" ? "tab active" : "tab"} onClick={() => setDashboardTab("configure")}>Configure</button>
               ) : null}
+              {isAdmin ? (
+                <button type="button" role="tab" aria-selected={dashboardTab === "tenant-security"} className={dashboardTab === "tenant-security" ? "tab active" : "tab"} onClick={() => setDashboardTab("tenant-security")}>Tenant Security</button>
+              ) : null}
             </div>
           </aside>
 
           <div className="dashboard-main">
             {isAdmin && dashboardTab === "configure" ? (
               <AdminConsole embedded />
+            ) : null}
+
+            {isAdmin && dashboardTab === "tenant-security" && session?.accessToken && selectedAdminTenantId ? (
+              <TenantSecurityPanel
+                apiBaseUrl={apiBaseUrl}
+                token={session.accessToken}
+                tenantId={selectedAdminTenantId}
+                tenantName={selectedAdminTenantName}
+              />
+            ) : null}
+
+            {dashboardTab === "notifications" ? (
+              <NotificationsPanel
+                invitations={tenantInvitations}
+                loading={loadingInvitations}
+                actionInvitationId={actionInvitationId}
+                onAccept={acceptTenantInvitation}
+                onReject={rejectTenantInvitation}
+              />
             ) : null}
 
             {dashboardTab === "take" ? (
