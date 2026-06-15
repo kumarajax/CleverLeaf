@@ -279,89 +279,92 @@ export default function DashboardPage() {
 
         <div className="student-header">
           <div className="dashboard-welcome">
-            <div className="eyebrow">Student dashboard</div>
             <h1>Welcome to {applicationName}, {studentName}</h1>
           </div>
         </div>
 
         {error ? <p className="notice error">{error}</p> : null}
 
-        <div className="account-tabs dashboard-tabs" role="tablist" aria-label="Dashboard sections">
-          <button type="button" role="tab" aria-selected={dashboardTab === "history"} className={dashboardTab === "history" ? "tab active" : "tab"} onClick={() => setDashboardTab("history")}>Historical Tests</button>
-          <button type="button" role="tab" aria-selected={dashboardTab === "take"} className={dashboardTab === "take" ? "tab active" : "tab"} onClick={() => setDashboardTab("take")}>Take Test</button>
-          <button type="button" role="tab" aria-selected={dashboardTab === "assigned"} className={dashboardTab === "assigned" ? "tab active" : "tab"} onClick={() => setDashboardTab("assigned")}>Assigned Tests</button>
-          {isAdmin ? (
-            <button type="button" role="tab" aria-selected={dashboardTab === "configure"} className={dashboardTab === "configure" ? "tab active" : "tab"} onClick={() => setDashboardTab("configure")}>Configure</button>
-          ) : null}
-        </div>
+        <div className="dashboard-workspace">
+          <aside className="dashboard-sidebar" aria-label="Dashboard navigation">
+            <div className="account-tabs dashboard-tabs" role="tablist" aria-label="Dashboard sections">
+              <button type="button" role="tab" aria-selected={dashboardTab === "history"} className={dashboardTab === "history" ? "tab active" : "tab"} onClick={() => setDashboardTab("history")}>Historical Tests</button>
+              <button type="button" role="tab" aria-selected={dashboardTab === "take"} className={dashboardTab === "take" ? "tab active" : "tab"} onClick={() => setDashboardTab("take")}>Take Test</button>
+              <button type="button" role="tab" aria-selected={dashboardTab === "assigned"} className={dashboardTab === "assigned" ? "tab active" : "tab"} onClick={() => setDashboardTab("assigned")}>Assigned Tests</button>
+              {isAdmin ? (
+                <button type="button" role="tab" aria-selected={dashboardTab === "configure"} className={dashboardTab === "configure" ? "tab active" : "tab"} onClick={() => setDashboardTab("configure")}>Configure</button>
+              ) : null}
+            </div>
+          </aside>
 
-        {isAdmin && dashboardTab === "configure" ? (
-          <AdminConsole embedded />
-        ) : null}
+          <div className="dashboard-main">
+            {isAdmin && dashboardTab === "configure" ? (
+              <AdminConsole embedded />
+            ) : null}
 
-        {dashboardTab === "take" ? (
-          <PracticeCenter embedded />
-        ) : null}
+            {dashboardTab === "take" ? (
+              <PracticeCenter embedded />
+            ) : null}
 
-        {dashboardTab === "assigned" ? (
-        <section className="dashboard-history">
-          <div className="section-header">
-            <h2>Assigned Tests</h2>
-            <p>{assignedTests.length} active assignment(s)</p>
-          </div>
-          <div className="account-tabs import-tabs" role="tablist" aria-label="Assigned test tabs">
-            <button type="button" role="tab" aria-selected={assignedTab === "assigned"} className={assignedTab === "assigned" ? "tab active" : "tab"} onClick={() => setAssignedTab("assigned")}>Assigned</button>
-            <button type="button" role="tab" aria-selected={assignedTab === "results"} className={assignedTab === "results" ? "tab active" : "tab"} onClick={() => setAssignedTab("results")}>Results</button>
-          </div>
-          <div className="history-list">
-            {(assignedTab === "assigned" ? assignedTests : assignedResults).map((assignment) => (
-              <article className="history-row" key={assignment.assignmentId}>
-                <div>
-                  <strong>{assignment.testName}</strong>
-                  <span>{assignment.questionCount} question(s), {Math.ceil(assignment.timeAllowedSeconds / 60)} minute(s)</span>
-                </div>
-                <div className="history-meta">
-                  <span>{assignment.status}</span>
-                  <span>Assigned: {formatDate(assignment.assignedAt)}</span>
-                  {assignment.submittedAt ? <span>Submitted: {formatDate(assignment.submittedAt)}</span> : null}
-                </div>
-                <div className="history-score">
-                  {assignedTab === "results" ? (
-                    <>
-                      <strong>{assignment.scorePoints ?? 0} / {assignment.maxPoints}</strong>
-                      <span>Published result</span>
-                    </>
-                  ) : (
-                    <>
-                      <strong>{assignment.startedAt ? "In progress" : "Not started"}</strong>
-                      <span>{assignment.availableUntil ? `Due ${formatDate(assignment.availableUntil)}` : "No due date"}</span>
-                    </>
-                  )}
-                </div>
-                <div className="history-actions">
-                  {assignedTab === "assigned" ? (
-                    <button
-                      type="button"
-                      className="primary-button"
-                      disabled={startingAssignmentId === assignment.assignmentId}
-                      onClick={() => startAssignedTest(assignment.assignmentId)}
-                    >
-                      {startingAssignmentId === assignment.assignmentId ? "Starting..." : (assignment.startedAt ? "Continue" : "Start")}
-                    </button>
-                  ) : (
-                    <a className="secondary-button" href={`/assigned-tests/${assignment.assignmentId}`}>Details</a>
-                  )}
-                </div>
-              </article>
-            ))}
-            {assignedTab === "assigned" && assignedTests.length === 0 ? <p className="notice warning">No assigned tests available.</p> : null}
-            {assignedTab === "results" && assignedResults.length === 0 ? <p className="notice warning">No published results available.</p> : null}
-          </div>
-        </section>
-        ) : null}
+            {dashboardTab === "assigned" ? (
+            <section className="dashboard-history">
+              <div className="section-header">
+                <h2>Assigned Tests</h2>
+                <p>{assignedTests.length} active assignment(s)</p>
+              </div>
+              <div className="account-tabs import-tabs" role="tablist" aria-label="Assigned test tabs">
+                <button type="button" role="tab" aria-selected={assignedTab === "assigned"} className={assignedTab === "assigned" ? "tab active" : "tab"} onClick={() => setAssignedTab("assigned")}>Assigned</button>
+                <button type="button" role="tab" aria-selected={assignedTab === "results"} className={assignedTab === "results" ? "tab active" : "tab"} onClick={() => setAssignedTab("results")}>Results</button>
+              </div>
+              <div className="history-list">
+                {(assignedTab === "assigned" ? assignedTests : assignedResults).map((assignment) => (
+                  <article className="history-row" key={assignment.assignmentId}>
+                    <div>
+                      <strong>{assignment.testName}</strong>
+                      <span>{assignment.questionCount} question(s), {Math.ceil(assignment.timeAllowedSeconds / 60)} minute(s)</span>
+                    </div>
+                    <div className="history-meta">
+                      <span>{assignment.status}</span>
+                      <span>Assigned: {formatDate(assignment.assignedAt)}</span>
+                      {assignment.submittedAt ? <span>Submitted: {formatDate(assignment.submittedAt)}</span> : null}
+                    </div>
+                    <div className="history-score">
+                      {assignedTab === "results" ? (
+                        <>
+                          <strong>{assignment.scorePoints ?? 0} / {assignment.maxPoints}</strong>
+                          <span>Published result</span>
+                        </>
+                      ) : (
+                        <>
+                          <strong>{assignment.startedAt ? "In progress" : "Not started"}</strong>
+                          <span>{assignment.availableUntil ? `Due ${formatDate(assignment.availableUntil)}` : "No due date"}</span>
+                        </>
+                      )}
+                    </div>
+                    <div className="history-actions">
+                      {assignedTab === "assigned" ? (
+                        <button
+                          type="button"
+                          className="primary-button"
+                          disabled={startingAssignmentId === assignment.assignmentId}
+                          onClick={() => startAssignedTest(assignment.assignmentId)}
+                        >
+                          {startingAssignmentId === assignment.assignmentId ? "Starting..." : (assignment.startedAt ? "Continue" : "Start")}
+                        </button>
+                      ) : (
+                        <a className="secondary-button" href={`/assigned-tests/${assignment.assignmentId}`}>Details</a>
+                      )}
+                    </div>
+                  </article>
+                ))}
+                {assignedTab === "assigned" && assignedTests.length === 0 ? <p className="notice warning">No assigned tests available.</p> : null}
+                {assignedTab === "results" && assignedResults.length === 0 ? <p className="notice warning">No published results available.</p> : null}
+              </div>
+            </section>
+            ) : null}
 
-        {dashboardTab === "history" ? (
-        <section className="dashboard-history">
+            {dashboardTab === "history" ? (
+            <section className="dashboard-history">
           <div className="section-header">
             <h2>Historical Tests</h2>
             <p>{loadingHistory ? "Loading attempts..." : `${historyTotalElements} attempt(s)`}</p>
@@ -436,8 +439,10 @@ export default function DashboardPage() {
               <button type="button" className="secondary-button compact-button" disabled={historyPage >= historyTotalPages - 1 || loadingHistory} onClick={() => setHistoryPage((value) => value + 1)}>Next</button>
             </div>
           </div>
-        </section>
-        ) : null}
+            </section>
+            ) : null}
+          </div>
+        </div>
       </section>
     </main>
   );
