@@ -226,6 +226,7 @@ type CursorPage<T> = {
   nextCursor: string | null;
   hasNext: boolean;
   size: number;
+  totalElements?: number;
 };
 
 type QuestionCardPageState = {
@@ -233,6 +234,7 @@ type QuestionCardPageState = {
   cursorIndex: number;
   nextCursor: string | null;
   hasNext: boolean;
+  totalElements: number;
 };
 
 type TreeNode = TaxonomyNode & { children: TreeNode[] };
@@ -706,7 +708,7 @@ export function AdminConsole({ embedded = false }: AdminConsoleProps) {
     const timeout = window.setTimeout(() => controller.abort(), requestTimeoutMs);
     try {
       const results = await Promise.all(questionCardNodes.map(async (node) => {
-        const pageState = cardPages[node.id] ?? { cursorStack: [null], cursorIndex: 0, nextCursor: null, hasNext: false };
+        const pageState = cardPages[node.id] ?? { cursorStack: [null], cursorIndex: 0, nextCursor: null, hasNext: false, totalElements: 0 };
         const parameters = new URLSearchParams({
           size: String(questionPageSize),
         });
@@ -737,6 +739,7 @@ export function AdminConsole({ embedded = false }: AdminConsoleProps) {
           cursorIndex: pageState.cursorIndex,
           nextCursor: result.nextCursor,
           hasNext: result.hasNext,
+          totalElements: result.totalElements ?? result.content.length,
         };
       });
       const nextQuestions = results.flatMap(({ result }) => result.content);
@@ -1028,7 +1031,7 @@ export function AdminConsole({ embedded = false }: AdminConsoleProps) {
   }
 
   function loadQuestionCardPage(taxonomyNodeId: string, cursorIndex: number) {
-    const current = questionCardPages[taxonomyNodeId] ?? { cursorStack: [null], cursorIndex: 0, nextCursor: null, hasNext: false };
+    const current = questionCardPages[taxonomyNodeId] ?? { cursorStack: [null], cursorIndex: 0, nextCursor: null, hasNext: false, totalElements: 0 };
     const nextPages = {
       ...questionCardPages,
       [taxonomyNodeId]: {
@@ -1804,7 +1807,7 @@ export function AdminConsole({ embedded = false }: AdminConsoleProps) {
           </div>
         </div>
         ) : null}
-        <div className="account-tabs">
+        <div className="account-tabs admin-primary-tabs" role="tablist" aria-label="Configure sections">
           <button type="button" className={activeTab === "taxonomy" ? "tab active" : "tab"} onClick={() => setActiveTab("taxonomy")}>Taxonomy</button>
           <button type="button" className={activeTab === "manual" ? "tab active" : "tab"} onClick={() => setActiveTab("manual")}>Manual question</button>
           <button type="button" className={activeTab === "tests" ? "tab active" : "tab"} onClick={() => setActiveTab("tests")}>Tests</button>
@@ -2011,7 +2014,8 @@ export function AdminConsole({ embedded = false }: AdminConsoleProps) {
                 <div className="question-list">
                   {groupedQuestionsByCard.map((group) => {
                     const groupExpanded = expandedQuestionTaxonomyIds.includes(group.taxonomyNodeId);
-                    const pageState = questionCardPages[group.taxonomyNodeId] ?? { cursorStack: [null], cursorIndex: 0, nextCursor: null, hasNext: false };
+                    const pageState = questionCardPages[group.taxonomyNodeId] ?? { cursorStack: [null], cursorIndex: 0, nextCursor: null, hasNext: false, totalElements: group.questions.length };
+                    const totalQuestions = pageState.totalElements;
                     return (
                       <div className="question-taxonomy-group" key={group.taxonomyNodeId}>
                         <button
@@ -2022,7 +2026,7 @@ export function AdminConsole({ embedded = false }: AdminConsoleProps) {
                         >
                           <span>{groupExpanded ? "▾" : "▸"}</span>
                           <strong>{group.taxonomyNodeLabel}</strong>
-                          <small>{group.questions.length} question{group.questions.length === 1 ? "" : "s"}</small>
+                          <small>{totalQuestions} question{totalQuestions === 1 ? "" : "s"}</small>
                         </button>
                         {groupExpanded ? group.questions.map((question) => {
                           const expanded = expandedQuestionSet.has(question.id);
@@ -2069,7 +2073,7 @@ export function AdminConsole({ embedded = false }: AdminConsoleProps) {
                             <div className="pagination-bar">
                               <span>
                                 Batch {pageState.cursorIndex + 1}
-                                {" "}({group.questions.length} question{group.questions.length === 1 ? "" : "s"})
+                                {" "}({group.questions.length} shown of {totalQuestions})
                               </span>
                               <div className="pagination-actions">
                                 <button
@@ -2295,7 +2299,7 @@ export function AdminConsole({ embedded = false }: AdminConsoleProps) {
           <section className="section">
             {assignedTestError ? <p className="notice error">{assignedTestError}</p> : null}
 
-            <div className="account-tabs import-tabs" role="tablist" aria-label="Assigned test administration">
+            <div className="account-tabs import-tabs admin-secondary-tabs" role="tablist" aria-label="Assigned test administration">
               <button type="button" role="tab" aria-selected={testTab === "create"} className={testTab === "create" ? "tab active" : "tab"} onClick={() => setTestTab("create")}>Create Tests</button>
               <button type="button" role="tab" aria-selected={testTab === "history"} className={testTab === "history" ? "tab active" : "tab"} onClick={() => setTestTab("history")}>Manage Tests</button>
               <button type="button" role="tab" aria-selected={testTab === "assign"} className={testTab === "assign" ? "tab active" : "tab"} onClick={() => setTestTab("assign")}>Assign Test(s)</button>

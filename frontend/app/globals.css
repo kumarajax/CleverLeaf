@@ -320,7 +320,7 @@ h1 {
 }
 
 .configure-dashboard-panel .dashboard-tabs {
-  margin-bottom: 0;
+  margin-bottom: 4px;
 }
 
 .dashboard-topbar {
@@ -902,12 +902,15 @@ h1 {
   width: 100%;
 }
 
-.embedded-admin-shell .account-tabs {
-  margin: 0 0 6px;
+.embedded-admin-shell .admin-primary-tabs {
+  gap: 4px;
+  margin: 0;
+  padding-top: 2px;
 }
 
 .embedded-admin-panel .section {
-  margin-top: 8px;
+  margin-top: 6px;
+  padding-top: 8px;
 }
 
 .embedded-admin-panel .admin-taxonomy-context {
@@ -1413,6 +1416,18 @@ h1 {
 
 .admin-shell .import-tabs {
   margin-top: 0;
+}
+
+.embedded-admin-panel .admin-secondary-tabs {
+  gap: 3px;
+  margin: 0 0 8px;
+  padding-top: 0;
+}
+
+.embedded-admin-panel .admin-secondary-tabs .tab {
+  font-size: 12px;
+  min-height: 28px;
+  padding: 6px 9px;
 }
 
 .import-placeholder {

@@ -78,7 +78,11 @@ function displayName(payload: ProfilePayload | null, session: Session | null) {
   return payload?.name ?? payload?.preferred_username ?? payload?.username ?? session?.email ?? "Student";
 }
 
-export default function PracticePage() {
+type PracticeCenterProps = {
+  embedded?: boolean;
+};
+
+export function PracticeCenter({ embedded = false }: PracticeCenterProps) {
   const router = useRouter();
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8081";
   const [session, setSession] = useState<Session | null>(null);
@@ -212,10 +216,9 @@ export default function PracticePage() {
     }
   }
 
-  return (
-    <main className="student-shell">
-      <section className="student-panel">
-        <a className="secondary-button compact-button page-nav-button" href="/dashboard">Dashboard</a>
+  const content = (
+      <section className={embedded ? "dashboard-history" : "student-panel"}>
+        {embedded ? null : <a className="secondary-button compact-button page-nav-button" href="/dashboard">Dashboard</a>}
         <div className="student-header">
           <div>
             <div className="eyebrow">Student test center</div>
@@ -330,6 +333,11 @@ export default function PracticePage() {
           </aside>
         </div>
       </section>
-    </main>
   );
+
+  return embedded ? content : <main className="student-shell">{content}</main>;
+}
+
+export default function PracticePage() {
+  return <PracticeCenter />;
 }

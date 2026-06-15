@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AdminConsole } from "../admin/page";
+import { PracticeCenter } from "../practice/page";
 import { useApplicationConfig } from "../useApplicationConfig";
 
 type Session = {
@@ -287,7 +288,7 @@ export default function DashboardPage() {
 
         <div className="account-tabs dashboard-tabs" role="tablist" aria-label="Dashboard sections">
           <button type="button" role="tab" aria-selected={dashboardTab === "history"} className={dashboardTab === "history" ? "tab active" : "tab"} onClick={() => setDashboardTab("history")}>Historical Tests</button>
-          <button type="button" role="tab" aria-selected={dashboardTab === "take"} className={dashboardTab === "take" ? "tab active" : "tab"} onClick={() => router.push("/practice")}>Take Test</button>
+          <button type="button" role="tab" aria-selected={dashboardTab === "take"} className={dashboardTab === "take" ? "tab active" : "tab"} onClick={() => setDashboardTab("take")}>Take Test</button>
           <button type="button" role="tab" aria-selected={dashboardTab === "assigned"} className={dashboardTab === "assigned" ? "tab active" : "tab"} onClick={() => setDashboardTab("assigned")}>Assigned Tests</button>
           {isAdmin ? (
             <button type="button" role="tab" aria-selected={dashboardTab === "configure"} className={dashboardTab === "configure" ? "tab active" : "tab"} onClick={() => setDashboardTab("configure")}>Configure</button>
@@ -299,13 +300,7 @@ export default function DashboardPage() {
         ) : null}
 
         {dashboardTab === "take" ? (
-        <section className="dashboard-test-hero">
-          <div>
-            <h2>Take Test</h2>
-            <p>Browse subjects and topics with available questions, then choose difficulty and length.</p>
-          </div>
-          <a className="primary-button" href="/practice">Take test</a>
-        </section>
+          <PracticeCenter embedded />
         ) : null}
 
         {dashboardTab === "assigned" ? (

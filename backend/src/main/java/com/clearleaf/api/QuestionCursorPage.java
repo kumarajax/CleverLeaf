@@ -6,5 +6,6 @@ public record QuestionCursorPage(
         List<QuestionAdminRecord> content,
         String nextCursor,
         boolean hasNext,
-        int size) {
+        int size,
+        long totalElements) {
 }

@@ -61,8 +61,9 @@ public class QuestionAuthoringService {
         int size = Math.clamp(requestedSize, 1, 100);
         Specification<QuestionEntity> specification = specification(criteria);
         if (specification == null) {
-            return new QuestionCursorPage(List.of(), null, false, 0);
+            return new QuestionCursorPage(List.of(), null, false, 0, 0);
         }
+        long totalElements = questions.count(specification);
         List<QuestionEntity> entities = findCursorPage(specification, parseCursor(cursor), size + 1);
         boolean hasNext = entities.size() > size;
         List<QuestionEntity> visible = hasNext ? entities.subList(0, size) : entities;
@@ -70,7 +71,7 @@ public class QuestionAuthoringService {
                 ? encodeCursor(visible.getLast().getCreatedAt(), visible.getLast().getId())
                 : null;
         return new QuestionCursorPage(visible.stream().map(this::toAdminRecord).toList(),
-                nextCursor, hasNext, visible.size());
+                nextCursor, hasNext, visible.size(), totalElements);
     }
 
     @Transactional(readOnly = true)
