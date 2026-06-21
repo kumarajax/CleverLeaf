@@ -24,8 +24,8 @@ public class QuestionValidator {
         if (question.workflowStatus() == null) {
             errors.add("Workflow status is required");
         }
-        if (question.questionText() == null || question.questionText().isBlank()) {
-            errors.add("Question text is required");
+        if (isBlank(question.questionText()) && isBlank(question.questionMediaObjectKey())) {
+            errors.add("Question text or image is required");
         }
         if (question.workflowStatus() == WorkflowStatus.READY_FOR_TEST) {
             if (question.explanation() == null || question.explanation().isBlank()) {
@@ -57,8 +57,9 @@ public class QuestionValidator {
                 || question.workflowStatus() == WorkflowStatus.MISSING_ANSWER)) {
             return;
         }
-        if (options.stream().anyMatch(option -> option == null || option.text() == null || option.text().isBlank())) {
-            errors.add("Option text is required");
+        if (options.stream().anyMatch(option -> option == null
+                || (isBlank(option.text()) && isBlank(option.mediaObjectKey())))) {
+            errors.add("Option text or image is required");
             return;
         }
         long correctCount = options.stream().filter(QuestionOption::correct).count();
@@ -80,5 +81,9 @@ public class QuestionValidator {
                 && (options.size() != 2 || correctCount != 1)) {
             errors.add("True/false questions require exactly two options and one correct option");
         }
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 }

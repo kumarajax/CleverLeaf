@@ -38,8 +38,14 @@ public class QuestionEntity {
     @Column(nullable = false, length = 32)
     private String language = "English";
 
-    @Column(name = "question_text", nullable = false)
+    @Column(name = "question_text")
     private String questionText;
+
+    @Column(name = "question_media_object_key")
+    private String questionMediaObjectKey;
+
+    @Column(name = "question_media_content_type", length = 128)
+    private String questionMediaContentType;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "root_taxonomy_node_id")
@@ -126,6 +132,10 @@ public class QuestionEntity {
     public void setWorkflowStatus(String workflowStatus) { this.workflowStatus = workflowStatus; }
     public String getQuestionText() { return questionText; }
     public void setQuestionText(String questionText) { this.questionText = questionText; }
+    public String getQuestionMediaObjectKey() { return questionMediaObjectKey; }
+    public void setQuestionMediaObjectKey(String questionMediaObjectKey) { this.questionMediaObjectKey = questionMediaObjectKey; }
+    public String getQuestionMediaContentType() { return questionMediaContentType; }
+    public void setQuestionMediaContentType(String questionMediaContentType) { this.questionMediaContentType = questionMediaContentType; }
     public TaxonomyNodeEntity getRootTaxonomyNode() { return rootTaxonomyNode; }
     public void setRootTaxonomyNode(TaxonomyNodeEntity rootTaxonomyNode) { this.rootTaxonomyNode = rootTaxonomyNode; }
     public TaxonomyNodeEntity getChildTaxonomyNode() { return childTaxonomyNode; }

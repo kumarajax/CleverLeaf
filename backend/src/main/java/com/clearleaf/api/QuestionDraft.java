@@ -7,6 +7,8 @@ public record QuestionDraft(
         Difficulty difficulty,
         WorkflowStatus workflowStatus,
         String questionText,
+        String questionMediaObjectKey,
+        String questionMediaContentType,
         String explanation,
         String sourceReference,
         String licenseCategory,

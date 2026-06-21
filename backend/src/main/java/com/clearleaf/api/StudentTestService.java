@@ -296,14 +296,19 @@ public class StudentTestService {
                 attemptQuestion.getQuestionOrder(),
                 question.getQuestionType(),
                 question.getQuestionText(),
+                question.getQuestionMediaObjectKey(),
+                question.getQuestionMediaContentType(),
                 question.getOptions().stream()
                         .sorted(Comparator.comparingInt(QuestionOptionEntity::getSortOrder))
-                        .map(option -> new StudentQuestionOption(option.getOptionKey(), option.getOptionText()))
+                        .map(option -> new StudentQuestionOption(option.getOptionKey(), option.getOptionText(),
+                                option.getOptionMediaObjectKey(), option.getOptionMediaContentType()))
                         .toList(),
                 optionAnswer(question, attemptQuestion.getSubmittedAnswer()),
                 textAnswer(question, attemptQuestion.getSubmittedAnswer()),
                 revealScore ? correctOptionKeys(question) : List.of(),
                 revealScore ? correctAnswerText(question) : "",
+                revealScore ? correctAnswerMediaObjectKey(question) : null,
+                revealScore ? correctAnswerMediaContentType(question) : null,
                 revealScore ? attemptQuestion.getCorrect() : null);
     }
 
@@ -431,8 +436,34 @@ public class StudentTestService {
         return question.getAnswers().stream()
                 .sorted(Comparator.comparingInt(QuestionAnswerEntity::getSortOrder))
                 .map(QuestionAnswerEntity::getAnswerValue)
+                .filter(value -> value != null && !value.isBlank())
                 .reduce((first, second) -> first + ", " + second)
                 .orElse("");
+    }
+
+    private String correctAnswerMediaObjectKey(QuestionEntity question) {
+        if (usesOptions(question)) {
+            return null;
+        }
+        return question.getAnswers().stream()
+                .sorted(Comparator.comparingInt(QuestionAnswerEntity::getSortOrder))
+                .map(QuestionAnswerEntity::getAnswerMediaObjectKey)
+                .filter(value -> value != null && !value.isBlank())
+                .findFirst()
+                .orElse(null);
+    }
+
+    private String correctAnswerMediaContentType(QuestionEntity question) {
+        if (usesOptions(question)) {
+            return null;
+        }
+        return question.getAnswers().stream()
+                .sorted(Comparator.comparingInt(QuestionAnswerEntity::getSortOrder))
+                .filter(answer -> answer.getAnswerMediaObjectKey() != null && !answer.getAnswerMediaObjectKey().isBlank())
+                .map(QuestionAnswerEntity::getAnswerMediaContentType)
+                .filter(value -> value != null && !value.isBlank())
+                .findFirst()
+                .orElse(null);
     }
 
     private boolean isCorrect(QuestionEntity question, String submittedAnswer) {
@@ -458,6 +489,7 @@ public class StudentTestService {
         try {
             BigDecimal submitted = new BigDecimal(submittedAnswer.trim());
             for (QuestionAnswerEntity answer : question.getAnswers()) {
+                if (answer.getAnswerValue() == null || answer.getAnswerValue().isBlank()) continue;
                 BigDecimal expected = new BigDecimal(answer.getAnswerValue().trim());
                 BigDecimal tolerance = answer.getToleranceValue() == null ? BigDecimal.ZERO : answer.getToleranceValue();
                 if (submitted.subtract(expected).abs().compareTo(tolerance) <= 0) return true;
@@ -471,6 +503,7 @@ public class StudentTestService {
     private boolean textCorrect(QuestionEntity question, String submittedAnswer) {
         String submitted = submittedAnswer.trim();
         for (QuestionAnswerEntity answer : question.getAnswers()) {
+            if (answer.getAnswerValue() == null || answer.getAnswerValue().isBlank()) continue;
             boolean caseSensitive = Boolean.TRUE.equals(answer.getCaseSensitive());
             if (caseSensitive && submitted.equals(answer.getAnswerValue().trim())) return true;
             if (!caseSensitive && submitted.equalsIgnoreCase(answer.getAnswerValue().trim())) return true;

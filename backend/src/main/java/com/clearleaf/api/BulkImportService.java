@@ -307,15 +307,20 @@ public class BulkImportService {
                         difficulty,
                         status,
                         requireText(values.get("questionText"), "questionText"),
+                        null,
+                        null,
                         nullIfBlank(values.get("explanation")),
                         nullIfBlank(values.get("sourceReference")),
                         nullIfBlank(values.get("licenseCategory")),
                         existing == null ? List.of() : existing.getOptions().stream()
-                                .map(option -> new QuestionOption(option.getOptionKey(), option.getOptionText(), option.isCorrect()))
+                                .map(option -> new QuestionOption(option.getOptionKey(), option.getOptionText(),
+                                        option.getOptionMediaObjectKey(), option.getOptionMediaContentType(), option.isCorrect()))
                                 .toList()),
                 null,
                 existing == null ? null : existing.getAnswers().stream()
-                        .map(answer -> new QuestionAnswer(answer.getAnswerValue(), answer.getAnswerType(), answer.getToleranceValue(), answer.getCaseSensitive()))
+                        .map(answer -> new QuestionAnswer(answer.getAnswerValue(), answer.getAnswerMediaObjectKey(),
+                                answer.getAnswerMediaContentType(), answer.getAnswerType(), answer.getToleranceValue(),
+                                answer.getCaseSensitive()))
                         .toList(),
                 splitTags(values.get("tags")),
                 true);

@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
+const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8081";
+
 type Session = {
   email?: string;
   accessToken?: string;
@@ -11,6 +13,8 @@ type Session = {
 type StudentQuestionOption = {
   key: string;
   text: string;
+  mediaObjectKey?: string | null;
+  mediaContentType?: string | null;
 };
 
 type StudentTestQuestion = {
@@ -18,11 +22,15 @@ type StudentTestQuestion = {
   questionNumber: number;
   questionType: string;
   questionText: string;
+  questionMediaObjectKey?: string | null;
+  questionMediaContentType?: string | null;
   options: StudentQuestionOption[];
   selectedOptionKeys: string[];
   answerText?: string | null;
   correctOptionKeys: string[];
   correctAnswerText?: string | null;
+  correctAnswerMediaObjectKey?: string | null;
+  correctAnswerMediaContentType?: string | null;
   correct?: boolean | null;
 };
 
@@ -73,7 +81,7 @@ function optionText(question: StudentTestQuestion, keys: string[]) {
   return keys
     .map((key) => {
       const option = question.options.find((item) => item.key === key);
-      return option ? `${option.key}. ${option.text}` : key;
+      return option ? `${option.key}. ${option.text || (option.mediaObjectKey ? "Image option" : "")}` : key;
     })
     .join(", ");
 }
@@ -83,13 +91,52 @@ function submittedAnswerText(question: StudentTestQuestion) {
 }
 
 function correctAnswerText(question: StudentTestQuestion) {
-  return usesOptions(question.questionType) ? optionText(question, question.correctOptionKeys ?? []) : question.correctAnswerText || "Not configured";
+  return usesOptions(question.questionType)
+    ? optionText(question, question.correctOptionKeys ?? [])
+    : question.correctAnswerText || (question.correctAnswerMediaObjectKey ? "" : "Not configured");
+}
+
+function questionTitle(question: StudentTestQuestion) {
+  return question.questionText?.trim() || (question.questionMediaObjectKey ? "Image question" : "Question");
+}
+
+function StudentMedia({ objectKey, token, alt, className = "test-media" }: { objectKey?: string | null; token?: string; alt: string; className?: string }) {
+  const [source, setSource] = useState("");
+
+  useEffect(() => {
+    if (!objectKey || !token) {
+      setSource("");
+      return;
+    }
+    let revoked = false;
+    let objectUrl = "";
+    fetch(`${apiBaseUrl}/api/student/media?objectKey=${encodeURIComponent(objectKey)}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((response) => {
+        if (!response.ok) throw new Error(`Request failed with ${response.status}`);
+        return response.blob();
+      })
+      .then((blob) => {
+        if (revoked) return;
+        objectUrl = URL.createObjectURL(blob);
+        setSource(objectUrl);
+      })
+      .catch(() => setSource(""));
+    return () => {
+      revoked = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [objectKey, token]);
+
+  if (!objectKey) return null;
+  if (!source) return <span className="media-loading">Loading image...</span>;
+  return <img className={className} src={source} alt={alt} />;
 }
 
 export default function StudentTestPage() {
   const params = useParams<{ attemptId: string }>();
   const router = useRouter();
-  const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8081";
   const [session, setSession] = useState<Session | null>(null);
   const [attempt, setAttempt] = useState<StudentTestAttempt | null>(null);
   const [currentQuestion, setCurrentQuestion] = useState<StudentTestQuestion | null>(null);
@@ -350,7 +397,8 @@ export default function StudentTestPage() {
                   <span>Question {question.questionNumber} of {attempt.questionCount}</span>
                   <span>{question.questionType.replaceAll("_", " ")}</span>
                 </div>
-                <h2>{question.questionText}</h2>
+                <h2>{questionTitle(question)}</h2>
+                <StudentMedia objectKey={question.questionMediaObjectKey} token={session?.accessToken} alt="Question image" />
                 {usesOptions(question.questionType) ? (
                   <div className="practice-options">
                     {question.options.map((option) => {
@@ -369,7 +417,8 @@ export default function StudentTestPage() {
                             readOnly
                           />
                           <span>{option.key}</span>
-                          <span>{option.text}</span>
+                          {option.text ? <span>{option.text}</span> : null}
+                          <StudentMedia objectKey={option.mediaObjectKey} token={session?.accessToken} alt={`Option ${option.key} image`} className="option-test-media" />
                         </button>
                       );
                     })}
@@ -378,6 +427,7 @@ export default function StudentTestPage() {
                 <div className="test-answer-review">
                   <p><strong>Your answer:</strong> {submittedAnswerText(question)}</p>
                   <p><strong>Correct answer:</strong> {correctAnswerText(question)}</p>
+                  <StudentMedia objectKey={question.correctAnswerMediaObjectKey} token={session?.accessToken} alt="Correct answer image" />
                 </div>
                 <p className={question.correct ? "notice success" : "notice error"}>
                   {question.correct ? "Correct." : "Incorrect."}
@@ -391,7 +441,8 @@ export default function StudentTestPage() {
               <span>Question {currentQuestion.questionNumber} of {attempt?.questionCount ?? "?"}</span>
               <span>{currentQuestion.questionType.replaceAll("_", " ")}</span>
             </div>
-            <h2>{currentQuestion.questionText}</h2>
+            <h2>{questionTitle(currentQuestion)}</h2>
+            <StudentMedia objectKey={currentQuestion.questionMediaObjectKey} token={session?.accessToken} alt="Question image" />
             {usesOptions(currentQuestion.questionType) ? (
               <div className="practice-options">
                 {currentQuestion.options.map((option) => (
@@ -408,7 +459,8 @@ export default function StudentTestPage() {
                       readOnly
                     />
                     <span>{option.key}</span>
-                    <span>{option.text}</span>
+                    {option.text ? <span>{option.text}</span> : null}
+                    <StudentMedia objectKey={option.mediaObjectKey} token={session?.accessToken} alt={`Option ${option.key} image`} className="option-test-media" />
                   </button>
                 ))}
               </div>

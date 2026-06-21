@@ -12,6 +12,8 @@ public record QuestionAdminRecord(
         String difficulty,
         String workflowStatus,
         String questionText,
+        String questionMediaObjectKey,
+        String questionMediaContentType,
         String explanation,
         String sourceReference,
         String licenseCategory,

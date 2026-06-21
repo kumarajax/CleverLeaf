@@ -21,8 +21,14 @@ public class QuestionAnswerEntity {
     @JoinColumn(name = "question_id", nullable = false)
     private QuestionEntity question;
 
-    @Column(name = "answer_value", nullable = false)
+    @Column(name = "answer_value")
     private String answerValue;
+
+    @Column(name = "answer_media_object_key")
+    private String answerMediaObjectKey;
+
+    @Column(name = "answer_media_content_type", length = 128)
+    private String answerMediaContentType;
 
     @Column(name = "answer_type", nullable = false, length = 32)
     private String answerType;
@@ -41,6 +47,10 @@ public class QuestionAnswerEntity {
     public void setQuestion(QuestionEntity question) { this.question = question; }
     public String getAnswerValue() { return answerValue; }
     public void setAnswerValue(String answerValue) { this.answerValue = answerValue; }
+    public String getAnswerMediaObjectKey() { return answerMediaObjectKey; }
+    public void setAnswerMediaObjectKey(String answerMediaObjectKey) { this.answerMediaObjectKey = answerMediaObjectKey; }
+    public String getAnswerMediaContentType() { return answerMediaContentType; }
+    public void setAnswerMediaContentType(String answerMediaContentType) { this.answerMediaContentType = answerMediaContentType; }
     public String getAnswerType() { return answerType; }
     public void setAnswerType(String answerType) { this.answerType = answerType; }
     public BigDecimal getToleranceValue() { return toleranceValue; }

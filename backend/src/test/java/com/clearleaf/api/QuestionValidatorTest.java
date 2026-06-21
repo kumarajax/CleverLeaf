@@ -24,8 +24,9 @@ class QuestionValidatorTest {
     void rejectsMultipleSelectWithoutAnIncorrectOption() {
         QuestionDraft question = new QuestionDraft(
                 QuestionType.MULTIPLE_SELECT, Difficulty.HARD, WorkflowStatus.DRAFT,
-                "Select primes", null, null, null,
-                List.of(new QuestionOption("A", "2", true), new QuestionOption("B", "3", true)));
+                "Select primes", null, null, null, null, null,
+                List.of(new QuestionOption("A", "2", null, null, true),
+                        new QuestionOption("B", "3", null, null, true)));
 
         assertThat(validator.validate(question))
                 .contains("Multiple-select questions require at least two correct options and one incorrect option");
@@ -35,8 +36,9 @@ class QuestionValidatorTest {
     void readyForTestQuestionRequiresProvenanceAndExplanation() {
         QuestionDraft question = new QuestionDraft(
                 QuestionType.SINGLE_SELECT, Difficulty.EASY, WorkflowStatus.READY_FOR_TEST,
-                "What is 2 + 2?", null, null, null,
-                List.of(new QuestionOption("A", "4", true), new QuestionOption("B", "5", false)));
+                "What is 2 + 2?", null, null, null, null, null,
+                List.of(new QuestionOption("A", "4", null, null, true),
+                        new QuestionOption("B", "5", null, null, false)));
 
         assertThat(validator.validate(question))
                 .contains("Ready-for-test questions require an explanation")
@@ -47,11 +49,11 @@ class QuestionValidatorTest {
     private QuestionDraft multipleSelect() {
         return new QuestionDraft(
                 QuestionType.MULTIPLE_SELECT, Difficulty.MEDIUM, WorkflowStatus.READY_FOR_TEST,
-                "Select the prime numbers.", "Two and five are prime.", "NCERT Math Grade 5",
+                "Select the prime numbers.", null, null, "Two and five are prime.", "NCERT Math Grade 5",
                 "OFFICIAL_CURRICULUM",
                 List.of(
-                        new QuestionOption("A", "2", true),
-                        new QuestionOption("B", "4", false),
-                        new QuestionOption("C", "5", true)));
+                        new QuestionOption("A", "2", null, null, true),
+                        new QuestionOption("B", "4", null, null, false),
+                        new QuestionOption("C", "5", null, null, true)));
     }
 }

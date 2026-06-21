@@ -65,11 +65,15 @@ type LookupResponse = {
 type QuestionOption = {
   key: string;
   text: string;
+  mediaObjectKey?: string | null;
+  mediaContentType?: string | null;
   correct: boolean;
 };
 
 type QuestionAnswer = {
   answerValue: string;
+  answerMediaObjectKey?: string | null;
+  answerMediaContentType?: string | null;
   answerType: string;
   toleranceValue?: number | null;
   caseSensitive?: boolean | null;
@@ -89,6 +93,8 @@ type AdminQuestion = {
   difficulty: string;
   workflowStatus: string;
   questionText: string;
+  questionMediaObjectKey?: string | null;
+  questionMediaContentType?: string | null;
   explanation?: string | null;
   sourceReference?: string | null;
   licenseCategory?: string | null;
@@ -258,11 +264,15 @@ type QuestionFormState = {
   difficulty: string;
   workflowStatus: string;
   questionText: string;
+  questionMediaObjectKey: string;
+  questionMediaContentType: string;
   explanation: string;
   sourceReference: string;
   licenseCategory: string;
   options: QuestionOption[];
   answersText: string;
+  answerMediaObjectKey: string;
+  answerMediaContentType: string;
   tagsText: string;
 };
 
@@ -308,18 +318,68 @@ function decodePayload(token: string): JwtPayload | null {
 
 function blankOptions(): QuestionOption[] {
   return [
-    { key: "A", text: "", correct: true },
-    { key: "B", text: "", correct: false },
-    { key: "C", text: "", correct: false },
-    { key: "D", text: "", correct: false },
+    { key: "A", text: "", mediaObjectKey: null, mediaContentType: null, correct: true },
+    { key: "B", text: "", mediaObjectKey: null, mediaContentType: null, correct: false },
+    { key: "C", text: "", mediaObjectKey: null, mediaContentType: null, correct: false },
+    { key: "D", text: "", mediaObjectKey: null, mediaContentType: null, correct: false },
   ];
 }
 
 function trueFalseOptions(): QuestionOption[] {
   return [
-    { key: "A", text: "", correct: true },
-    { key: "B", text: "", correct: false },
+    { key: "A", text: "", mediaObjectKey: null, mediaContentType: null, correct: true },
+    { key: "B", text: "", mediaObjectKey: null, mediaContentType: null, correct: false },
   ];
+}
+
+function questionTitle(question: { questionText?: string | null; questionMediaObjectKey?: string | null }) {
+  return question.questionText?.trim() || (question.questionMediaObjectKey ? "Image question" : "Untitled question");
+}
+
+function AuthenticatedMedia({
+  objectKey,
+  token,
+  tenantId,
+  alt,
+  className = "question-media-preview",
+}: {
+  objectKey?: string | null;
+  token?: string;
+  tenantId?: string;
+  alt: string;
+  className?: string;
+}) {
+  const [source, setSource] = useState("");
+
+  useEffect(() => {
+    if (!objectKey || !token) {
+      setSource("");
+      return;
+    }
+    let revoked = false;
+    let objectUrl = "";
+    const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
+    headers["X-CleverLeaf-Tenant-Id"] = tenantId || defaultTenantId;
+    fetch(`${apiBaseUrl}/api/admin/media?objectKey=${encodeURIComponent(objectKey)}`, { headers })
+      .then((response) => {
+        if (!response.ok) throw new Error(`Request failed with ${response.status}`);
+        return response.blob();
+      })
+      .then((blob) => {
+        if (revoked) return;
+        objectUrl = URL.createObjectURL(blob);
+        setSource(objectUrl);
+      })
+      .catch(() => setSource(""));
+    return () => {
+      revoked = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [objectKey, token, tenantId]);
+
+  if (!objectKey) return null;
+  if (!source) return <span className="media-loading">Loading image...</span>;
+  return <img className={className} src={source} alt={alt} />;
 }
 
 function buildTree(nodes: TaxonomyNode[]): TreeNode[] {
@@ -497,11 +557,15 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
     difficulty: "MEDIUM",
     workflowStatus: "DRAFT",
     questionText: "",
+    questionMediaObjectKey: "",
+    questionMediaContentType: "",
     explanation: "",
     sourceReference: "",
     licenseCategory: "CC-BY",
     options: blankOptions(),
     answersText: "",
+    answerMediaObjectKey: "",
+    answerMediaContentType: "",
     tagsText: "",
   });
   const [questionFormVisible, setQuestionFormVisible] = useState(false);
@@ -1345,11 +1409,15 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
       difficulty: "MEDIUM",
       workflowStatus: "DRAFT",
       questionText: "",
+      questionMediaObjectKey: "",
+      questionMediaContentType: "",
       explanation: "",
       sourceReference: "",
       licenseCategory: "CC-BY",
       options: blankOptions(),
       answersText: "",
+      answerMediaObjectKey: "",
+      answerMediaContentType: "",
       tagsText: "",
     });
   }
@@ -1370,12 +1438,16 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
       questionType: question.questionType,
       difficulty: question.difficulty,
       workflowStatus: question.workflowStatus,
-      questionText: question.questionText,
+      questionText: question.questionText ?? "",
+      questionMediaObjectKey: question.questionMediaObjectKey ?? "",
+      questionMediaContentType: question.questionMediaContentType ?? "",
       explanation: question.explanation ?? "",
       sourceReference: question.sourceReference ?? "",
       licenseCategory: question.licenseCategory ?? "",
       options: question.options.length ? question.options : blankOptions(),
-      answersText: question.answers.map((answer) => answer.answerValue).join("\n"),
+      answersText: question.answers.map((answer) => answer.answerValue ?? "").filter(Boolean).join("\n"),
+      answerMediaObjectKey: question.answers.find((answer) => answer.answerMediaObjectKey)?.answerMediaObjectKey ?? "",
+      answerMediaContentType: question.answers.find((answer) => answer.answerMediaObjectKey)?.answerMediaContentType ?? "",
       tagsText: question.tags.join(", "),
     });
     setActiveTab("manual");
@@ -1415,6 +1487,76 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
       const next = current.options.filter((_, optionIndex) => optionIndex !== index);
       return { ...current, options: next.length ? next : blankOptions() };
     });
+  }
+
+  async function uploadQuestionMedia(file: File) {
+    const formData = new FormData();
+    formData.append("file", file);
+    const response = await fetch(`${apiBaseUrl}/api/admin/media/upload`, {
+      method: "POST",
+      headers: authHeaders(),
+      body: formData,
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(body.error || `Request failed with ${response.status}`);
+    }
+    return {
+      objectKey: body.objectKey as string,
+      contentType: (body.contentType as string) || file.type || "application/octet-stream",
+    };
+  }
+
+  async function handleQuestionImageUpload(file: File | null) {
+    if (!file) return;
+    setError("");
+    try {
+      const uploaded = await uploadQuestionMedia(file);
+      setQuestionForm((current) => ({
+        ...current,
+        questionMediaObjectKey: uploaded.objectKey,
+        questionMediaContentType: uploaded.contentType,
+      }));
+      setStatus("Question image uploaded.");
+    } catch (exception) {
+      setError(exception instanceof Error ? exception.message : "Unable to upload image.");
+    }
+  }
+
+  async function handleOptionImageUpload(index: number, file: File | null) {
+    if (!file) return;
+    setError("");
+    try {
+      const uploaded = await uploadQuestionMedia(file);
+      setQuestionForm((current) => {
+        const next = current.options.slice();
+        next[index] = {
+          ...next[index],
+          mediaObjectKey: uploaded.objectKey,
+          mediaContentType: uploaded.contentType,
+        };
+        return { ...current, options: next };
+      });
+      setStatus("Option image uploaded.");
+    } catch (exception) {
+      setError(exception instanceof Error ? exception.message : "Unable to upload image.");
+    }
+  }
+
+  async function handleAnswerImageUpload(file: File | null) {
+    if (!file) return;
+    setError("");
+    try {
+      const uploaded = await uploadQuestionMedia(file);
+      setQuestionForm((current) => ({
+        ...current,
+        answerMediaObjectKey: uploaded.objectKey,
+        answerMediaContentType: uploaded.contentType,
+      }));
+      setStatus("Answer image uploaded.");
+    } catch (exception) {
+      setError(exception instanceof Error ? exception.message : "Unable to upload image.");
+    }
   }
 
   async function deleteQuestion(questionId: string) {
@@ -1561,15 +1703,32 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
     setStatus("");
     try {
       const usesOptions = ["SINGLE_SELECT", "MULTIPLE_SELECT", "TRUE_FALSE"].includes(questionForm.questionType);
-      const answers = questionForm.answersText
+      const answers: Array<{
+        answerValue: string;
+        answerMediaObjectKey: string | null;
+        answerMediaContentType: string | null;
+        answerType: string;
+        caseSensitive: boolean;
+      }> = questionForm.answersText
         .split("\n")
         .map((answer) => answer.trim())
         .filter(Boolean)
         .map((answerValue) => ({
           answerValue,
+          answerMediaObjectKey: null,
+          answerMediaContentType: null,
           answerType: "EXACT_TEXT",
           caseSensitive: false,
         }));
+      if (!usesOptions && questionForm.answerMediaObjectKey) {
+        answers.push({
+          answerValue: "",
+          answerMediaObjectKey: questionForm.answerMediaObjectKey,
+          answerMediaContentType: questionForm.answerMediaContentType || "application/octet-stream",
+          answerType: "EXACT_TEXT",
+          caseSensitive: false,
+        });
+      }
       const tags = questionForm.tagsText
         .split(",")
         .map((tag) => tag.trim())
@@ -1592,6 +1751,8 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
           difficulty: questionForm.difficulty,
           workflowStatus: questionForm.workflowStatus,
           questionText: questionForm.questionText,
+          questionMediaObjectKey: questionForm.questionMediaObjectKey || null,
+          questionMediaContentType: questionForm.questionMediaContentType || null,
           explanation: questionForm.explanation || null,
           sourceReference: questionForm.sourceReference || null,
           licenseCategory: questionForm.licenseCategory || null,
@@ -2047,7 +2208,7 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
                                 <span className="question-summary-line">
                                   <span>{getLookupMeaning(workflowStatusLookups, question.workflowStatus)}</span>
                                 </span>
-                                <span className="question-summary-text">{question.questionText}</span>
+                                <span className="question-summary-text">{questionTitle(question)}</span>
                               </button>
                               <button type="button" className="secondary-button compact-button" onClick={() => loadQuestionIntoForm(question)}>
                                 Edit
@@ -2058,7 +2219,16 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
                             </div>
                             {expanded ? (
                               <div className="question-row-details">
-                                <div><strong>Question</strong><p>{question.questionText}</p></div>
+                                <div>
+                                  <strong>Question</strong>
+                                  {question.questionText ? <p>{question.questionText}</p> : null}
+                                  <AuthenticatedMedia
+                                    objectKey={question.questionMediaObjectKey}
+                                    token={currentToken}
+                                    tenantId={selectedTenantId}
+                                    alt="Question image"
+                                  />
+                                </div>
                                 <div className="question-details-grid">
                                   <div><strong>Type</strong><span>{getLookupMeaning(questionTypeLookups, question.questionType)}</span></div>
                                   <div><strong>Difficulty</strong><span>{getLookupMeaning(difficultyLookups, question.difficulty)}</span></div>
@@ -2194,6 +2364,28 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
                     Question text
                     <textarea value={questionForm.questionText} onChange={(event) => setQuestionForm((current) => ({ ...current, questionText: event.target.value }))} />
                   </label>
+                  <div className="media-upload-panel">
+                    <div>
+                      <strong>Question image</strong>
+                      <span className="muted">Optional image shown with the question.</span>
+                    </div>
+                    <input type="file" accept="image/*" onChange={(event) => handleQuestionImageUpload(event.target.files?.[0] ?? null)} />
+                    <AuthenticatedMedia
+                      objectKey={questionForm.questionMediaObjectKey}
+                      token={currentToken}
+                      tenantId={selectedTenantId}
+                      alt="Question image preview"
+                    />
+                    {questionForm.questionMediaObjectKey ? (
+                      <button
+                        type="button"
+                        className="secondary-button compact-button"
+                        onClick={() => setQuestionForm((current) => ({ ...current, questionMediaObjectKey: "", questionMediaContentType: "" }))}
+                      >
+                        Remove image
+                      </button>
+                    ) : null}
+                  </div>
                   <div className="form-grid">
                     <label>
                       Explanation
@@ -2223,6 +2415,7 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
                           />
                           <input
                             className="option-text"
+                            placeholder="Option text"
                             value={option.text}
                             onChange={(event) => {
                               const next = questionForm.options.slice();
@@ -2230,6 +2423,32 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
                               updateQuestionOptions(next);
                             }}
                           />
+                          <div className="option-media">
+                            <label className="option-upload-button">
+                              Upload Option
+                              <input type="file" accept="image/*" onChange={(event) => handleOptionImageUpload(index, event.target.files?.[0] ?? null)} />
+                            </label>
+                            <AuthenticatedMedia
+                              objectKey={option.mediaObjectKey}
+                              token={currentToken}
+                              tenantId={selectedTenantId}
+                              alt={`Option ${option.key} image preview`}
+                              className="option-media-preview"
+                            />
+                            {option.mediaObjectKey ? (
+                              <button
+                                type="button"
+                                className="secondary-button compact-button"
+                                onClick={() => {
+                                  const next = questionForm.options.slice();
+                                  next[index] = { ...option, mediaObjectKey: null, mediaContentType: null };
+                                  updateQuestionOptions(next);
+                                }}
+                              >
+                                Remove image
+                              </button>
+                            ) : null}
+                          </div>
                           <label className="check">
                             <input
                               type="checkbox"
@@ -2249,14 +2468,38 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
                       ))}
                     </div>
                   ) : (
-                    <label>
-                      Accepted answers
-                      <textarea
-                        value={questionForm.answersText}
-                        onChange={(event) => setQuestionForm((current) => ({ ...current, answersText: event.target.value }))}
-                        placeholder="Enter one accepted answer per line"
-                      />
-                    </label>
+                    <div className="media-answer-editor">
+                      <label>
+                        Accepted answers
+                        <textarea
+                          value={questionForm.answersText}
+                          onChange={(event) => setQuestionForm((current) => ({ ...current, answersText: event.target.value }))}
+                          placeholder="Enter one accepted answer per line"
+                        />
+                      </label>
+                      <div className="media-upload-panel">
+                        <div>
+                          <strong>Answer image</strong>
+                          <span className="muted">Optional image shown with the correct answer.</span>
+                        </div>
+                        <input type="file" accept="image/*" onChange={(event) => handleAnswerImageUpload(event.target.files?.[0] ?? null)} />
+                        <AuthenticatedMedia
+                          objectKey={questionForm.answerMediaObjectKey}
+                          token={currentToken}
+                          tenantId={selectedTenantId}
+                          alt="Answer image preview"
+                        />
+                        {questionForm.answerMediaObjectKey ? (
+                          <button
+                            type="button"
+                            className="secondary-button compact-button"
+                            onClick={() => setQuestionForm((current) => ({ ...current, answerMediaObjectKey: "", answerMediaContentType: "" }))}
+                          >
+                            Remove image
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
                   )}
                   <label>
                     Tags
@@ -2273,7 +2516,7 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
                         className="secondary-button compact-button"
                         disabled={questionForm.questionType === "TRUE_FALSE" && questionForm.options.length >= 2}
                         title={questionForm.questionType === "TRUE_FALSE" ? "True/false questions can only have two options" : "Add another option"}
-                        onClick={() => setQuestionForm((current) => ({ ...current, options: [...current.options, { key: String.fromCharCode(65 + current.options.length), text: "", correct: false }] }))}
+                        onClick={() => setQuestionForm((current) => ({ ...current, options: [...current.options, { key: String.fromCharCode(65 + current.options.length), text: "", mediaObjectKey: null, mediaContentType: null, correct: false }] }))}
                       >
                         Add option
                       </button>
@@ -2420,7 +2663,7 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
               {selectedAssignedQuestions.length > 0 ? (
                 <div className="selected-question-list">
                   {selectedAssignedQuestions.map((question, index) => (
-                    <span key={question.id}>{index + 1}. {question.questionText}</span>
+                    <span key={question.id}>{index + 1}. {questionTitle(question)}</span>
                   ))}
                 </div>
               ) : null}
@@ -2476,7 +2719,7 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
                       onChange={() => toggleAssignedQuestion(question.id)}
                     />
                     <span>
-                      <span className="question-summary-text">{question.questionText}</span>
+                      <span className="question-summary-text">{questionTitle(question)}</span>
                       <small>{question.taxonomyNodeLabel}</small>
                     </span>
                     <small>{question.difficulty} | {question.questionType}</small>
@@ -2634,7 +2877,7 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
                               <div className="admin-result-review">
                                 {assignedTestResultDetails[result.assignmentId].attempt!.questions.map((question) => (
                                   <div key={question.attemptQuestionId} className="admin-result-question">
-                                    <strong>{question.questionNumber}. {question.questionText}</strong>
+                                    <strong>{question.questionNumber}. {questionTitle(question)}</strong>
                                     <span>Your answer: {resultSubmittedAnswerText(question)}</span>
                                     <span>Correct answer: {resultCorrectAnswerText(question)}</span>
                                     <span>{question.correct ? "Correct" : "Incorrect"}</span>

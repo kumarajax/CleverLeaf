@@ -6,6 +6,7 @@ import io.minio.MakeBucketArgs;
 import io.minio.MinioClient;
 import io.minio.PutObjectArgs;
 import io.minio.StatObjectArgs;
+import io.minio.StatObjectResponse;
 import io.minio.errors.ErrorResponseException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -60,6 +61,26 @@ public class MinioStorageService {
     public String readText(String objectKey) {
         try (InputStream input = client.getObject(GetObjectArgs.builder().bucket(bucket).object(requireObjectKey(objectKey)).build())) {
             return new String(input.readAllBytes(), StandardCharsets.UTF_8);
+        } catch (Exception ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Unable to read uploaded file", ex);
+        }
+    }
+
+    public StoredMedia readMedia(String objectKey) {
+        String key = requireObjectKey(objectKey);
+        try {
+            StatObjectResponse stat = client.statObject(StatObjectArgs.builder().bucket(bucket).object(key).build());
+            try (InputStream input = client.getObject(GetObjectArgs.builder().bucket(bucket).object(key).build())) {
+                String contentType = stat.contentType() == null || stat.contentType().isBlank()
+                        ? "application/octet-stream"
+                        : stat.contentType();
+                return new StoredMedia(input.readAllBytes(), contentType);
+            }
+        } catch (ErrorResponseException ex) {
+            if ("NoSuchKey".equals(ex.errorResponse().code()) || "NoSuchObject".equals(ex.errorResponse().code())) {
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Uploaded file was not found", ex);
+            }
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Unable to read uploaded file", ex);
         } catch (Exception ex) {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Unable to read uploaded file", ex);
         }

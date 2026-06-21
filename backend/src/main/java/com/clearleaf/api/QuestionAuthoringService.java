@@ -153,7 +153,9 @@ public class QuestionAuthoringService {
         question.setQuestionType(draft.type().name());
         question.setDifficulty(draft.difficulty().name());
         question.setWorkflowStatus(draft.workflowStatus().name());
-        question.setQuestionText(requireText(draft.questionText(), "question.questionText"));
+        question.setQuestionText(trimToNull(draft.questionText()));
+        question.setQuestionMediaObjectKey(trimToNull(draft.questionMediaObjectKey()));
+        question.setQuestionMediaContentType(trimToNull(draft.questionMediaContentType()));
         question.setExplanation(trimToNull(draft.explanation()));
         question.setSourceReference(trimToNull(draft.sourceReference()));
         question.setLicenseCategory(trimToNull(draft.licenseCategory()));
@@ -201,7 +203,9 @@ public class QuestionAuthoringService {
             entity.setId(UUID.randomUUID());
             entity.setQuestion(question);
             entity.setOptionKey(requireText(option.key(), "option.key"));
-            entity.setOptionText(requireText(option.text(), "option.text"));
+            entity.setOptionText(trimToNull(option.text()));
+            entity.setOptionMediaObjectKey(trimToNull(option.mediaObjectKey()));
+            entity.setOptionMediaContentType(trimToNull(option.mediaContentType()));
             entity.setCorrect(option.correct());
             entity.setSortOrder(index);
             question.getOptions().add(entity);
@@ -214,7 +218,9 @@ public class QuestionAuthoringService {
             QuestionAnswerEntity entity = new QuestionAnswerEntity();
             entity.setId(UUID.randomUUID());
             entity.setQuestion(question);
-            entity.setAnswerValue(requireText(answer.answerValue(), "answer.answerValue"));
+            entity.setAnswerValue(trimToNull(answer.answerValue()));
+            entity.setAnswerMediaObjectKey(trimToNull(answer.answerMediaObjectKey()));
+            entity.setAnswerMediaContentType(trimToNull(answer.answerMediaContentType()));
             entity.setAnswerType(requireText(answer.answerType(), "answer.answerType").toUpperCase());
             entity.setToleranceValue(answer.toleranceValue());
             entity.setCaseSensitive(answer.caseSensitive());
@@ -271,7 +277,7 @@ public class QuestionAuthoringService {
         TaxonomyNodeEntity child = primary.getTaxonomyNode();
         question.setChildTaxonomyNode(child);
         question.setRootTaxonomyNode(rootTaxonomyNode(child));
-        question.setNormalizedQuestionText(normalizeQuestionText(question.getQuestionText()));
+        question.setNormalizedQuestionText(normalizeQuestionText(question.getQuestionText(), question.getQuestionMediaObjectKey()));
     }
 
     private TaxonomyNodeEntity rootTaxonomyNode(TaxonomyNodeEntity node) {
@@ -286,9 +292,12 @@ public class QuestionAuthoringService {
         return current;
     }
 
-    private String normalizeQuestionText(String value) {
-        return requireText(value, "question.questionText")
-                .trim()
+    private String normalizeQuestionText(String value, String mediaObjectKey) {
+        String source = trimToNull(value);
+        if (source == null) {
+            source = "media:" + requireText(mediaObjectKey, "question.questionMediaObjectKey");
+        }
+        return source.trim()
                 .replaceAll("\\s+", " ")
                 .toLowerCase(java.util.Locale.ROOT);
     }
@@ -388,19 +397,23 @@ public class QuestionAuthoringService {
                 question.getDifficulty(),
                 question.getWorkflowStatus(),
                 question.getQuestionText(),
+                question.getQuestionMediaObjectKey(),
+                question.getQuestionMediaContentType(),
                 question.getExplanation(),
                 question.getSourceReference(),
                 question.getLicenseCategory(),
                 question.getOptions().stream()
-                        .map(option -> new QuestionOption(option.getOptionKey(), option.getOptionText(), option.isCorrect()))
+                        .map(option -> new QuestionOption(option.getOptionKey(), option.getOptionText(),
+                                option.getOptionMediaObjectKey(), option.getOptionMediaContentType(), option.isCorrect()))
                         .toList(),
                 question.getTaxonomyAssignments().stream()
                         .map(assignment -> new QuestionTaxonomyAssignment(
                                 assignment.getTaxonomyNode().getId(), assignment.isPrimary()))
                         .toList(),
                 question.getAnswers().stream()
-                        .map(answer -> new QuestionAnswer(answer.getAnswerValue(), answer.getAnswerType(),
-                                answer.getToleranceValue(), answer.getCaseSensitive()))
+                        .map(answer -> new QuestionAnswer(answer.getAnswerValue(), answer.getAnswerMediaObjectKey(),
+                                answer.getAnswerMediaContentType(), answer.getAnswerType(), answer.getToleranceValue(),
+                                answer.getCaseSensitive()))
                         .toList(),
                 question.getTags().stream().map(tag -> tag.getId().getTagCode()).sorted().toList());
     }

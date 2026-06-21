@@ -43,10 +43,12 @@ public class QuestionImportService {
                     row.difficulty(),
                     row.workflowStatus(),
                     row.questionText(),
+                    null,
+                    null,
                     row.explanation(),
                     row.sourceReference(),
                     row.licenseCategory(),
-                    row.options().stream().map(option -> new QuestionOption(option.key(), option.text(), option.correct())).toList());
+                    row.options().stream().map(option -> new QuestionOption(option.key(), option.text(), null, null, option.correct())).toList());
             authoring.create(new CreateQuestionRequest(row.taxonomyNodeId(), row.actor(), draft));
             imported++;
         }
@@ -88,8 +90,8 @@ public class QuestionImportService {
         String sourceReference = optionalText(record, "sourceReference");
         String licenseCategory = optionalText(record, "licenseCategory");
         List<CsvQuestionOptionsPayload> options = parseOptions(optionalText(record, "options"), errors);
-        QuestionDraft draft = new QuestionDraft(type, difficulty, workflowStatus, questionText, explanation, sourceReference, licenseCategory,
-                options.stream().map(option -> new QuestionOption(option.key(), option.text(), option.correct())).toList());
+        QuestionDraft draft = new QuestionDraft(type, difficulty, workflowStatus, questionText, null, null, explanation, sourceReference, licenseCategory,
+                options.stream().map(option -> new QuestionOption(option.key(), option.text(), null, null, option.correct())).toList());
         errors.addAll(validator.validate(draft));
         return new CsvQuestionRowPayload(lineNumber, taxonomyNodeId, actor, type, difficulty, workflowStatus, questionText, explanation,
                 sourceReference, licenseCategory, options, errors, errors.isEmpty());
