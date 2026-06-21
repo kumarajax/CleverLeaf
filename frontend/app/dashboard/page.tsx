@@ -401,6 +401,7 @@ export default function DashboardPage() {
   const [tenantInvitations, setTenantInvitations] = useState<UserTenantInvitation[]>([]);
   const [loadingInvitations, setLoadingInvitations] = useState(false);
   const [actionInvitationId, setActionInvitationId] = useState("");
+  const [selectedTenantId, setSelectedTenantId] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -574,13 +575,26 @@ export default function DashboardPage() {
   }
 
   const roles = profile?.roles ?? [];
-  const adminMembership = (profile?.tenantMemberships ?? [])
-    .find((membership) => membership.role === "ADMIN" && membership.status === "ACTIVE");
-  const isAdmin = roles.includes("administrator")
-    || Boolean(adminMembership);
-  const selectedAdminTenantId = adminMembership?.tenantId ?? (roles.includes("administrator") ? defaultTenantId : "");
-  const selectedAdminTenantName = adminMembership?.tenantName ?? (roles.includes("administrator") ? "DEMO" : "");
+  const isDemoAdmin = roles.includes("DEMO_ADMIN");
+  const isPlatformAdmin = roles.includes("administrator");
+  const adminTenantOptions = [
+    ...(isDemoAdmin || isPlatformAdmin ? [{ tenantId: defaultTenantId, tenantName: "DEMO", role: "ADMIN", status: "ACTIVE" }] : []),
+    ...((profile?.tenantMemberships ?? []).filter((membership) => membership.role === "ADMIN" && membership.status === "ACTIVE")),
+  ].filter((membership, index, all) => all.findIndex((candidate) => candidate.tenantId === membership.tenantId) === index);
+  const isAdmin = isPlatformAdmin
+    || isDemoAdmin
+    || adminTenantOptions.length > 0;
+  const effectiveAdminTenantId = selectedTenantId || adminTenantOptions[0]?.tenantId || (isPlatformAdmin ? defaultTenantId : "");
+  const effectiveAdminTenantName = adminTenantOptions.find((tenant) => tenant.tenantId === effectiveAdminTenantId)?.tenantName
+    ?? (effectiveAdminTenantId === defaultTenantId ? "DEMO" : "");
   const studentName = shortName(profile, session);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    if (selectedTenantId && (adminTenantOptions.some((tenant) => tenant.tenantId === selectedTenantId) || isPlatformAdmin)) return;
+    const nextTenantId = adminTenantOptions[0]?.tenantId || (isPlatformAdmin ? defaultTenantId : "");
+    if (nextTenantId) setSelectedTenantId(nextTenantId);
+  }, [adminTenantOptions, isAdmin, isPlatformAdmin, selectedTenantId]);
 
   function resetHistoryPage() {
     if (historyPage !== 0) setHistoryPage(0);
@@ -590,6 +604,16 @@ export default function DashboardPage() {
     <main className="student-shell">
       <section className={dashboardTab === "configure" || dashboardTab === "tenant-security" ? "student-panel dashboard-panel configure-dashboard-panel" : "student-panel dashboard-panel"}>
         <div className="dashboard-topbar">
+          {isAdmin && adminTenantOptions.length > 1 ? (
+            <label className="tenant-switcher">
+              Tenant
+              <select value={effectiveAdminTenantId} onChange={(event) => setSelectedTenantId(event.target.value)}>
+                {adminTenantOptions.map((tenant) => (
+                  <option key={tenant.tenantId} value={tenant.tenantId}>{tenant.tenantName}</option>
+                ))}
+              </select>
+            </label>
+          ) : null}
           <button
             type="button"
             className={dashboardTab === "notifications" ? "notification-button active" : "notification-button"}
@@ -632,15 +656,15 @@ export default function DashboardPage() {
 
           <div className="dashboard-main">
             {isAdmin && dashboardTab === "configure" ? (
-              <AdminConsole embedded />
+              <AdminConsole embedded tenantId={effectiveAdminTenantId} />
             ) : null}
 
-            {isAdmin && dashboardTab === "tenant-security" && session?.accessToken && selectedAdminTenantId ? (
+            {isAdmin && dashboardTab === "tenant-security" && session?.accessToken && effectiveAdminTenantId ? (
               <TenantSecurityPanel
                 apiBaseUrl={apiBaseUrl}
                 token={session.accessToken}
-                tenantId={selectedAdminTenantId}
-                tenantName={selectedAdminTenantName}
+                tenantId={effectiveAdminTenantId}
+                tenantName={effectiveAdminTenantName}
               />
             ) : null}
 

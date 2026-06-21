@@ -32,6 +32,9 @@ public class TenantAuthorizationService {
         if (canUsePlatformAdminApi(authentication)) {
             return true;
         }
+        if (canUseDemoAdminApi(authentication, tenantId)) {
+            return true;
+        }
         return memberships.existsByTenant_IdAndUserSubjectAndRoleAndStatus(
                 tenantId,
                 authentication.getName(),
@@ -45,11 +48,24 @@ public class TenantAuthorizationService {
                 && hasPlatformAdminRole(authentication.getAuthorities());
     }
 
+    public boolean canUseDemoAdminApi(Authentication authentication, UUID tenantId) {
+        return authentication != null
+                && authentication.isAuthenticated()
+                && TenantEntity.DEMO_TENANT_ID.equals(tenantId)
+                && hasAuthority(authentication.getAuthorities(), "ROLE_DEMO_ADMIN");
+    }
+
     private boolean hasPlatformAdminRole(Collection<? extends GrantedAuthority> authorities) {
         return authorities.stream()
                 .map(GrantedAuthority::getAuthority)
                 .anyMatch(role -> role.equals("ROLE_administrator")
                         || role.equals("ROLE_reviewer")
                         || role.equals("ROLE_content_creator"));
+    }
+
+    private boolean hasAuthority(Collection<? extends GrantedAuthority> authorities, String authority) {
+        return authorities.stream()
+                .map(GrantedAuthority::getAuthority)
+                .anyMatch(authority::equals);
     }
 }

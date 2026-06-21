@@ -40,8 +40,7 @@ public class TenantAdminAuthorizationFilter extends OncePerRequestFilter {
             return;
         }
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        boolean tenantScopedAdminEndpoint = request.getRequestURI().startsWith("/api/admin/taxonomy/")
-                || request.getRequestURI().startsWith("/api/admin/tenant/");
+        boolean tenantScopedAdminEndpoint = isTenantScopedAdminEndpoint(request.getRequestURI());
         boolean allowed = tenantScopedAdminEndpoint
                 ? tenantAuthorization.canUseAdminApi(authentication, tenantId)
                 : tenantAuthorization.canUsePlatformAdminApi(authentication);
@@ -50,6 +49,15 @@ public class TenantAdminAuthorizationFilter extends OncePerRequestFilter {
             return;
         }
         filterChain.doFilter(request, response);
+    }
+
+    private boolean isTenantScopedAdminEndpoint(String uri) {
+        return uri.startsWith("/api/admin/taxonomy/")
+                || uri.startsWith("/api/admin/questions")
+                || uri.startsWith("/api/admin/assigned-tests")
+                || uri.startsWith("/api/admin/imports/")
+                || uri.startsWith("/api/admin/media/")
+                || uri.startsWith("/api/admin/tenant/");
     }
 
     private void forbidden(HttpServletResponse response, String message) throws IOException {

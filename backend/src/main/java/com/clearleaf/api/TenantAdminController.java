@@ -33,7 +33,7 @@ public class TenantAdminController {
             @AuthenticationPrincipal Jwt jwt,
             Authentication authentication) {
         UUID tenantId = tenantAuthorization.tenantId(tenantHeader);
-        return tenants.memberships(tenantId, jwt.getSubject(), tenantAuthorization.canUsePlatformAdminApi(authentication));
+        return tenants.memberships(tenantId, jwt.getSubject(), tenantAuthorization.canUseAdminApi(authentication, tenantId));
     }
 
     @PutMapping("/memberships/{membershipId}/role")
@@ -48,7 +48,7 @@ public class TenantAdminController {
                 tenantId,
                 membershipId,
                 jwt.getSubject(),
-                tenantAuthorization.canUsePlatformAdminApi(authentication),
+                tenantAuthorization.canUseAdminApi(authentication, tenantId),
                 request);
     }
 
@@ -58,7 +58,7 @@ public class TenantAdminController {
             @AuthenticationPrincipal Jwt jwt,
             Authentication authentication) {
         UUID tenantId = tenantAuthorization.tenantId(tenantHeader);
-        return tenants.invitations(tenantId, jwt.getSubject(), tenantAuthorization.canUsePlatformAdminApi(authentication));
+        return tenants.invitations(tenantId, jwt.getSubject(), tenantAuthorization.canUseAdminApi(authentication, tenantId));
     }
 
     @PostMapping("/invitations")
@@ -69,6 +69,6 @@ public class TenantAdminController {
             Authentication authentication,
             @RequestBody CreateTenantInvitationRequest request) {
         UUID tenantId = tenantAuthorization.tenantId(tenantHeader);
-        return tenants.invite(tenantId, jwt.getSubject(), tenantAuthorization.canUsePlatformAdminApi(authentication), request);
+        return tenants.invite(tenantId, jwt.getSubject(), tenantAuthorization.canUseAdminApi(authentication, tenantId), request);
     }
 }

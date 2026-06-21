@@ -441,9 +441,10 @@ function readPage<T>(body: unknown): { content: T[]; page: PageMetadata } {
 
 type AdminConsoleProps = {
   embedded?: boolean;
+  tenantId?: string;
 };
 
-export function AdminConsole({ embedded = false }: AdminConsoleProps) {
+export function AdminConsole({ embedded = false, tenantId: controlledTenantId = "" }: AdminConsoleProps) {
   const router = useRouter();
   const { applicationName } = useApplicationConfig();
   const [loading, setLoading] = useState(true);
@@ -646,6 +647,7 @@ export function AdminConsole({ embedded = false }: AdminConsoleProps) {
   }
 
   function adminTenantId(profile: MeResponse, payloadRoles: string[]) {
+    if (payloadRoles.includes("DEMO_ADMIN")) return defaultTenantId;
     const adminMembership = (profile.tenantMemberships ?? [])
       .find((membership) => membership.role === "ADMIN" && membership.status === "ACTIVE");
     if (adminMembership) return adminMembership.tenantId;
@@ -1097,7 +1099,7 @@ export function AdminConsole({ embedded = false }: AdminConsoleProps) {
       }
       setMe(meBody);
       setRoles(meBody.roles ?? payloadRoles);
-      const tenantId = adminTenantId(meBody, meBody.roles ?? payloadRoles);
+      const tenantId = controlledTenantId || adminTenantId(meBody, meBody.roles ?? payloadRoles);
       if (!tenantId) {
         throw new Error("Tenant admin access is required");
       }
@@ -1145,7 +1147,7 @@ export function AdminConsole({ embedded = false }: AdminConsoleProps) {
   useEffect(() => {
     bootstrap();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [controlledTenantId]);
 
   function signOut() {
     removeStoredSession();
