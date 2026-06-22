@@ -94,6 +94,10 @@ services:
       APP_STORAGE_MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-clearleaf}
       APP_STORAGE_MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD in .env}
       APP_STORAGE_MINIO_BUCKET: ${APP_STORAGE_MINIO_BUCKET:-clearleaf-media}
+      APP_AI_PROVIDER: ${APP_AI_PROVIDER:-openai}
+      APP_AI_MODEL: ${APP_AI_MODEL:-gpt-5.5}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
     ports:
       - "8081:8081"
     depends_on:

@@ -55,6 +55,7 @@ public class TenantAdminAuthorizationFilter extends OncePerRequestFilter {
         return uri.startsWith("/api/admin/taxonomy/")
                 || uri.startsWith("/api/admin/questions")
                 || uri.startsWith("/api/admin/assigned-tests")
+                || uri.startsWith("/api/admin/ai-question-generation")
                 || uri.startsWith("/api/admin/imports/")
                 || uri.startsWith("/api/admin/media/")
                 || uri.startsWith("/api/admin/tenant/");

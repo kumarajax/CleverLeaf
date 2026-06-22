@@ -211,6 +211,49 @@ type BulkImportSummary = {
   rows: BulkImportRow[];
 };
 
+type AiGeneratedQuestion = {
+  id: string;
+  jobId: string;
+  taxonomyKey: string;
+  childNodeKey: string;
+  status: string;
+  reviewStatus: string;
+  questionType: string;
+  difficulty: string;
+  questionText: string;
+  explanation: string;
+  sourceReference: string;
+  options: QuestionOption[];
+  correctOptionKeys: string[];
+  validationErrors: string[];
+  createdQuestionId?: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type AiGenerationJob = {
+  id: string;
+  taxonomyNodeId: string;
+  taxonomyKey: string;
+  childNodeKey: string;
+  taxonomyPath: string;
+  sourceType: string;
+  sourceObjectKey?: string | null;
+  sourceFilename?: string | null;
+  topic: string;
+  instructions?: string | null;
+  questionCount: number;
+  status: string;
+  errorMessage?: string | null;
+  chunkCount: number;
+  generatedCount: number;
+  validCount: number;
+  approvedCount: number;
+  createdAt: string;
+  updatedAt: string;
+  questions: AiGeneratedQuestion[];
+};
+
 type PageMetadata = {
   number: number;
   size: number;
@@ -576,9 +619,38 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
   const [importPreviews, setImportPreviews] = useState<Record<string, BulkImportPreviewResponse>>({});
   const [importSummaries, setImportSummaries] = useState<Record<string, BulkImportSummary>>({});
   const [csvError, setCsvError] = useState("");
-  const [activeTab, setActiveTab] = useState<"taxonomy" | "manual" | "import" | "tests">("taxonomy");
+  const [activeTab, setActiveTab] = useState<"taxonomy" | "manual" | "import" | "ai" | "tests">("taxonomy");
   const [testTab, setTestTab] = useState<"history" | "create" | "assign" | "results">("history");
   const [importTab, setImportTab] = useState<"csv" | "json">("csv");
+  const [aiSourceType, setAiSourceType] = useState<"PDF" | "TEXT">("PDF");
+  const [aiSourceFile, setAiSourceFile] = useState<File | null>(null);
+  const [aiSourceText, setAiSourceText] = useState("");
+  const [aiTopic, setAiTopic] = useState("");
+  const [aiInstructions, setAiInstructions] = useState("");
+  const [aiQuestionCount, setAiQuestionCount] = useState(12);
+  const [aiJobs, setAiJobs] = useState<AiGenerationJob[]>([]);
+  const [selectedAiJobId, setSelectedAiJobId] = useState("");
+  const [selectedAiJob, setSelectedAiJob] = useState<AiGenerationJob | null>(null);
+  const [aiError, setAiError] = useState("");
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiEditingQuestionId, setAiEditingQuestionId] = useState("");
+  const [aiEditForm, setAiEditForm] = useState<{
+    questionType: string;
+    difficulty: string;
+    questionText: string;
+    explanation: string;
+    sourceReference: string;
+    options: QuestionOption[];
+    correctOptionKeys: string;
+  }>({
+    questionType: "SINGLE_SELECT",
+    difficulty: "MEDIUM",
+    questionText: "",
+    explanation: "",
+    sourceReference: "",
+    options: blankOptions(),
+    correctOptionKeys: "A",
+  });
   const [expandedTaxonomyIds, setExpandedTaxonomyIds] = useState<string[]>([]);
   const [expandedQuestionTaxonomyIds, setExpandedQuestionTaxonomyIds] = useState<string[]>([]);
   const [expandedQuestionIds, setExpandedQuestionIds] = useState<string[]>([]);
@@ -741,21 +813,30 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
   }
 
   async function loadAllTaxonomy(token = currentToken, tenantId = selectedTenantId) {
-    const parameters = new URLSearchParams({
-      status: "ALL",
-      page: "0",
-      size: String(allTaxonomyPageSize),
-    });
-    parameters.append("sort", "sortOrder,asc");
-    parameters.append("sort", "displayName,asc");
-    const response = await fetch(`${apiBaseUrl}/api/admin/taxonomy/nodes?${parameters.toString()}`, {
-      headers: authHeaders(token, tenantId),
-    });
-    const body = await response.json().catch(() => []);
-    if (!response.ok) {
-      throw new Error(body.error || `Request failed with ${response.status}`);
+    const nodes: TaxonomyNode[] = [];
+    let page = 0;
+    let totalPages = 1;
+    while (page < totalPages) {
+      const parameters = new URLSearchParams({
+        status: "ALL",
+        page: String(page),
+        size: String(allTaxonomyPageSize),
+      });
+      parameters.append("sort", "sortOrder,asc");
+      parameters.append("sort", "displayName,asc");
+      const response = await fetch(`${apiBaseUrl}/api/admin/taxonomy/nodes?${parameters.toString()}`, {
+        headers: authHeaders(token, tenantId),
+      });
+      const body = await response.json().catch(() => []);
+      if (!response.ok) {
+        throw new Error(body.error || `Request failed with ${response.status}`);
+      }
+      const result = readPage<TaxonomyNode>(body);
+      nodes.push(...result.content);
+      totalPages = Math.max(1, result.page.totalPages || 1);
+      page++;
     }
-    setAllNodes(readPage<TaxonomyNode>(body).content);
+    setAllNodes(nodes);
   }
 
   function resetQuestionCursor() {
@@ -1263,6 +1344,14 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
   }, [activeTab, currentToken, tenantResolved, selectedTenantId, importMetadata.length]);
 
   useEffect(() => {
+    if (activeTab !== "ai" || !currentToken || !tenantResolved) return;
+    loadAiJobs().catch((exception) =>
+      setAiError(exception instanceof Error ? exception.message : "Unable to load AI jobs.")
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, currentToken, tenantResolved, selectedTenantId]);
+
+  useEffect(() => {
     if (!questionForm.taxonomyNodeId && selectedTaxonomyNodeId) {
       setQuestionForm((current) => ({ ...current, taxonomyNodeId: selectedTaxonomyNodeId }));
     }
@@ -1383,12 +1472,14 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
     return chain.length > 0 && chain.every((node) => node.status === "ACTIVE");
   }
 
-  function getDefaultParentOptions(levelKey: string, contextNodeId: string) {
+  function getDefaultParentOptions(levelKey: string, contextNodeId: string, excludedNodeId = "") {
     const allowedParentKey = levelTypes.find((level) => level.levelKey === levelKey)?.allowedParentKey ?? null;
     if (!allowedParentKey || !contextNodeId) return [];
     const branchRootId = getBranchRootId(contextNodeId);
     return allNodes.filter((node) => {
       if (node.status !== "ACTIVE") return false;
+      if (node.id === excludedNodeId) return false;
+      if (excludedNodeId && getAncestorChain(node.id).some((ancestor) => ancestor.id === excludedNodeId)) return false;
       if (levelTypeById.get(node.levelTypeId)?.levelKey !== allowedParentKey) return false;
       return getBranchRootId(node.id) === branchRootId;
     });
@@ -1855,6 +1946,220 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
     }
   }
 
+  async function loadAiJobs() {
+    const response = await fetch(`${apiBaseUrl}/api/admin/ai-question-generation/jobs`, {
+      headers: authHeaders(),
+    });
+    const body = await response.json().catch(() => []);
+    if (!response.ok) {
+      throw new Error(body.error || `Request failed with ${response.status}`);
+    }
+    const jobs = body as AiGenerationJob[];
+    setAiJobs(jobs);
+    if (!selectedAiJobId && jobs[0]) {
+      setSelectedAiJobId(jobs[0].id);
+      await loadAiJob(jobs[0].id);
+    } else if (selectedAiJobId) {
+      await loadAiJob(selectedAiJobId);
+    }
+  }
+
+  async function loadAiJob(jobId: string) {
+    const response = await fetch(`${apiBaseUrl}/api/admin/ai-question-generation/jobs/${jobId}`, {
+      headers: authHeaders(),
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(body.error || `Request failed with ${response.status}`);
+    }
+    setSelectedAiJob(body as AiGenerationJob);
+    setSelectedAiJobId(jobId);
+  }
+
+  async function createAiJob() {
+    setAiBusy(true);
+    setAiError("");
+    try {
+      const nodeId = selectedTaxonomyNodeId;
+      if (!nodeId || !leafNodeIds.has(nodeId)) {
+        throw new Error("Select an active leaf taxonomy node before generating questions.");
+      }
+      let sourceObjectKey = "";
+      let sourceFilename = "";
+      if (aiSourceType === "PDF") {
+        if (!aiSourceFile) throw new Error("Choose a PDF file.");
+        const formData = new FormData();
+        formData.append("file", aiSourceFile);
+        const uploadResponse = await fetch(`${apiBaseUrl}/api/admin/media/upload`, {
+          method: "POST",
+          headers: authHeaders(),
+          body: formData,
+        });
+        const uploadBody = await uploadResponse.json().catch(() => ({}));
+        if (!uploadResponse.ok) throw new Error(uploadBody.error || `Request failed with ${uploadResponse.status}`);
+        sourceObjectKey = uploadBody.objectKey;
+        sourceFilename = aiSourceFile.name;
+      }
+      const response = await fetch(`${apiBaseUrl}/api/admin/ai-question-generation/jobs`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeaders(),
+        },
+        body: JSON.stringify({
+          taxonomyNodeId: nodeId,
+          sourceType: aiSourceType,
+          sourceObjectKey: sourceObjectKey || null,
+          sourceFilename: sourceFilename || null,
+          sourceText: aiSourceType === "TEXT" ? aiSourceText : null,
+          topic: aiTopic,
+          instructions: aiInstructions || null,
+          questionCount: aiQuestionCount,
+          allowedQuestionTypes: ["SINGLE_SELECT", "MULTIPLE_SELECT"],
+          difficultyMix: { EASY: 1, MEDIUM: 2, HARD: 1 },
+        }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error || `Request failed with ${response.status}`);
+      setSelectedAiJob(body as AiGenerationJob);
+      setSelectedAiJobId(body.id);
+      await loadAiJobs();
+      setStatus("AI generation job created.");
+    } catch (exception) {
+      setAiError(exception instanceof Error ? exception.message : "Unable to create AI job.");
+    } finally {
+      setAiBusy(false);
+    }
+  }
+
+  async function generateAiJob(jobId: string) {
+    setAiBusy(true);
+    setAiError("");
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/admin/ai-question-generation/jobs/${jobId}/generate`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeaders(),
+        },
+        body: JSON.stringify({
+          allowedQuestionTypes: ["SINGLE_SELECT", "MULTIPLE_SELECT"],
+          difficultyMix: { EASY: 1, MEDIUM: 2, HARD: 1 },
+        }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error || body.message || `Request failed with ${response.status}`);
+      setSelectedAiJob(body as AiGenerationJob);
+      await loadAiJobs();
+      setStatus("AI questions generated.");
+    } catch (exception) {
+      setAiError(exception instanceof Error ? exception.message : "Unable to generate AI questions.");
+    } finally {
+      setAiBusy(false);
+    }
+  }
+
+  function startEditAiQuestion(question: AiGeneratedQuestion) {
+    setAiEditingQuestionId(question.id);
+    setAiEditForm({
+      questionType: question.questionType,
+      difficulty: question.difficulty,
+      questionText: question.questionText,
+      explanation: question.explanation,
+      sourceReference: question.sourceReference,
+      options: question.options,
+      correctOptionKeys: question.correctOptionKeys.join(", "),
+    });
+  }
+
+  async function saveAiQuestion(questionId: string) {
+    setAiBusy(true);
+    setAiError("");
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/admin/ai-question-generation/generated-questions/${questionId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeaders(),
+        },
+        body: JSON.stringify({
+          ...aiEditForm,
+          correctOptionKeys: aiEditForm.correctOptionKeys.split(",").map((key) => key.trim()).filter(Boolean),
+        }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error || `Request failed with ${response.status}`);
+      setAiEditingQuestionId("");
+      if (selectedAiJobId) await loadAiJob(selectedAiJobId);
+    } catch (exception) {
+      setAiError(exception instanceof Error ? exception.message : "Unable to save generated question.");
+    } finally {
+      setAiBusy(false);
+    }
+  }
+
+  async function approveAiQuestion(questionId: string) {
+    setAiBusy(true);
+    setAiError("");
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/admin/ai-question-generation/generated-questions/${questionId}/approve`, {
+        method: "POST",
+        headers: authHeaders(),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error || `Request failed with ${response.status}`);
+      if (selectedAiJobId) await loadAiJob(selectedAiJobId);
+      resetQuestionCursor();
+      await loadQuestions();
+    } catch (exception) {
+      setAiError(exception instanceof Error ? exception.message : "Unable to approve generated question.");
+    } finally {
+      setAiBusy(false);
+    }
+  }
+
+  async function rejectAiQuestion(questionId: string) {
+    setAiBusy(true);
+    setAiError("");
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/admin/ai-question-generation/generated-questions/${questionId}/reject`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeaders(),
+        },
+        body: JSON.stringify({ reason: "Rejected by reviewer" }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error || `Request failed with ${response.status}`);
+      if (selectedAiJobId) await loadAiJob(selectedAiJobId);
+    } catch (exception) {
+      setAiError(exception instanceof Error ? exception.message : "Unable to reject generated question.");
+    } finally {
+      setAiBusy(false);
+    }
+  }
+
+  async function bulkApproveAiJob(jobId: string) {
+    setAiBusy(true);
+    setAiError("");
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/admin/ai-question-generation/jobs/${jobId}/bulk-approve`, {
+        method: "POST",
+        headers: authHeaders(),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error || `Request failed with ${response.status}`);
+      setSelectedAiJob(body as AiGenerationJob);
+      resetQuestionCursor();
+      await loadQuestions();
+    } catch (exception) {
+      setAiError(exception instanceof Error ? exception.message : "Unable to bulk approve generated questions.");
+    } finally {
+      setAiBusy(false);
+    }
+  }
+
   function downloadCsvTemplate(step: BulkImportStepMetadata) {
     const headers = step.columns.map((column) => column.name);
     const rows = templateRows(step.stepCode, headers);
@@ -1953,10 +2258,15 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
   }
 
   const allowedParentKey = levelTypes.find((level) => level.levelKey === taxonomyForm.levelKey)?.allowedParentKey ?? null;
-  const parentOptions = allowedParentKey ? getDefaultParentOptions(taxonomyForm.levelKey, selectedTaxonomyNodeId) : [];
-  const visibleParentOptions = !taxonomyForm.id && taxonomyForm.parentId
-    ? allNodes.filter((node) => node.id === taxonomyForm.parentId)
-    : parentOptions;
+  const parentOptionContextId = taxonomyForm.id || selectedTaxonomyNodeId;
+  const parentOptions = allowedParentKey
+    ? getDefaultParentOptions(taxonomyForm.levelKey, parentOptionContextId, taxonomyForm.id)
+    : [];
+  const currentParentOption = taxonomyForm.parentId ? allNodes.find((node) => node.id === taxonomyForm.parentId) : null;
+  const visibleParentOptions = [
+    ...(currentParentOption && !parentOptions.some((node) => node.id === currentParentOption.id) ? [currentParentOption] : []),
+    ...parentOptions,
+  ];
   const createFormTitle = taxonomyForm.parentId ? "Create child node" : "Create root taxonomy";
 
   return (
@@ -1973,11 +2283,12 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
         <div className="account-tabs admin-primary-tabs" role="tablist" aria-label="Configure sections">
           <button type="button" className={activeTab === "taxonomy" ? "tab active" : "tab"} onClick={() => setActiveTab("taxonomy")}>Taxonomy</button>
           <button type="button" className={activeTab === "manual" ? "tab active" : "tab"} onClick={() => setActiveTab("manual")}>Manual question</button>
-          <button type="button" className={activeTab === "tests" ? "tab active" : "tab"} onClick={() => setActiveTab("tests")}>Tests</button>
           <button type="button" className={activeTab === "import" ? "tab active" : "tab"} onClick={() => {
             setActiveTab("import");
             setImportTab("csv");
           }}>Import</button>
+          <button type="button" className={activeTab === "ai" ? "tab active" : "tab"} onClick={() => setActiveTab("ai")}>AI</button>
+          <button type="button" className={activeTab === "tests" ? "tab active" : "tab"} onClick={() => setActiveTab("tests")}>Tests</button>
         </div>
 
         {error ? <p className="notice error">{error}</p> : null}
@@ -2896,6 +3207,196 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
                 </table>
               </div>
             </div>
+            ) : null}
+          </section>
+        ) : null}
+
+        {activeTab === "ai" ? (
+          <section className="section">
+            <div className="section-header">
+              <h2>AI</h2>
+            </div>
+            <div className="split-layout">
+              <div className="card">
+                <h3>Generate questions</h3>
+                <div className="form-grid">
+                  <label>
+                    Source
+                    <select value={aiSourceType} onChange={(event) => setAiSourceType(event.target.value as "PDF" | "TEXT")}>
+                      <option value="PDF">PDF</option>
+                      <option value="TEXT">Text</option>
+                    </select>
+                  </label>
+                  <label>
+                    Questions
+                    <input type="number" min={1} max={100} value={aiQuestionCount} onChange={(event) => setAiQuestionCount(Number(event.target.value))} />
+                  </label>
+                </div>
+                <div className="ai-taxonomy-lock">
+                  <strong>Selected taxonomy</strong>
+                  <span>{selectedTaxonomyNode ? getAncestorChain(selectedTaxonomyNode.id).map((node) => node.displayName).join(" > ") : "None selected"}</span>
+                  <small>{selectedRootTaxonomyNode ? `taxonomyKey: ${taxonomyImportKey(selectedRootTaxonomyNode)}` : ""}{selectedTaxonomyNode ? ` | childNodeKey: ${selectedTaxonomyNode.nodeKey}` : ""}</small>
+                </div>
+                {aiSourceType === "PDF" ? (
+                  <label className="file-drop compact-file-drop">
+                    Choose PDF
+                    <input type="file" accept="application/pdf,.pdf" onChange={(event) => setAiSourceFile(event.target.files?.[0] ?? null)} />
+                  </label>
+                ) : (
+                  <label>
+                    Source text
+                    <textarea value={aiSourceText} onChange={(event) => setAiSourceText(event.target.value)} />
+                  </label>
+                )}
+                {aiSourceFile ? <span className="muted selected-file-name">{aiSourceFile.name}</span> : null}
+                <label>
+                  Topic / learning objective
+                  <input value={aiTopic} onChange={(event) => setAiTopic(event.target.value)} placeholder="Adding fractions with like denominators" />
+                </label>
+                <label>
+                  Additional instructions
+                  <textarea value={aiInstructions} onChange={(event) => setAiInstructions(event.target.value)} placeholder="Grade 5 level. Avoid long word problems." />
+                </label>
+                <div className="dashboard-actions">
+                  <button type="button" className="primary-button compact-button" disabled={aiBusy} onClick={createAiJob}>
+                    {aiBusy ? "Working..." : "Create AI job"}
+                  </button>
+                  <button type="button" className="secondary-button compact-button" disabled={aiBusy} onClick={() => loadAiJobs().catch((exception) => setAiError(exception instanceof Error ? exception.message : "Unable to load AI jobs."))}>
+                    Refresh
+                  </button>
+                </div>
+                {aiError ? <p className="notice error">{aiError}</p> : null}
+              </div>
+
+              <div className="card">
+                <h3>Jobs</h3>
+                <div className="question-list ai-job-list">
+                  {aiJobs.map((job) => (
+                    <button
+                      key={job.id}
+                      type="button"
+                      className={selectedAiJobId === job.id ? "question-row-card active" : "question-row-card"}
+                      onClick={() => loadAiJob(job.id).catch((exception) => setAiError(exception instanceof Error ? exception.message : "Unable to load AI job."))}
+                    >
+                      <span>
+                        <span className="question-summary-text">{job.topic}</span>
+                        <small>{job.taxonomyKey} / {job.childNodeKey}</small>
+                      </span>
+                      <small>{job.status} | {job.generatedCount} generated | {job.approvedCount} approved</small>
+                    </button>
+                  ))}
+                  {aiJobs.length === 0 ? <p className="muted">No AI jobs yet.</p> : null}
+                </div>
+              </div>
+            </div>
+
+            {selectedAiJob ? (
+              <div className="card table-card">
+                <div className="section-header compact-section-header">
+                  <div>
+                    <h3>{selectedAiJob.topic}</h3>
+                    <p>{selectedAiJob.taxonomyPath}</p>
+                    <small>taxonomyKey: {selectedAiJob.taxonomyKey} | childNodeKey: {selectedAiJob.childNodeKey}</small>
+                  </div>
+                  <div className="dashboard-actions">
+                    <button type="button" className="primary-button compact-button" disabled={aiBusy || selectedAiJob.status === "GENERATED"} onClick={() => generateAiJob(selectedAiJob.id)}>
+                      Generate
+                    </button>
+                    <button type="button" className="secondary-button compact-button" disabled={aiBusy || selectedAiJob.validCount === 0} onClick={() => bulkApproveAiJob(selectedAiJob.id)}>
+                      Bulk approve valid
+                    </button>
+                  </div>
+                </div>
+                {selectedAiJob.errorMessage ? <p className="notice error">{selectedAiJob.errorMessage}</p> : null}
+                <div className="ai-generated-list">
+                  {selectedAiJob.questions.map((question) => {
+                    const editing = aiEditingQuestionId === question.id;
+                    return (
+                      <div key={question.id} className="question-row-card ai-generated-card">
+                        <div className="question-row-summary">
+                          <span className="question-summary-button">
+                            <span className="question-summary-line">
+                              <span>{question.status}</span>
+                              <span>{question.reviewStatus}</span>
+                              <span>{question.difficulty}</span>
+                              <span>{question.questionType}</span>
+                            </span>
+                            <span className="question-summary-text">{question.questionText}</span>
+                          </span>
+                          <button type="button" className="secondary-button compact-button" disabled={aiBusy || question.reviewStatus === "APPROVED"} onClick={() => startEditAiQuestion(question)}>Edit</button>
+                          <button type="button" className="primary-button compact-button" disabled={aiBusy || question.status !== "VALID" || question.reviewStatus === "APPROVED"} onClick={() => approveAiQuestion(question.id)}>Approve</button>
+                          <button type="button" className="secondary-button compact-button" disabled={aiBusy || question.reviewStatus === "APPROVED"} onClick={() => rejectAiQuestion(question.id)}>Reject</button>
+                        </div>
+                        {question.validationErrors.length > 0 ? <p className="notice warning">{question.validationErrors.join("; ")}</p> : null}
+                        {editing ? (
+                          <div className="ai-edit-form">
+                            <div className="form-grid">
+                              <label>
+                                Type
+                                <select value={aiEditForm.questionType} onChange={(event) => setAiEditForm((current) => ({ ...current, questionType: event.target.value }))}>
+                                  <option value="SINGLE_SELECT">Single select</option>
+                                  <option value="MULTIPLE_SELECT">Multiple select</option>
+                                </select>
+                              </label>
+                              <label>
+                                Difficulty
+                                <select value={aiEditForm.difficulty} onChange={(event) => setAiEditForm((current) => ({ ...current, difficulty: event.target.value }))}>
+                                  <option value="EASY">Easy</option>
+                                  <option value="MEDIUM">Medium</option>
+                                  <option value="HARD">Hard</option>
+                                </select>
+                              </label>
+                            </div>
+                            <label>
+                              Question
+                              <textarea value={aiEditForm.questionText} onChange={(event) => setAiEditForm((current) => ({ ...current, questionText: event.target.value }))} />
+                            </label>
+                            <div className="option-editor">
+                              {aiEditForm.options.map((option, index) => (
+                                <div className="option-row" key={`${question.id}-${option.key}-${index}`}>
+                                  <input className="option-key" value={option.key} onChange={(event) => {
+                                    const next = aiEditForm.options.slice();
+                                    next[index] = { ...option, key: event.target.value.toUpperCase() };
+                                    setAiEditForm((current) => ({ ...current, options: next }));
+                                  }} />
+                                  <input className="option-text" value={option.text} onChange={(event) => {
+                                    const next = aiEditForm.options.slice();
+                                    next[index] = { ...option, text: event.target.value };
+                                    setAiEditForm((current) => ({ ...current, options: next }));
+                                  }} />
+                                </div>
+                              ))}
+                            </div>
+                            <label>
+                              Correct option keys
+                              <input value={aiEditForm.correctOptionKeys} onChange={(event) => setAiEditForm((current) => ({ ...current, correctOptionKeys: event.target.value }))} />
+                            </label>
+                            <label>
+                              Explanation
+                              <textarea value={aiEditForm.explanation} onChange={(event) => setAiEditForm((current) => ({ ...current, explanation: event.target.value }))} />
+                            </label>
+                            <label>
+                              Source reference
+                              <input value={aiEditForm.sourceReference} onChange={(event) => setAiEditForm((current) => ({ ...current, sourceReference: event.target.value }))} />
+                            </label>
+                            <div className="dashboard-actions">
+                              <button type="button" className="primary-button compact-button" disabled={aiBusy} onClick={() => saveAiQuestion(question.id)}>Save generated question</button>
+                              <button type="button" className="secondary-button compact-button" onClick={() => setAiEditingQuestionId("")}>Cancel</button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="question-row-details">
+                            <div><strong>Explanation</strong><p>{question.explanation}</p></div>
+                            <div><strong>Source</strong><p>{question.sourceReference}</p></div>
+                            <div><strong>Options</strong><p>{question.options.map((option) => `${option.key}. ${option.text}${question.correctOptionKeys.includes(option.key) ? " (correct)" : ""}`).join("; ")}</p></div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                  {selectedAiJob.questions.length === 0 ? <p className="muted">Create the job, then click Generate to create draft questions for review.</p> : null}
+                </div>
+              </div>
             ) : null}
           </section>
         ) : null}
