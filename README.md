@@ -49,10 +49,3 @@ stack to create student accounts immediately without email approval.
 To deliver real email, replace the `SPRING_MAIL_*` values with your SMTP
 provider settings and set `APP_SIGNUP_APPROVAL_EMAIL_TO` to the approver's real
 email address.
-
-## Phase 1 scope
-
-The repository currently provides the runnable foundation, requirements
-traceability, taxonomy registry, taxonomy lifecycle API, question model,
-workflow validation, and exact-match scoring rules. Continue implementation
-against `docs/releases/phase-01.md`.
