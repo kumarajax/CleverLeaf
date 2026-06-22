@@ -117,6 +117,8 @@ type AdminAssignedTestSummary = {
   resultsPublishedAt?: string | null;
   assignedCount: number;
   submittedCount: number;
+  publishedCount?: number;
+  latestResultsPublishedAt?: string | null;
   createdAt: string;
 };
 
@@ -491,6 +493,17 @@ function availabilityLabel(test: AdminAssignedTestSummary) {
   if (from && from > now) return "Upcoming";
   if (until && until < now) return "Expired";
   return "Open";
+}
+
+function testResultPublicationLabel(test: AdminAssignedTestSummary) {
+  const publishedCount = test.publishedCount ?? 0;
+  const publishedAt = test.latestResultsPublishedAt ?? test.resultsPublishedAt;
+  if (publishedCount > 0) {
+    const scope = test.submittedCount > 0 ? `${publishedCount} of ${test.submittedCount} published` : `${publishedCount} published`;
+    return publishedAt ? `${scope} (${formatDateTime(publishedAt)})` : scope;
+  }
+  if (test.resultsPublishedAt) return `Published (${formatDateTime(test.resultsPublishedAt)})`;
+  return "Not published";
 }
 
 function usesQuestionOptions(questionType: string) {
@@ -2892,7 +2905,7 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
               </div>
               <div className="table-wrap">
                 <table className="data-table">
-                  <thead><tr><th>Public key</th><th>Name</th><th>Status</th><th>Availability</th><th>Questions</th><th>Assigned</th><th>Submitted</th><th>Results</th><th>Created</th><th>Actions</th></tr></thead>
+                  <thead><tr><th>Public key</th><th>Name</th><th>Test status</th><th>Availability</th><th>Questions</th><th>Assigned</th><th>Submitted</th><th>Result publication</th><th>Created</th><th>Actions</th></tr></thead>
                   <tbody>
                     {assignedTests.map((test) => {
                       const displayStatus = displayAdminTestStatus(test);
@@ -2908,7 +2921,7 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
                           <td>{test.questionCount}</td>
                           <td>{test.assignedCount}</td>
                           <td>{test.submittedCount}</td>
-                          <td>{test.resultsPublishedAt ? formatDateTime(test.resultsPublishedAt) : "Not published"}</td>
+                          <td>{testResultPublicationLabel(test)}</td>
                           <td>{formatDateTime(test.createdAt)}</td>
                           <td>
                             <div className="table-actions">
@@ -3253,11 +3266,6 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
                     Questions
                     <input type="number" min={1} max={100} value={aiQuestionCount} onChange={(event) => setAiQuestionCount(Number(event.target.value))} />
                   </label>
-                </div>
-                <div className="ai-taxonomy-lock">
-                  <strong>Selected taxonomy</strong>
-                  <span>{selectedTaxonomyNode ? getAncestorChain(selectedTaxonomyNode.id).map((node) => node.displayName).join(" > ") : "None selected"}</span>
-                  <small>{selectedRootTaxonomyNode ? `taxonomyKey: ${taxonomyImportKey(selectedRootTaxonomyNode)}` : ""}{selectedTaxonomyNode ? ` | childNodeKey: ${selectedTaxonomyNode.nodeKey}` : ""}</small>
                 </div>
                 {aiSourceType === "PDF" ? (
                   <label className="file-drop compact-file-drop">

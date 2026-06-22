@@ -16,5 +16,7 @@ public record AdminAssignedTestSummary(
         Instant resultsPublishedAt,
         long assignedCount,
         long submittedCount,
+        long publishedCount,
+        Instant latestResultsPublishedAt,
         Instant createdAt) {
 }

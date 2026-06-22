@@ -618,6 +618,8 @@ public class AssignedTestService {
                 version.getResultsPublishedAt(),
                 assignments.countByVersion_IdAndStatusNot(version.getId(), ASSIGNMENT_STATUS_REASSIGNED),
                 assignments.countByVersion_IdAndStatus(version.getId(), "SUBMITTED"),
+                assignments.countPublishedByVersionId(version.getId(), ASSIGNMENT_STATUS_REASSIGNED),
+                assignments.latestResultsPublishedAtByVersionId(version.getId(), ASSIGNMENT_STATUS_REASSIGNED),
                 test.getCreatedAt());
     }
 
