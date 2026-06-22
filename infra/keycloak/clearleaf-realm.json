@@ -2,6 +2,11 @@
   "realm": "clearleaf",
   "enabled": true,
   "sslRequired": "none",
+  "accessTokenLifespan": 21600,
+  "ssoSessionIdleTimeout": 21600,
+  "ssoSessionMaxLifespan": 21600,
+  "clientSessionIdleTimeout": 21600,
+  "clientSessionMaxLifespan": 21600,
   "registrationAllowed": false,
   "resetPasswordAllowed": false,
   "roles": {

@@ -9,6 +9,7 @@ import { useApplicationConfig } from "../useApplicationConfig";
 type Session = {
   email?: string;
   accessToken?: string;
+  refreshToken?: string;
 };
 
 type ProfilePayload = {
@@ -448,6 +449,34 @@ export default function DashboardPage() {
     return body;
   }
 
+  function persistSession(nextSession: Session) {
+    localStorage.setItem("clearleaf.auth", JSON.stringify(nextSession));
+    setSession(nextSession);
+  }
+
+  async function refreshSession() {
+    if (!session?.refreshToken) return session?.accessToken ?? "";
+    const response = await fetch(`${apiBaseUrl}/api/public/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refreshToken: session.refreshToken }),
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok || !body.accessToken) {
+      removeStoredSession();
+      router.replace("/account");
+      throw new Error(body.error || body.message || "Session expired. Please sign in again.");
+    }
+    const nextSession = {
+      ...session,
+      email: body.email || session.email,
+      accessToken: body.accessToken,
+      refreshToken: body.refreshToken || session.refreshToken,
+    };
+    persistSession(nextSession);
+    return nextSession.accessToken;
+  }
+
   async function loadProfile(token: string) {
     try {
       const body = await request("/api/me", token);
@@ -540,7 +569,8 @@ export default function DashboardPage() {
     setStartingAssignmentId(assignmentId);
     setError("");
     try {
-      await request(`/api/student/assigned-tests/${assignmentId}/start`, session.accessToken, { method: "POST" });
+      const accessToken = await refreshSession();
+      await request(`/api/student/assigned-tests/${assignmentId}/start`, accessToken, { method: "POST" });
       router.push(`/assigned-tests/${assignmentId}`);
     } catch (exception) {
       setError(exception instanceof Error ? exception.message : "Unable to start assigned test.");
@@ -553,7 +583,8 @@ export default function DashboardPage() {
     setStartingAttemptId(attempt.attemptId);
     setError("");
     try {
-      const body = await request("/api/student/tests", session.accessToken, {
+      const accessToken = await refreshSession();
+      const body = await request("/api/student/tests", accessToken, {
         method: "POST",
         body: JSON.stringify({
           taxonomyNodeId: attempt.taxonomyNodeId,

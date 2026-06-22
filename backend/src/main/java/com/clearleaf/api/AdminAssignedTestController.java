@@ -101,4 +101,13 @@ public class AdminAssignedTestController {
             @PathVariable("assignmentId") UUID assignmentId) {
         return tests.publishStudentResult(jwt.getSubject(), versionId, assignmentId);
     }
+
+    @PostMapping("/{versionId}/results/{assignmentId}/reassign")
+    @ResponseStatus(HttpStatus.CREATED)
+    public AdminAssignedTestResult reassignStudentTest(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable("versionId") UUID versionId,
+            @PathVariable("assignmentId") UUID assignmentId) {
+        return tests.reassignStudentTest(jwt.getSubject(), versionId, assignmentId);
+    }
 }

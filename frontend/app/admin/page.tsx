@@ -774,7 +774,7 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
   }, [questions, testQuestionResults, selectedAssignedQuestionIds]);
   const submittedAssignedTestResults = useMemo(() => assignedTestResults.filter((result) => result.status === "SUBMITTED"), [assignedTestResults]);
   const adminTestStatusMeaningByCode = useMemo(() => new Map(adminTestStatusLookups.map((lookup) => [lookup.lookupCode, lookup.lookupMeaning])), [adminTestStatusLookups]);
-  const assignableAssignedTests = useMemo(() => assignedTests.filter((test) => test.status === "ACTIVE" || test.status === "PUBLISHED"), [assignedTests]);
+  const assignableAssignedTests = useMemo(() => assignedTests.filter((test) => ["ACTIVE", "PUBLISHED"].includes(displayAdminTestStatus(test))), [assignedTests]);
   const resultEligibleAssignedTests = useMemo(() => assignedTests.filter((test) => ["PUBLISHED", "COMPLETED", "EXPIRED"].includes(displayAdminTestStatus(test))), [assignedTests]);
 
   function authHeaders(token = currentToken, tenantId = selectedTenantId): Record<string, string> {
@@ -1175,6 +1175,25 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
     }
     setStatus(`Published result for ${result.studentSubject}.`);
     await loadAssignedTestResults(selectedAssignedTestVersionId);
+  }
+
+  async function reassignAssignedTestStudent(result: AdminAssignedTestResult) {
+    if (!selectedAssignedTestVersionId) return;
+    const confirmed = window.confirm(`Re-assign this test to ${result.studentSubject}? The current attempt will be kept as reassigned history and a new assignment will be created.`);
+    if (!confirmed) return;
+    setAssignedTestError("");
+    const response = await fetch(`${apiBaseUrl}/api/admin/assigned-tests/${selectedAssignedTestVersionId}/results/${result.assignmentId}/reassign`, {
+      method: "POST",
+      headers: authHeaders(),
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(body.error || `Request failed with ${response.status}`);
+    }
+    setExpandedAssignedResultId("");
+    setAssignedTestResultDetails({});
+    setStatus(`Re-assigned test to ${result.studentSubject}.`);
+    await Promise.all([loadAssignedTests(), loadAssignedTestResults(selectedAssignedTestVersionId)]);
   }
 
   function loadQuestionCardPage(taxonomyNodeId: string, cursorIndex: number) {
@@ -3061,7 +3080,7 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
                 <label className="inline-select">
                   Test
                   <select value={selectedAssignedTestVersionId} onChange={(event) => setSelectedAssignedTestVersionId(event.target.value)}>
-                    <option value="">Select active or published test</option>
+                    <option value="">Select active test</option>
                     {assignableAssignedTests.map((test) => (
                       <option key={test.versionId} value={test.versionId}>{test.publicKey} - {test.name}</option>
                     ))}
@@ -3178,6 +3197,9 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
                               </button>
                               <button type="button" className="primary-button compact-button" disabled={result.status !== "SUBMITTED" || Boolean(result.resultsPublishedAt)} onClick={() => publishAssignedTestStudentResult(result).catch((exception) => setAssignedTestError(exception instanceof Error ? exception.message : "Unable to publish student result."))}>
                                 Publish
+                              </button>
+                              <button type="button" className="secondary-button compact-button" disabled={!["STARTED", "SUBMITTED"].includes(result.status) || Boolean(result.resultsPublishedAt)} onClick={() => reassignAssignedTestStudent(result).catch((exception) => setAssignedTestError(exception instanceof Error ? exception.message : "Unable to re-assign test."))}>
+                                Re-assign
                               </button>
                             </div>
                           </td>

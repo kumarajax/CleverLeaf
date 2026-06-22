@@ -8,6 +8,7 @@ const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:808
 type Session = {
   email?: string;
   accessToken?: string;
+  refreshToken?: string;
 };
 
 type StudentQuestionOption = {
@@ -199,7 +200,39 @@ export default function StudentTestPage() {
     return attempt.navigation.find((item) => item.attemptQuestionId === currentQuestion.attemptQuestionId) ?? null;
   }, [attempt, currentQuestion]);
 
-  async function request(path: string, init?: RequestInit) {
+  function persistSession(nextSession: Session) {
+    localStorage.setItem("clearleaf.auth", JSON.stringify(nextSession));
+    setSession(nextSession);
+  }
+
+  async function refreshSession() {
+    if (!session?.refreshToken) {
+      removeStoredSession();
+      router.replace("/account");
+      throw new Error("Session expired. Please sign in again.");
+    }
+    const response = await fetch(`${apiBaseUrl}/api/public/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refreshToken: session.refreshToken }),
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok || !body.accessToken) {
+      removeStoredSession();
+      router.replace("/account");
+      throw new Error(body.error || body.message || "Session expired. Please sign in again.");
+    }
+    const nextSession = {
+      ...session,
+      email: body.email || session.email,
+      accessToken: body.accessToken,
+      refreshToken: body.refreshToken || session.refreshToken,
+    };
+    persistSession(nextSession);
+    return nextSession.accessToken;
+  }
+
+  async function request(path: string, init?: RequestInit, retry = true) {
     const response = await fetch(`${apiBaseUrl}${path}`, {
       ...init,
       headers: {
@@ -209,6 +242,16 @@ export default function StudentTestPage() {
       },
     });
     const body = await response.json().catch(() => ({}));
+    if (response.status === 401 && retry) {
+      const accessToken = await refreshSession();
+      return request(path, {
+        ...init,
+        headers: {
+          ...(init?.headers ?? {}),
+          Authorization: `Bearer ${accessToken}`,
+        },
+      }, false);
+    }
     if (!response.ok) throw new Error(body.error || body.message || `Request failed with ${response.status}`);
     return body;
   }

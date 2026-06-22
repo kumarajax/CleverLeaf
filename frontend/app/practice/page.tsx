@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 type Session = {
   email?: string;
   accessToken?: string;
+  refreshToken?: string;
 };
 
 type ProfilePayload = {
@@ -158,6 +159,34 @@ export function PracticeCenter({ embedded = false }: PracticeCenterProps) {
     };
   }, [apiBaseUrl, query, session?.accessToken]);
 
+  function persistSession(nextSession: Session) {
+    localStorage.setItem("clearleaf.auth", JSON.stringify(nextSession));
+    setSession(nextSession);
+  }
+
+  async function refreshSession() {
+    if (!session?.refreshToken) return session?.accessToken ?? "";
+    const response = await fetch(`${apiBaseUrl}/api/public/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refreshToken: session.refreshToken }),
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok || !body.accessToken) {
+      removeStoredSession();
+      router.replace("/account");
+      throw new Error(body.error || body.message || "Session expired. Please sign in again.");
+    }
+    const nextSession = {
+      ...session,
+      email: body.email || session.email,
+      accessToken: body.accessToken,
+      refreshToken: body.refreshToken || session.refreshToken,
+    };
+    persistSession(nextSession);
+    return nextSession.accessToken;
+  }
+
   const studentGrade = useMemo(() => {
     const claim = textClaim(profile, ["grade", "student_grade", "gradeLevel", "grade_level", "class", "classLevel"]);
     return claim ? normalizeGrade(claim) : "";
@@ -192,11 +221,12 @@ export function PracticeCenter({ embedded = false }: PracticeCenterProps) {
     setStatus("");
     setStarting(true);
     try {
+      const accessToken = await refreshSession();
       const response = await fetch(`${apiBaseUrl}/api/student/tests`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${session?.accessToken ?? ""}`,
+          Authorization: `Bearer ${accessToken}`,
         },
         body: JSON.stringify({
           taxonomyNodeId: selectedTaxonomy.id,

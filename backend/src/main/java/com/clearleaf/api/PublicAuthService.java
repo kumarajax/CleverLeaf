@@ -44,13 +44,27 @@ public class PublicAuthService {
         if (password == null || password.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Password is required");
         }
+        return token(Map.of(
+                "grant_type", "password",
+                "client_id", clientId,
+                "username", email,
+                "password", password), email, "Signed in successfully.");
+    }
+
+    public LoginResponse refresh(RefreshTokenRequest request) {
+        String refreshToken = request == null ? null : request.refreshToken();
+        if (refreshToken == null || refreshToken.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Refresh token is required");
+        }
+        return token(Map.of(
+                "grant_type", "refresh_token",
+                "client_id", clientId,
+                "refresh_token", refreshToken), null, "Session refreshed.");
+    }
+
+    private LoginResponse token(Map<String, String> form, String fallbackEmail, String message) {
         try {
-            String body = Map.of(
-                            "grant_type", "password",
-                            "client_id", clientId,
-                            "username", email,
-                            "password", password)
-                    .entrySet().stream()
+            String body = form.entrySet().stream()
                     .map(entry -> encode(entry.getKey()) + "=" + encode(entry.getValue()))
                     .collect(Collectors.joining("&"));
             HttpResponse<String> response = httpClient.send(HttpRequest.newBuilder()
@@ -65,8 +79,8 @@ public class PublicAuthService {
             }
             return new LoginResponse(
                     "SIGNED_IN",
-                    "Signed in successfully.",
-                    email,
+                    message,
+                    payload.path("email").asText(fallbackEmail == null ? "" : fallbackEmail),
                     payload.path("access_token").asText(),
                     payload.path("refresh_token").asText(""),
                     payload.path("token_type").asText("Bearer"),

@@ -18,4 +18,9 @@ public class PublicAuthController {
     public LoginResponse login(@RequestBody LoginRequest request) {
         return auth.login(request);
     }
+
+    @PostMapping("/refresh")
+    public LoginResponse refresh(@RequestBody RefreshTokenRequest request) {
+        return auth.refresh(request);
+    }
 }
