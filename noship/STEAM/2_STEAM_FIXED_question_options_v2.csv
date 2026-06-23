@@ -1,0 +1,1601 @@
+QuestionPublicKey,optionKey,optionText
+STEAM_001,A,Ammeter
+STEAM_001,B,Barometer
+STEAM_001,C,Stopwatch
+STEAM_001,D,Thermometer
+STEAM_002,A,pascal
+STEAM_002,B,watt
+STEAM_002,C,newton
+STEAM_002,D,joule
+STEAM_003,A,volt
+STEAM_003,B,coulomb
+STEAM_003,C,ohm
+STEAM_003,D,ampere
+STEAM_004,A,friction
+STEAM_004,B,magnetism
+STEAM_004,C,gravity
+STEAM_004,D,tension
+STEAM_005,A,chemical energy
+STEAM_005,B,sound energy
+STEAM_005,C,light energy
+STEAM_005,D,potential energy
+STEAM_006,A,plane mirror
+STEAM_006,B,transparent mirror
+STEAM_006,C,concave mirror
+STEAM_006,D,convex mirror
+STEAM_007,A,bulb
+STEAM_007,B,cell
+STEAM_007,C,switch
+STEAM_007,D,wire
+STEAM_008,A,speed decreases
+STEAM_008,B,speed is unchanged
+STEAM_008,C,speed increases
+STEAM_008,D,speed becomes zero
+STEAM_009,A,a material medium
+STEAM_009,B,only sunlight
+STEAM_009,C,only vacuum
+STEAM_009,D,only a magnet
+STEAM_010,A,plastic
+STEAM_010,B,dry wood
+STEAM_010,C,copper
+STEAM_010,D,rubber
+STEAM_011,A,carbon dioxide
+STEAM_011,B,oxygen
+STEAM_011,C,hydrogen
+STEAM_011,D,nitrogen
+STEAM_012,A,NaCl
+STEAM_012,B,O2
+STEAM_012,C,CO2
+STEAM_012,D,H2O
+STEAM_013,A,pure water
+STEAM_013,B,base
+STEAM_013,C,acid
+STEAM_013,D,salt
+STEAM_014,A,sublimation
+STEAM_014,B,melting
+STEAM_014,C,evaporation
+STEAM_014,D,condensation
+STEAM_015,A,iron
+STEAM_015,B,sulfur
+STEAM_015,C,oxygen
+STEAM_015,D,carbon
+STEAM_016,A,potassium nitrate
+STEAM_016,B,sodium chloride
+STEAM_016,C,sodium bicarbonate
+STEAM_016,D,calcium carbonate
+STEAM_017,A,oxygen
+STEAM_017,B,chlorine
+STEAM_017,C,nitrogen
+STEAM_017,D,hydrogen
+STEAM_018,A,proton
+STEAM_018,B,nucleus
+STEAM_018,C,electron
+STEAM_018,D,neutron
+STEAM_019,A,14
+STEAM_019,B,10
+STEAM_019,C,1
+STEAM_019,D,7
+STEAM_020,A,filtration
+STEAM_020,B,magnetisation
+STEAM_020,C,chromatography
+STEAM_020,D,distillation
+STEAM_021,A,root
+STEAM_021,B,fruit
+STEAM_021,C,leaf
+STEAM_021,D,flower
+STEAM_022,A,heart
+STEAM_022,B,kidney
+STEAM_022,C,stomach
+STEAM_022,D,lung
+STEAM_023,A,haemoglobin
+STEAM_023,B,keratin
+STEAM_023,C,melanin
+STEAM_023,D,chlorophyll
+STEAM_024,A,nitrogen
+STEAM_024,B,hydrogen
+STEAM_024,C,carbon dioxide
+STEAM_024,D,oxygen
+STEAM_025,A,vacuole
+STEAM_025,B,nucleus
+STEAM_025,C,cell wall
+STEAM_025,D,cytoplasm
+STEAM_026,A,liver
+STEAM_026,B,spleen
+STEAM_026,C,lungs
+STEAM_026,D,pancreas
+STEAM_027,A,plasma
+STEAM_027,B,platelets
+STEAM_027,C,red blood cells
+STEAM_027,D,white blood cells
+STEAM_028,A,water
+STEAM_028,B,minerals
+STEAM_028,C,protein
+STEAM_028,D,roughage
+STEAM_029,A,circulation
+STEAM_029,B,digestion
+STEAM_029,C,excretion
+STEAM_029,D,respiration
+STEAM_030,A,bacteria
+STEAM_030,B,viruses
+STEAM_030,C,mosses
+STEAM_030,D,ferns
+STEAM_031,A,4 m/s
+STEAM_031,B,5 m/s
+STEAM_031,C,10 m/s
+STEAM_031,D,6 m/s
+STEAM_032,A,5 m/s
+STEAM_032,B,10 m/s
+STEAM_032,C,4 m/s
+STEAM_032,D,6 m/s
+STEAM_033,A,5 m/s
+STEAM_033,B,6 m/s
+STEAM_033,C,4 m/s
+STEAM_033,D,10 m/s
+STEAM_034,A,9 m/s
+STEAM_034,B,16 m/s
+STEAM_034,C,8 m/s
+STEAM_034,D,7 m/s
+STEAM_035,A,6 m/s
+STEAM_035,B,4 m/s
+STEAM_035,C,5 m/s
+STEAM_035,D,10 m/s
+STEAM_036,A,6 m/s
+STEAM_036,B,4 m/s
+STEAM_036,C,10 m/s
+STEAM_036,D,5 m/s
+STEAM_037,A,13 m/s
+STEAM_037,B,12 m/s
+STEAM_037,C,11 m/s
+STEAM_037,D,24 m/s
+STEAM_038,A,4 m/s
+STEAM_038,B,3 m/s
+STEAM_038,C,5 m/s
+STEAM_038,D,8 m/s
+STEAM_039,A,7 m/s
+STEAM_039,B,6 m/s
+STEAM_039,C,12 m/s
+STEAM_039,D,5 m/s
+STEAM_040,A,8 m/s
+STEAM_040,B,5 m/s
+STEAM_040,C,3 m/s
+STEAM_040,D,4 m/s
+STEAM_041,A,12 m/s
+STEAM_041,B,7 m/s
+STEAM_041,C,6 m/s
+STEAM_041,D,5 m/s
+STEAM_042,A,4 m/s
+STEAM_042,B,6 m/s
+STEAM_042,C,5 m/s
+STEAM_042,D,10 m/s
+STEAM_043,A,12 m/s
+STEAM_043,B,7 m/s
+STEAM_043,C,5 m/s
+STEAM_043,D,6 m/s
+STEAM_044,A,10 m/s
+STEAM_044,B,5 m/s
+STEAM_044,C,4 m/s
+STEAM_044,D,6 m/s
+STEAM_045,A,6 m/s
+STEAM_045,B,5 m/s
+STEAM_045,C,10 m/s
+STEAM_045,D,4 m/s
+STEAM_046,A,4 N
+STEAM_046,B,6 N
+STEAM_046,C,12 N
+STEAM_046,D,8 N
+STEAM_047,A,40 N
+STEAM_047,B,24 N
+STEAM_047,C,16 N
+STEAM_047,D,20 N
+STEAM_048,A,15 N
+STEAM_048,B,5 N
+STEAM_048,C,10 N
+STEAM_048,D,20 N
+STEAM_049,A,48 N
+STEAM_049,B,24 N
+STEAM_049,C,30 N
+STEAM_049,D,18 N
+STEAM_050,A,32 N
+STEAM_050,B,16 N
+STEAM_050,C,48 N
+STEAM_050,D,24 N
+STEAM_051,A,30 N
+STEAM_051,B,25 N
+STEAM_051,C,5 N
+STEAM_051,D,15 N
+STEAM_052,A,36 N
+STEAM_052,B,48 N
+STEAM_052,C,12 N
+STEAM_052,D,24 N
+STEAM_053,A,45 N
+STEAM_053,B,90 N
+STEAM_053,C,30 N
+STEAM_053,D,60 N
+STEAM_054,A,50 N
+STEAM_054,B,30 N
+STEAM_054,C,100 N
+STEAM_054,D,70 N
+STEAM_055,A,100 N
+STEAM_055,B,50 N
+STEAM_055,C,25 N
+STEAM_055,D,75 N
+STEAM_056,A,6 Ω
+STEAM_056,B,8 Ω
+STEAM_056,C,24 Ω
+STEAM_056,D,5 Ω
+STEAM_057,A,2 Ω
+STEAM_057,B,50 Ω
+STEAM_057,C,1 Ω
+STEAM_057,D,4 Ω
+STEAM_058,A,27 Ω
+STEAM_058,B,2 Ω
+STEAM_058,C,5 Ω
+STEAM_058,D,3 Ω
+STEAM_059,A,11 Ω
+STEAM_059,B,14 Ω
+STEAM_059,C,3 Ω
+STEAM_059,D,12 Ω
+STEAM_060,A,8 Ω
+STEAM_060,B,6 Ω
+STEAM_060,C,5 Ω
+STEAM_060,D,96 Ω
+STEAM_061,A,45 Ω
+STEAM_061,B,4 Ω
+STEAM_061,C,7 Ω
+STEAM_061,D,5 Ω
+STEAM_062,A,12 Ω
+STEAM_062,B,9 Ω
+STEAM_062,C,10 Ω
+STEAM_062,D,40 Ω
+STEAM_063,A,108 Ω
+STEAM_063,B,5 Ω
+STEAM_063,C,3 Ω
+STEAM_063,D,2 Ω
+STEAM_064,A,6 Ω
+STEAM_064,B,150 Ω
+STEAM_064,C,8 Ω
+STEAM_064,D,5 Ω
+STEAM_065,A,6 Ω
+STEAM_065,B,4 Ω
+STEAM_065,C,3 Ω
+STEAM_065,D,16 Ω
+STEAM_066,A,150 J
+STEAM_066,B,50 J
+STEAM_066,C,100 J
+STEAM_066,D,10 J
+STEAM_067,A,50 J
+STEAM_067,B,150 J
+STEAM_067,C,100 J
+STEAM_067,D,10 J
+STEAM_068,A,12 J
+STEAM_068,B,60 J
+STEAM_068,C,170 J
+STEAM_068,D,120 J
+STEAM_069,A,100 J
+STEAM_069,B,10 J
+STEAM_069,C,50 J
+STEAM_069,D,150 J
+STEAM_070,A,150 J
+STEAM_070,B,300 J
+STEAM_070,C,350 J
+STEAM_070,D,30 J
+STEAM_071,A,370 J
+STEAM_071,B,160 J
+STEAM_071,C,32 J
+STEAM_071,D,320 J
+STEAM_072,A,180 J
+STEAM_072,B,36 J
+STEAM_072,C,360 J
+STEAM_072,D,410 J
+STEAM_073,A,400 J
+STEAM_073,B,35 J
+STEAM_073,C,350 J
+STEAM_073,D,175 J
+STEAM_074,A,850 J
+STEAM_074,B,800 J
+STEAM_074,C,80 J
+STEAM_074,D,400 J
+STEAM_075,A,48 J
+STEAM_075,B,480 J
+STEAM_075,C,240 J
+STEAM_075,D,530 J
+STEAM_076,A,150 m/s
+STEAM_076,B,50 m/s
+STEAM_076,C,25 m/s
+STEAM_076,D,100 m/s
+STEAM_077,A,33.3333 m/s
+STEAM_077,B,250 m/s
+STEAM_077,C,350 m/s
+STEAM_077,D,300 m/s
+STEAM_078,A,133.333 m/s
+STEAM_078,B,350 m/s
+STEAM_078,C,250 m/s
+STEAM_078,D,300 m/s
+STEAM_079,A,500 m/s
+STEAM_079,B,550 m/s
+STEAM_079,C,125 m/s
+STEAM_079,D,450 m/s
+STEAM_080,A,200 m/s
+STEAM_080,B,150 m/s
+STEAM_080,C,100 m/s
+STEAM_080,D,600 m/s
+STEAM_081,A,350 m/s
+STEAM_081,B,300 m/s
+STEAM_081,C,250 m/s
+STEAM_081,D,533.333 m/s
+STEAM_082,A,300 m/s
+STEAM_082,B,350 m/s
+STEAM_082,C,833.333 m/s
+STEAM_082,D,250 m/s
+STEAM_083,A,300 m/s
+STEAM_083,B,250 m/s
+STEAM_083,C,12 m/s
+STEAM_083,D,350 m/s
+STEAM_084,A,370 m/s
+STEAM_084,B,270 m/s
+STEAM_084,C,320 m/s
+STEAM_084,D,20 m/s
+STEAM_085,A,250 m/s
+STEAM_085,B,350 m/s
+STEAM_085,C,300 m/s
+STEAM_085,D,48 m/s
+STEAM_086,A,0 m/s
+STEAM_086,B,15 m/s
+STEAM_086,C,10 m/s
+STEAM_086,D,8 m/s
+STEAM_087,A,50 m/s
+STEAM_087,B,15 m/s
+STEAM_087,C,14 m/s
+STEAM_087,D,25 m/s
+STEAM_088,A,80 m/s
+STEAM_088,B,22 m/s
+STEAM_088,C,16 m/s
+STEAM_088,D,18 m/s
+STEAM_089,A,27 m/s
+STEAM_089,B,18 m/s
+STEAM_089,C,21 m/s
+STEAM_089,D,54 m/s
+STEAM_090,A,18 m/s
+STEAM_090,B,20 m/s
+STEAM_090,C,28 m/s
+STEAM_090,D,64 m/s
+STEAM_091,A,20 m/s
+STEAM_091,B,17 m/s
+STEAM_091,C,12 m/s
+STEAM_091,D,30 m/s
+STEAM_092,A,31 m/s
+STEAM_092,B,22 m/s
+STEAM_092,C,120 m/s
+STEAM_092,D,26 m/s
+STEAM_093,A,32 m/s
+STEAM_093,B,96 m/s
+STEAM_093,C,20 m/s
+STEAM_093,D,19 m/s
+STEAM_094,A,24 m/s
+STEAM_094,B,22 m/s
+STEAM_094,C,30 m/s
+STEAM_094,D,144 m/s
+STEAM_095,A,30 m/s
+STEAM_095,B,35 m/s
+STEAM_095,C,27 m/s
+STEAM_095,D,225 m/s
+STEAM_096,A,Li
+STEAM_096,B,H
+STEAM_096,C,He
+STEAM_096,D,C
+STEAM_097,A,Li
+STEAM_097,B,C
+STEAM_097,C,H
+STEAM_097,D,He
+STEAM_098,A,H
+STEAM_098,B,C
+STEAM_098,C,He
+STEAM_098,D,Li
+STEAM_099,A,Li
+STEAM_099,B,H
+STEAM_099,C,C
+STEAM_099,D,He
+STEAM_100,A,He
+STEAM_100,B,H
+STEAM_100,C,Li
+STEAM_100,D,N
+STEAM_101,A,Li
+STEAM_101,B,H
+STEAM_101,C,O
+STEAM_101,D,He
+STEAM_102,A,H
+STEAM_102,B,Na
+STEAM_102,C,Li
+STEAM_102,D,He
+STEAM_103,A,H
+STEAM_103,B,Mg
+STEAM_103,C,Li
+STEAM_103,D,He
+STEAM_104,A,He
+STEAM_104,B,Al
+STEAM_104,C,Li
+STEAM_104,D,H
+STEAM_105,A,H
+STEAM_105,B,Li
+STEAM_105,C,He
+STEAM_105,D,Si
+STEAM_106,A,Li
+STEAM_106,B,P
+STEAM_106,C,H
+STEAM_106,D,He
+STEAM_107,A,Li
+STEAM_107,B,H
+STEAM_107,C,S
+STEAM_107,D,He
+STEAM_108,A,He
+STEAM_108,B,Cl
+STEAM_108,C,H
+STEAM_108,D,Li
+STEAM_109,A,Li
+STEAM_109,B,H
+STEAM_109,C,He
+STEAM_109,D,Ar
+STEAM_110,A,H
+STEAM_110,B,Li
+STEAM_110,C,K
+STEAM_110,D,He
+STEAM_111,A,Li
+STEAM_111,B,H
+STEAM_111,C,Ca
+STEAM_111,D,He
+STEAM_112,A,Fe
+STEAM_112,B,Li
+STEAM_112,C,He
+STEAM_112,D,H
+STEAM_113,A,H
+STEAM_113,B,Cu
+STEAM_113,C,He
+STEAM_113,D,Li
+STEAM_114,A,H
+STEAM_114,B,He
+STEAM_114,C,Li
+STEAM_114,D,Zn
+STEAM_115,A,He
+STEAM_115,B,Li
+STEAM_115,C,H
+STEAM_115,D,Ag
+STEAM_116,A,3
+STEAM_116,B,1
+STEAM_116,C,2
+STEAM_116,D,4
+STEAM_117,A,5
+STEAM_117,B,3
+STEAM_117,C,4
+STEAM_117,D,2
+STEAM_118,A,7
+STEAM_118,B,8
+STEAM_118,C,6
+STEAM_118,D,5
+STEAM_119,A,9
+STEAM_119,B,6
+STEAM_119,C,8
+STEAM_119,D,7
+STEAM_120,A,10
+STEAM_120,B,7
+STEAM_120,C,8
+STEAM_120,D,9
+STEAM_121,A,10
+STEAM_121,B,11
+STEAM_121,C,13
+STEAM_121,D,12
+STEAM_122,A,12
+STEAM_122,B,14
+STEAM_122,C,11
+STEAM_122,D,13
+STEAM_123,A,14
+STEAM_123,B,13
+STEAM_123,C,12
+STEAM_123,D,15
+STEAM_124,A,15
+STEAM_124,B,16
+STEAM_124,C,14
+STEAM_124,D,13
+STEAM_125,A,14
+STEAM_125,B,16
+STEAM_125,C,15
+STEAM_125,D,17
+STEAM_126,A,15
+STEAM_126,B,18
+STEAM_126,C,16
+STEAM_126,D,17
+STEAM_127,A,19
+STEAM_127,B,17
+STEAM_127,C,18
+STEAM_127,D,16
+STEAM_128,A,20
+STEAM_128,B,17
+STEAM_128,C,18
+STEAM_128,D,19
+STEAM_129,A,19
+STEAM_129,B,18
+STEAM_129,C,20
+STEAM_129,D,21
+STEAM_130,A,22
+STEAM_130,B,19
+STEAM_130,C,21
+STEAM_130,D,20
+STEAM_131,A,CO2
+STEAM_131,B,NH3
+STEAM_131,C,CH4
+STEAM_131,D,CaCO3
+STEAM_132,A,CH4
+STEAM_132,B,CO2
+STEAM_132,C,CaCO3
+STEAM_132,D,NH3
+STEAM_133,A,CH4
+STEAM_133,B,CaCO3
+STEAM_133,C,NH3
+STEAM_133,D,CO2
+STEAM_134,A,NH3
+STEAM_134,B,CO2
+STEAM_134,C,CH4
+STEAM_134,D,CaCO3
+STEAM_135,A,NaHCO3
+STEAM_135,B,CO2
+STEAM_135,C,CH4
+STEAM_135,D,NH3
+STEAM_136,A,CO2
+STEAM_136,B,HCl
+STEAM_136,C,NH3
+STEAM_136,D,CH4
+STEAM_137,A,CO2
+STEAM_137,B,H2SO4
+STEAM_137,C,NH3
+STEAM_137,D,CH4
+STEAM_138,A,CH4
+STEAM_138,B,CO2
+STEAM_138,C,HNO3
+STEAM_138,D,NH3
+STEAM_139,A,CO2
+STEAM_139,B,CH4
+STEAM_139,C,NH3
+STEAM_139,D,NaOH
+STEAM_140,A,CH4
+STEAM_140,B,Ca(OH)2
+STEAM_140,C,CO2
+STEAM_140,D,NH3
+STEAM_141,A,C6H12O6
+STEAM_141,B,CO2
+STEAM_141,C,CH4
+STEAM_141,D,NH3
+STEAM_142,A,CH4
+STEAM_142,B,CO2
+STEAM_142,C,NH3
+STEAM_142,D,O2
+STEAM_143,A,O3
+STEAM_143,B,CO2
+STEAM_143,C,CH4
+STEAM_143,D,NH3
+STEAM_144,A,H2O2
+STEAM_144,B,CH4
+STEAM_144,C,CO2
+STEAM_144,D,NH3
+STEAM_145,A,NH3
+STEAM_145,B,CH4
+STEAM_145,C,C2H5OH
+STEAM_145,D,CO2
+STEAM_146,A,basic
+STEAM_146,B,acidic
+STEAM_146,C,neutral
+STEAM_146,D,metallic
+STEAM_147,A,metallic
+STEAM_147,B,acidic
+STEAM_147,C,basic
+STEAM_147,D,neutral
+STEAM_148,A,metallic
+STEAM_148,B,acidic
+STEAM_148,C,basic
+STEAM_148,D,neutral
+STEAM_149,A,acidic
+STEAM_149,B,basic
+STEAM_149,C,neutral
+STEAM_149,D,metallic
+STEAM_150,A,acidic
+STEAM_150,B,neutral
+STEAM_150,C,basic
+STEAM_150,D,metallic
+STEAM_151,A,acidic
+STEAM_151,B,metallic
+STEAM_151,C,neutral
+STEAM_151,D,basic
+STEAM_152,A,insoluble
+STEAM_152,B,basic
+STEAM_152,C,neutral
+STEAM_152,D,acidic
+STEAM_153,A,basic
+STEAM_153,B,acidic
+STEAM_153,C,insoluble
+STEAM_153,D,neutral
+STEAM_154,A,neutral
+STEAM_154,B,acidic
+STEAM_154,C,insoluble
+STEAM_154,D,basic
+STEAM_155,A,insoluble
+STEAM_155,B,neutral
+STEAM_155,C,basic
+STEAM_155,D,acidic
+STEAM_156,A,acidic
+STEAM_156,B,neutral
+STEAM_156,C,insoluble
+STEAM_156,D,basic
+STEAM_157,A,acidic
+STEAM_157,B,basic
+STEAM_157,C,neutral
+STEAM_157,D,insoluble
+STEAM_158,A,basic
+STEAM_158,B,neutral
+STEAM_158,C,acidic
+STEAM_158,D,highly corrosive
+STEAM_159,A,2 mol
+STEAM_159,B,0.5 mol
+STEAM_159,C,648 mol
+STEAM_159,D,3 mol
+STEAM_160,A,3 mol
+STEAM_160,B,0.5 mol
+STEAM_160,C,2 mol
+STEAM_160,D,3872 mol
+STEAM_161,A,0.5 mol
+STEAM_161,B,3 mol
+STEAM_161,C,6844.5 mol
+STEAM_161,D,2 mol
+STEAM_162,A,2 mol
+STEAM_162,B,3 mol
+STEAM_162,C,0.5 mol
+STEAM_162,D,2048 mol
+STEAM_163,A,1568 mol
+STEAM_163,B,3 mol
+STEAM_163,C,0.5 mol
+STEAM_163,D,2 mol
+STEAM_164,A,decomposition reaction
+STEAM_164,B,neutralisation reaction
+STEAM_164,C,displacement reaction
+STEAM_164,D,combination reaction
+STEAM_165,A,decomposition reaction
+STEAM_165,B,combination reaction
+STEAM_165,C,precipitation reaction
+STEAM_165,D,double displacement reaction
+STEAM_166,A,displacement reaction
+STEAM_166,B,combination reaction
+STEAM_166,C,decomposition reaction
+STEAM_166,D,neutralisation reaction
+STEAM_167,A,combination reaction
+STEAM_167,B,displacement reaction
+STEAM_167,C,neutralisation reaction
+STEAM_167,D,thermal decomposition
+STEAM_168,A,decomposition reaction
+STEAM_168,B,double displacement reaction
+STEAM_168,C,combination reaction
+STEAM_168,D,redox-free reaction
+STEAM_169,A,mitochondria
+STEAM_169,B,ribosome
+STEAM_169,C,cell wall
+STEAM_169,D,vacuole
+STEAM_170,A,cell wall
+STEAM_170,B,plasma membrane
+STEAM_170,C,nucleus
+STEAM_170,D,centrosome
+STEAM_171,A,parenchyma
+STEAM_171,B,phloem
+STEAM_171,C,epidermis
+STEAM_171,D,xylem
+STEAM_172,A,phloem
+STEAM_172,B,cork
+STEAM_172,C,collenchyma
+STEAM_172,D,xylem
+STEAM_173,A,cerebrum
+STEAM_173,B,cerebellum
+STEAM_173,C,spinal cord
+STEAM_173,D,medulla
+STEAM_174,A,haemoglobin
+STEAM_174,B,white blood cells
+STEAM_174,C,platelets
+STEAM_174,D,plasma
+STEAM_175,A,stomach
+STEAM_175,B,small intestine
+STEAM_175,C,large intestine
+STEAM_175,D,oesophagus
+STEAM_176,A,lipase
+STEAM_176,B,trypsin
+STEAM_176,C,amylase
+STEAM_176,D,pepsin
+STEAM_177,A,glomerulus
+STEAM_177,B,collecting duct
+STEAM_177,C,ureter
+STEAM_177,D,renal pelvis
+STEAM_178,A,adrenaline
+STEAM_178,B,thyroxine
+STEAM_178,C,insulin
+STEAM_178,D,growth hormone
+STEAM_179,A,sepal
+STEAM_179,B,ovary
+STEAM_179,C,anther
+STEAM_179,D,style
+STEAM_180,A,ovule
+STEAM_180,B,anther
+STEAM_180,C,stigma
+STEAM_180,D,petal
+STEAM_181,A,DNA
+STEAM_181,B,fat
+STEAM_181,C,starch
+STEAM_181,D,cellulose
+STEAM_182,A,tissue
+STEAM_182,B,gene
+STEAM_182,C,organ
+STEAM_182,D,enzyme
+STEAM_183,A,budding
+STEAM_183,B,mitosis
+STEAM_183,C,meiosis
+STEAM_183,D,binary fission
+STEAM_184,A,cross-pollination
+STEAM_184,B,asexual reproduction
+STEAM_184,C,sexual reproduction
+STEAM_184,D,fertilisation
+STEAM_185,A,scurvy
+STEAM_185,B,goitre
+STEAM_185,C,rickets
+STEAM_185,D,anaemia
+STEAM_186,A,night blindness
+STEAM_186,B,goitre
+STEAM_186,C,beriberi
+STEAM_186,D,scurvy
+STEAM_187,A,Rhizobium
+STEAM_187,B,Yeast
+STEAM_187,C,Lactobacillus
+STEAM_187,D,Plasmodium
+STEAM_188,A,honeybee
+STEAM_188,B,housefly
+STEAM_188,C,Culex mosquito
+STEAM_188,D,Aedes mosquito
+STEAM_189,A,nitrogen
+STEAM_189,B,oxygen
+STEAM_189,C,methane
+STEAM_189,D,carbon dioxide
+STEAM_190,A,nasal cavity
+STEAM_190,B,larynx
+STEAM_190,C,trachea
+STEAM_190,D,lungs
+STEAM_191,A,insulin
+STEAM_191,B,chlorophyll
+STEAM_191,C,haemoglobin
+STEAM_191,D,melanin
+STEAM_192,A,liver
+STEAM_192,B,stomach
+STEAM_192,C,pancreas
+STEAM_192,D,kidney
+STEAM_193,A,gall bladder
+STEAM_193,B,appendix
+STEAM_193,C,liver
+STEAM_193,D,spleen
+STEAM_194,A,fixed joint
+STEAM_194,B,pivot joint
+STEAM_194,C,hinge joint
+STEAM_194,D,ball-and-socket joint
+STEAM_195,A,lens
+STEAM_195,B,cornea
+STEAM_195,C,retina
+STEAM_195,D,iris
+STEAM_196,A,iris
+STEAM_196,B,optic nerve
+STEAM_196,C,pupil
+STEAM_196,D,retina
+STEAM_197,A,xylem
+STEAM_197,B,phloem
+STEAM_197,C,epidermis
+STEAM_197,D,meristematic tissue
+STEAM_198,A,Protista
+STEAM_198,B,Plantae
+STEAM_198,C,Fungi
+STEAM_198,D,Monera
+STEAM_199,A,stem node
+STEAM_199,B,seed coat
+STEAM_199,C,leaf
+STEAM_199,D,root
+STEAM_200,A,root
+STEAM_200,B,seed coat
+STEAM_200,C,stem node
+STEAM_200,D,leaf
+STEAM_201,A,leaf
+STEAM_201,B,root
+STEAM_201,C,stem node
+STEAM_201,D,seed coat
+STEAM_202,A,root
+STEAM_202,B,seed coat
+STEAM_202,C,leaf
+STEAM_202,D,stem node
+STEAM_203,A,stem node
+STEAM_203,B,leaf
+STEAM_203,C,seed coat
+STEAM_203,D,root
+STEAM_204,A,seed coat
+STEAM_204,B,stem node
+STEAM_204,C,root
+STEAM_204,D,leaf
+STEAM_205,A,root
+STEAM_205,B,leaf
+STEAM_205,C,stem node
+STEAM_205,D,seed coat
+STEAM_206,A,root
+STEAM_206,B,seed coat
+STEAM_206,C,stem node
+STEAM_206,D,leaf
+STEAM_207,A,seed coat
+STEAM_207,B,root
+STEAM_207,C,stem node
+STEAM_207,D,leaf
+STEAM_208,A,root
+STEAM_208,B,seed coat
+STEAM_208,C,stem node
+STEAM_208,D,leaf
+STEAM_209,A,circulation
+STEAM_209,B,photosynthesis
+STEAM_209,C,water conduction
+STEAM_209,D,pollen formation
+STEAM_210,A,water conduction
+STEAM_210,B,photosynthesis
+STEAM_210,C,respiration
+STEAM_210,D,pollen formation
+STEAM_211,A,water conduction
+STEAM_211,B,pollen formation
+STEAM_211,C,photosynthesis
+STEAM_211,D,digestion
+STEAM_212,A,water conduction
+STEAM_212,B,pollen formation
+STEAM_212,C,photosynthesis
+STEAM_212,D,excretion
+STEAM_213,A,photosynthesis
+STEAM_213,B,coordination
+STEAM_213,C,pollen formation
+STEAM_213,D,water conduction
+STEAM_214,A,pollen formation
+STEAM_214,B,photosynthesis
+STEAM_214,C,bile production
+STEAM_214,D,water conduction
+STEAM_215,A,protection
+STEAM_215,B,pollen formation
+STEAM_215,C,photosynthesis
+STEAM_215,D,water conduction
+STEAM_216,A,water conduction
+STEAM_216,B,absorption of digested food
+STEAM_216,C,photosynthesis
+STEAM_216,D,pollen formation
+STEAM_217,A,water conduction
+STEAM_217,B,pollen formation
+STEAM_217,C,photosynthesis
+STEAM_217,D,insulin secretion
+STEAM_218,A,sperm production
+STEAM_218,B,pollen formation
+STEAM_218,C,water conduction
+STEAM_218,D,photosynthesis
+STEAM_219,A,water conduction
+STEAM_219,B,photosynthesis
+STEAM_219,C,egg production
+STEAM_219,D,pollen formation
+STEAM_220,A,water conduction
+STEAM_220,B,photosynthesis
+STEAM_220,C,blood cell formation
+STEAM_220,D,pollen formation
+STEAM_221,A,producer
+STEAM_221,B,primary consumer
+STEAM_221,C,non-living factor
+STEAM_221,D,decomposer
+STEAM_222,A,primary consumer
+STEAM_222,B,non-living factor
+STEAM_222,C,producer
+STEAM_222,D,secondary consumer
+STEAM_223,A,producer
+STEAM_223,B,non-living factor
+STEAM_223,C,primary consumer
+STEAM_223,D,secondary consumer
+STEAM_224,A,primary consumer
+STEAM_224,B,producer
+STEAM_224,C,non-living factor
+STEAM_224,D,decomposer
+STEAM_225,A,decomposer
+STEAM_225,B,producer
+STEAM_225,C,primary consumer
+STEAM_225,D,non-living factor
+STEAM_226,A,primary consumer
+STEAM_226,B,producer
+STEAM_226,C,secondary consumer
+STEAM_226,D,non-living factor
+STEAM_227,A,producer
+STEAM_227,B,primary consumer
+STEAM_227,C,top consumer
+STEAM_227,D,non-living factor
+STEAM_228,A,non-living factor
+STEAM_228,B,producer
+STEAM_228,C,decomposer
+STEAM_228,D,primary consumer
+STEAM_229,A,because of inertia of motion
+STEAM_229,B,because friction becomes zero
+STEAM_229,C,because mass becomes less
+STEAM_229,D,because gravity disappears
+STEAM_230,A,red
+STEAM_230,B,violet
+STEAM_230,C,blue
+STEAM_230,D,green
+STEAM_231,A,speaker
+STEAM_231,B,solar cell
+STEAM_231,C,battery
+STEAM_231,D,dynamo
+STEAM_232,A,cell
+STEAM_232,B,bulb
+STEAM_232,C,fuse
+STEAM_232,D,motor
+STEAM_233,A,frequency
+STEAM_233,B,resistance
+STEAM_233,C,force
+STEAM_233,D,pressure
+STEAM_234,A,to increase melting point
+STEAM_234,B,to reduce gravity
+STEAM_234,C,to increase friction with the road
+STEAM_234,D,to decrease mass
+STEAM_235,A,convex lens
+STEAM_235,B,cylindrical magnet
+STEAM_235,C,concave lens
+STEAM_235,D,plane glass
+STEAM_236,A,opaque lens
+STEAM_236,B,plane mirror
+STEAM_236,C,convex lens
+STEAM_236,D,concave lens
+STEAM_237,A,35°
+STEAM_237,B,55°
+STEAM_237,C,0°
+STEAM_237,D,70°
+STEAM_238,A,power
+STEAM_238,B,work
+STEAM_238,C,density
+STEAM_238,D,pressure
+STEAM_239,A,pascal
+STEAM_239,B,joule
+STEAM_239,C,tesla
+STEAM_239,D,newton
+STEAM_240,A,joule
+STEAM_240,B,ohm
+STEAM_240,C,watt
+STEAM_240,D,volt
+STEAM_241,A,current increases
+STEAM_241,B,current is unchanged
+STEAM_241,C,current decreases
+STEAM_241,D,current becomes infinite
+STEAM_242,A,X-rays
+STEAM_242,B,infrared radiation
+STEAM_242,C,ultraviolet radiation
+STEAM_242,D,gamma rays
+STEAM_243,A,pulley
+STEAM_243,B,inclined plane
+STEAM_243,C,lever
+STEAM_243,D,screw
+STEAM_244,A,0 m/s²
+STEAM_244,B,cannot be zero
+STEAM_244,C,1 m/s²
+STEAM_244,D,9.8 m/s²
+STEAM_245,A,the warmest object
+STEAM_245,B,the object with greatest mass
+STEAM_245,C,the object with greatest speed only
+STEAM_245,D,the brightest object
+STEAM_246,A,weak magnetism
+STEAM_246,B,low pressure
+STEAM_246,C,low temperature
+STEAM_246,D,excess current
+STEAM_247,A,resistance
+STEAM_247,B,voltage
+STEAM_247,C,power rating
+STEAM_247,D,current
+STEAM_248,A,current
+STEAM_248,B,resistance
+STEAM_248,C,voltage
+STEAM_248,D,charge stored
+STEAM_249,A,hydrogen
+STEAM_249,B,nitrogen
+STEAM_249,C,carbon dioxide
+STEAM_249,D,oxygen
+STEAM_250,A,metal and oxygen
+STEAM_250,B,sugar and oxygen
+STEAM_250,C,sand and water
+STEAM_250,D,salt and water
+STEAM_251,A,carbon
+STEAM_251,B,bromine
+STEAM_251,C,sulfur
+STEAM_251,D,iodine
+STEAM_252,A,mercury
+STEAM_252,B,aluminium
+STEAM_252,C,iron
+STEAM_252,D,sodium
+STEAM_253,A,oxygen
+STEAM_253,B,carbon dioxide
+STEAM_253,C,helium
+STEAM_253,D,nitrogen
+STEAM_254,A,hydrogen
+STEAM_254,B,helium
+STEAM_254,C,carbon monoxide
+STEAM_254,D,chlorine
+STEAM_255,A,citric acid
+STEAM_255,B,lactic acid
+STEAM_255,C,hydrochloric acid
+STEAM_255,D,acetic acid
+STEAM_256,A,acetic acid
+STEAM_256,B,citric acid
+STEAM_256,C,nitric acid
+STEAM_256,D,sulfuric acid
+STEAM_257,A,ammonium hydroxide
+STEAM_257,B,magnesium hydroxide
+STEAM_257,C,sodium hydroxide
+STEAM_257,D,calcium hydroxide
+STEAM_258,A,sodium chloride
+STEAM_258,B,calcium sulphate
+STEAM_258,C,potassium chloride
+STEAM_258,D,sodium bicarbonate
+STEAM_259,A,water
+STEAM_259,B,helium
+STEAM_259,C,nitrogen
+STEAM_259,D,sand
+STEAM_260,A,filtration
+STEAM_260,B,sieving only
+STEAM_260,C,magnetic separation
+STEAM_260,D,evaporation
+STEAM_261,A,distillation
+STEAM_261,B,filtration
+STEAM_261,C,magnetisation
+STEAM_261,D,sedimentation
+STEAM_262,A,sublimation
+STEAM_262,B,condensation only
+STEAM_262,C,evaporation
+STEAM_262,D,chromatography
+STEAM_263,A,methyl orange
+STEAM_263,B,litmus
+STEAM_263,C,universal indicator
+STEAM_263,D,phenolphthalein
+STEAM_264,A,alkali metals
+STEAM_264,B,halogens
+STEAM_264,C,noble gases
+STEAM_264,D,alkaline earth metals
+STEAM_265,A,neutron
+STEAM_265,B,electron
+STEAM_265,C,nucleon
+STEAM_265,D,proton
+STEAM_266,A,electrons and protons
+STEAM_266,B,electrons only
+STEAM_266,C,neutrons and electrons
+STEAM_266,D,protons and neutrons
+STEAM_267,A,melting of ice
+STEAM_267,B,burning of paper
+STEAM_267,C,curdling of milk
+STEAM_267,D,rusting of iron
+STEAM_268,A,melting wax without burning
+STEAM_268,B,cutting paper
+STEAM_268,C,burning of magnesium ribbon
+STEAM_268,D,dissolving sugar in water
+STEAM_269,A,10 J
+STEAM_269,B,7 J
+STEAM_269,C,20 J
+STEAM_269,D,2.5 J
+STEAM_270,A,30 J
+STEAM_270,B,13 J
+STEAM_270,C,60 J
+STEAM_270,D,3.33333 J
+STEAM_271,A,24 J
+STEAM_271,B,5 J
+STEAM_271,C,80 J
+STEAM_271,D,160 J
+STEAM_272,A,50 J
+STEAM_272,B,27 J
+STEAM_272,C,12.5 J
+STEAM_272,D,100 J
+STEAM_273,A,55 J
+STEAM_273,B,500 J
+STEAM_273,C,250 J
+STEAM_273,D,10 J
+STEAM_274,A,180 J
+STEAM_274,B,90 J
+STEAM_274,C,2.5 J
+STEAM_274,D,21 J
+STEAM_275,A,43 J
+STEAM_275,B,120 J
+STEAM_275,C,240 J
+STEAM_275,D,13.3333 J
+STEAM_276,A,120 J
+STEAM_276,B,30 J
+STEAM_276,C,240 J
+STEAM_276,D,62 J
+STEAM_277,A,600 J
+STEAM_277,B,79 J
+STEAM_277,C,300 J
+STEAM_277,D,18.75 J
+STEAM_278,A,20 W
+STEAM_278,B,1000 W
+STEAM_278,C,10 W
+STEAM_278,D,5 W
+STEAM_279,A,10 W
+STEAM_279,B,5 W
+STEAM_279,C,4000 W
+STEAM_279,D,20 W
+STEAM_280,A,4500 W
+STEAM_280,B,20 W
+STEAM_280,C,15 W
+STEAM_280,D,30 W
+STEAM_281,A,40 W
+STEAM_281,B,50 W
+STEAM_281,C,35 W
+STEAM_281,D,4000 W
+STEAM_282,A,20 W
+STEAM_282,B,30 W
+STEAM_282,C,12500 W
+STEAM_282,D,15 W
+STEAM_283,A,30 W
+STEAM_283,B,15 W
+STEAM_283,C,18000 W
+STEAM_283,D,20 W
+STEAM_284,A,50 W
+STEAM_284,B,45 W
+STEAM_284,C,11250 W
+STEAM_284,D,60 W
+STEAM_285,A,40 W
+STEAM_285,B,25 W
+STEAM_285,C,27000 W
+STEAM_285,D,30 W
+STEAM_286,A,30 W
+STEAM_286,B,20 W
+STEAM_286,C,50000 W
+STEAM_286,D,15 W
+STEAM_287,A,20 W
+STEAM_287,B,15 W
+STEAM_287,C,30 W
+STEAM_287,D,72000 W
+STEAM_288,A,5 Pa
+STEAM_288,B,20 Pa
+STEAM_288,C,10 Pa
+STEAM_288,D,3 Pa
+STEAM_289,A,10 Pa
+STEAM_289,B,80 Pa
+STEAM_289,C,3 Pa
+STEAM_289,D,5 Pa
+STEAM_290,A,10 Pa
+STEAM_290,B,15 Pa
+STEAM_290,C,8 Pa
+STEAM_290,D,250 Pa
+STEAM_291,A,1000 Pa
+STEAM_291,B,15 Pa
+STEAM_291,C,10 Pa
+STEAM_291,D,8 Pa
+STEAM_292,A,23 Pa
+STEAM_292,B,25 Pa
+STEAM_292,C,30 Pa
+STEAM_292,D,225 Pa
+STEAM_293,A,720 Pa
+STEAM_293,B,20 Pa
+STEAM_293,C,18 Pa
+STEAM_293,D,25 Pa
+STEAM_294,A,4000 Pa
+STEAM_294,B,15 Pa
+STEAM_294,C,10 Pa
+STEAM_294,D,8 Pa
+STEAM_295,A,15 Pa
+STEAM_295,B,8 Pa
+STEAM_295,C,810 Pa
+STEAM_295,D,10 Pa
+STEAM_296,A,20 Pa
+STEAM_296,B,25 Pa
+STEAM_296,C,18 Pa
+STEAM_296,D,1280 Pa
+STEAM_297,A,20 Pa
+STEAM_297,B,18 Pa
+STEAM_297,C,4500 Pa
+STEAM_297,D,25 Pa
+STEAM_298,A,vitamin D
+STEAM_298,B,vitamin C
+STEAM_298,C,vitamin A
+STEAM_298,D,vitamin K
+STEAM_299,A,vitamin B12
+STEAM_299,B,vitamin K
+STEAM_299,C,vitamin C
+STEAM_299,D,vitamin A
+STEAM_300,A,calcium
+STEAM_300,B,sodium
+STEAM_300,C,iron
+STEAM_300,D,iodine
+STEAM_301,A,calcium
+STEAM_301,B,chlorine
+STEAM_301,C,iron
+STEAM_301,D,potassium
+STEAM_302,A,MMR
+STEAM_302,B,OPV
+STEAM_302,C,DPT
+STEAM_302,D,BCG
+STEAM_303,A,housefly
+STEAM_303,B,Aedes mosquito
+STEAM_303,C,female Anopheles mosquito
+STEAM_303,D,rat flea
+STEAM_304,A,plumule
+STEAM_304,B,cotyledon
+STEAM_304,C,radicle
+STEAM_304,D,testa
+STEAM_305,A,radicle
+STEAM_305,B,stigma
+STEAM_305,C,plumule
+STEAM_305,D,anther
+STEAM_306,A,lymph vessel
+STEAM_306,B,artery
+STEAM_306,C,capillary
+STEAM_306,D,vein
+STEAM_307,A,capillary
+STEAM_307,B,artery
+STEAM_307,C,vein
+STEAM_307,D,tracheid
+STEAM_308,A,left atrium
+STEAM_308,B,right ventricle
+STEAM_308,C,right atrium
+STEAM_308,D,left ventricle
+STEAM_309,A,left ventricle
+STEAM_309,B,right atrium
+STEAM_309,C,left atrium
+STEAM_309,D,right ventricle
+STEAM_310,A,stomach
+STEAM_310,B,oesophagus
+STEAM_310,C,large intestine
+STEAM_310,D,mouth
+STEAM_311,A,ribosome
+STEAM_311,B,mitochondrion
+STEAM_311,C,chloroplast
+STEAM_311,D,lysosome
+STEAM_312,A,pollination
+STEAM_312,B,photosynthesis
+STEAM_312,C,transpiration
+STEAM_312,D,cellular respiration
+STEAM_313,A,germination
+STEAM_313,B,digestion
+STEAM_313,C,fertilisation
+STEAM_313,D,transpiration
+STEAM_314,A,oxygen
+STEAM_314,B,carbon dioxide
+STEAM_314,C,nitrogen
+STEAM_314,D,ozone
+STEAM_315,A,cochlea
+STEAM_315,B,retina
+STEAM_315,C,cerebrum
+STEAM_315,D,spinal cord
+STEAM_316,A,ear
+STEAM_316,B,eye
+STEAM_316,C,tongue
+STEAM_316,D,skin
+STEAM_317,A,nephrons
+STEAM_317,B,villi
+STEAM_317,C,alveoli
+STEAM_317,D,taste buds
+STEAM_318,A,5%
+STEAM_318,B,5.26316%
+STEAM_318,C,3%
+STEAM_318,D,10%
+STEAM_319,A,11.1111%
+STEAM_319,B,8%
+STEAM_319,C,15%
+STEAM_319,D,10%
+STEAM_320,A,10%
+STEAM_320,B,8%
+STEAM_320,C,15%
+STEAM_320,D,11.1111%
+STEAM_321,A,23%
+STEAM_321,B,25%
+STEAM_321,C,30%
+STEAM_321,D,33.3333%
+STEAM_322,A,11.1111%
+STEAM_322,B,15%
+STEAM_322,C,10%
+STEAM_322,D,8%
+STEAM_323,A,15%
+STEAM_323,B,11.1111%
+STEAM_323,C,10%
+STEAM_323,D,8%
+STEAM_324,A,15%
+STEAM_324,B,11.1111%
+STEAM_324,C,8%
+STEAM_324,D,10%
+STEAM_325,A,Plantae
+STEAM_325,B,Fungi
+STEAM_325,C,Monera
+STEAM_325,D,Protista
+STEAM_326,A,Plantae
+STEAM_326,B,Fungi
+STEAM_326,C,Monera
+STEAM_326,D,Protista
+STEAM_327,A,Monera
+STEAM_327,B,Plantae
+STEAM_327,C,Fungi
+STEAM_327,D,Protista
+STEAM_328,A,Fungi
+STEAM_328,B,Protista
+STEAM_328,C,Plantae
+STEAM_328,D,Monera
+STEAM_329,A,Fungi
+STEAM_329,B,Monera
+STEAM_329,C,Protista
+STEAM_329,D,Animalia
+STEAM_330,A,Protista
+STEAM_330,B,Fungi
+STEAM_330,C,Plantae
+STEAM_330,D,Monera
+STEAM_331,A,Protista
+STEAM_331,B,Fungi
+STEAM_331,C,Plantae
+STEAM_331,D,Monera
+STEAM_332,A,Fungi
+STEAM_332,B,Monera
+STEAM_332,C,Protista
+STEAM_332,D,Plantae
+STEAM_333,A,Protista
+STEAM_333,B,Plantae
+STEAM_333,C,Monera
+STEAM_333,D,Fungi
+STEAM_334,A,Fungi
+STEAM_334,B,Protista
+STEAM_334,C,Monera
+STEAM_334,D,Animalia
+STEAM_335,A,higher pressure raises the boiling point of water
+STEAM_335,B,lower pressure freezes water
+STEAM_335,C,food becomes weightless
+STEAM_335,D,steam removes all heat
+STEAM_336,A,refraction of light
+STEAM_336,B,evaporation
+STEAM_336,C,reflection only
+STEAM_336,D,magnetism
+STEAM_337,A,light travels faster than sound
+STEAM_337,B,clouds block sound completely
+STEAM_337,C,rain reflects light
+STEAM_337,D,sound travels faster than light
+STEAM_338,A,to reduce electric current
+STEAM_338,B,to increase gravity
+STEAM_338,C,to stop condensation
+STEAM_338,D,to allow thermal expansion
+STEAM_339,A,it reacts vigorously with air and water
+STEAM_339,B,it dissolves in kerosene
+STEAM_339,C,it is magnetic
+STEAM_339,D,it is a noble gas
+STEAM_340,A,it turns into salt
+STEAM_340,B,it is highly flammable
+STEAM_340,C,it does not support combustion
+STEAM_340,D,it increases oxygen supply
+STEAM_341,A,they are gases
+STEAM_341,B,they are non-metals
+STEAM_341,C,they are very unreactive
+STEAM_341,D,they dissolve easily in water
+STEAM_342,A,melting of copper
+STEAM_342,B,formation of basic copper carbonate
+STEAM_342,C,formation of sodium chloride
+STEAM_342,D,evaporation of copper
+STEAM_343,A,to produce bile
+STEAM_343,B,to filter urine
+STEAM_343,C,to absorb digested nutrients efficiently
+STEAM_343,D,to crush food
+STEAM_344,A,to absorb sound
+STEAM_344,B,to reduce water loss
+STEAM_344,C,to attract soil bacteria
+STEAM_344,D,to increase transpiration
+STEAM_345,A,it receives air directly
+STEAM_345,B,it filters blood
+STEAM_345,C,it stores bile
+STEAM_345,D,it pumps blood to the whole body
+STEAM_346,A,they create sunlight
+STEAM_346,B,they recycle nutrients
+STEAM_346,C,they produce all oxygen
+STEAM_346,D,they stop photosynthesis
+STEAM_347,A,nephrons
+STEAM_347,B,alveoli
+STEAM_347,C,stomata
+STEAM_347,D,villi
+STEAM_348,A,xylem
+STEAM_348,B,stomata only
+STEAM_348,C,moist skin
+STEAM_348,D,kidney
+STEAM_349,A,living organisms interacting with non-living surroundings
+STEAM_349,B,a sequence showing transfer of food energy
+STEAM_349,C,a feature that helps survival
+STEAM_349,D,the natural home of an organism
+STEAM_350,A,two or more atoms chemically bonded
+STEAM_350,B,pure substance made of two or more elements chemically combined
+STEAM_350,C,smallest unit of an element that retains its properties
+STEAM_350,D,pure substance made of one kind of atom
+STEAM_351,A,6 m
+STEAM_351,B,5 m
+STEAM_351,C,1 m
+STEAM_351,D,1.5 m
+STEAM_352,A,9 g/cm³
+STEAM_352,B,0.5 g/cm³
+STEAM_352,C,20 g/cm³
+STEAM_352,D,0.8 g/cm³
+STEAM_353,A,it can be separated by physical methods
+STEAM_353,B,it is always a pure compound
+STEAM_353,C,it cannot be separated
+STEAM_353,D,it has a fixed chemical formula
+STEAM_354,A,it turns blue
+STEAM_354,B,it turns green permanently
+STEAM_354,C,it becomes colourless
+STEAM_354,D,it turns red
+STEAM_355,A,it produces oxygen
+STEAM_355,B,it turns red
+STEAM_355,C,it turns black
+STEAM_355,D,it turns blue
+STEAM_356,A,alveoli
+STEAM_356,B,villi
+STEAM_356,C,nephrons
+STEAM_356,D,stomata
+STEAM_357,A,a feature that helps survival
+STEAM_357,B,the natural home of an organism
+STEAM_357,C,living organisms interacting with non-living surroundings
+STEAM_357,D,a sequence showing transfer of food energy
+STEAM_358,A,two or more atoms chemically bonded
+STEAM_358,B,pure substance made of one kind of atom
+STEAM_358,C,pure substance made of two or more elements chemically combined
+STEAM_358,D,smallest unit of an element that retains its properties
+STEAM_359,A,14 m
+STEAM_359,B,40 m
+STEAM_359,C,6 m
+STEAM_359,D,2.5 m
+STEAM_360,A,30 g/cm³
+STEAM_360,B,2 g/cm³
+STEAM_360,C,200 g/cm³
+STEAM_360,D,1 g/cm³
+STEAM_361,A,it has a fixed chemical formula
+STEAM_361,B,it can be separated by physical methods
+STEAM_361,C,it is always a pure compound
+STEAM_361,D,it cannot be separated
+STEAM_362,A,it produces oxygen
+STEAM_362,B,it turns black
+STEAM_362,C,it turns red
+STEAM_362,D,it turns blue
+STEAM_363,A,stomata only
+STEAM_363,B,xylem
+STEAM_363,C,kidney
+STEAM_363,D,skin and lungs
+STEAM_364,A,2 m
+STEAM_364,B,1.66667 m
+STEAM_364,C,8 m
+STEAM_364,D,15 m
+STEAM_365,A,20 g/cm³
+STEAM_365,B,4 g/cm³
+STEAM_365,C,12 g/cm³
+STEAM_365,D,5 g/cm³
+STEAM_366,A,it cannot be separated
+STEAM_366,B,it is always a pure compound
+STEAM_366,C,it can be separated by physical methods
+STEAM_366,D,it has a fixed chemical formula
+STEAM_367,A,it becomes colourless
+STEAM_367,B,it turns red
+STEAM_367,C,it turns green permanently
+STEAM_367,D,it turns blue
+STEAM_368,A,it turns red
+STEAM_368,B,it turns blue
+STEAM_368,C,it turns black
+STEAM_368,D,it produces oxygen
+STEAM_369,A,stomata
+STEAM_369,B,nephrons
+STEAM_369,C,villi
+STEAM_369,D,alveoli
+STEAM_370,A,stomata only
+STEAM_370,B,kidney
+STEAM_370,C,xylem
+STEAM_370,D,lungs
+STEAM_371,A,the natural home of an organism
+STEAM_371,B,a sequence showing transfer of food energy
+STEAM_371,C,living organisms interacting with non-living surroundings
+STEAM_371,D,variety of living organisms in an area
+STEAM_372,A,two or more atoms chemically bonded
+STEAM_372,B,smallest unit of an element that retains its properties
+STEAM_372,C,pure substance made of one kind of atom
+STEAM_372,D,pure substance made of two or more elements chemically combined
+STEAM_373,A,0.5 g/cm³
+STEAM_373,B,22 g/cm³
+STEAM_373,C,1.2 g/cm³
+STEAM_373,D,120 g/cm³
+STEAM_374,A,it can be separated by physical methods
+STEAM_374,B,it cannot be separated
+STEAM_374,C,it is always a pure compound
+STEAM_374,D,it has a fixed chemical formula
+STEAM_375,A,it turns blue
+STEAM_375,B,it becomes colourless
+STEAM_375,C,it turns red
+STEAM_375,D,it turns green permanently
+STEAM_376,A,stomata
+STEAM_376,B,alveoli
+STEAM_376,C,villi
+STEAM_376,D,nephrons
+STEAM_377,A,kidney
+STEAM_377,B,stomata only
+STEAM_377,C,xylem
+STEAM_377,D,tracheal system
+STEAM_378,A,a feature that helps survival
+STEAM_378,B,the natural home of an organism
+STEAM_378,C,a sequence showing transfer of food energy
+STEAM_378,D,living organisms interacting with non-living surroundings
+STEAM_379,A,7 m
+STEAM_379,B,0.75 m
+STEAM_379,C,12 m
+STEAM_379,D,1 m
+STEAM_380,A,60 g/cm³
+STEAM_380,B,3.75 g/cm³
+STEAM_380,C,19 g/cm³
+STEAM_380,D,2.75 g/cm³
+STEAM_381,A,it turns red
+STEAM_381,B,it turns green permanently
+STEAM_381,C,it becomes colourless
+STEAM_381,D,it turns blue
+STEAM_382,A,smallest unit of an element that retains its properties
+STEAM_382,B,pure substance made of two or more elements chemically combined
+STEAM_382,C,pure substance made of one kind of atom
+STEAM_382,D,two or more atoms chemically bonded
+STEAM_383,A,9 m
+STEAM_383,B,1 m
+STEAM_383,C,0.8 m
+STEAM_383,D,20 m
+STEAM_384,A,0.4 g/cm³
+STEAM_384,B,14 g/cm³
+STEAM_384,C,0.5 g/cm³
+STEAM_384,D,40 g/cm³
+STEAM_385,A,weight
+STEAM_385,B,speed
+STEAM_385,C,mass
+STEAM_385,D,density
+STEAM_386,A,potential difference
+STEAM_386,B,current
+STEAM_386,C,resistance
+STEAM_386,D,frequency
+STEAM_387,A,valency only
+STEAM_387,B,atomic number
+STEAM_387,C,mass number
+STEAM_387,D,molecular mass
+STEAM_388,A,emulsion only
+STEAM_388,B,compound only
+STEAM_388,C,suspension only
+STEAM_388,D,solution
+STEAM_389,A,germination
+STEAM_389,B,transpiration
+STEAM_389,C,respiration
+STEAM_389,D,photosynthesis
+STEAM_390,A,organism
+STEAM_390,B,atom
+STEAM_390,C,tissue
+STEAM_390,D,ecosystem
+STEAM_391,A,mass
+STEAM_391,B,weight
+STEAM_391,C,density
+STEAM_391,D,speed
+STEAM_392,A,resistance
+STEAM_392,B,current
+STEAM_392,C,frequency
+STEAM_392,D,potential difference
+STEAM_393,A,valency only
+STEAM_393,B,molecular mass
+STEAM_393,C,atomic number
+STEAM_393,D,mass number
+STEAM_394,A,emulsion only
+STEAM_394,B,solution
+STEAM_394,C,suspension only
+STEAM_394,D,compound only
+STEAM_395,A,germination
+STEAM_395,B,transpiration
+STEAM_395,C,respiration
+STEAM_395,D,photosynthesis
+STEAM_396,A,ecosystem
+STEAM_396,B,atom
+STEAM_396,C,tissue
+STEAM_396,D,organism
+STEAM_397,A,weight
+STEAM_397,B,speed
+STEAM_397,C,density
+STEAM_397,D,mass
+STEAM_398,A,resistance
+STEAM_398,B,frequency
+STEAM_398,C,current
+STEAM_398,D,potential difference
+STEAM_399,A,valency only
+STEAM_399,B,mass number
+STEAM_399,C,atomic number
+STEAM_399,D,molecular mass
+STEAM_400,A,emulsion only
+STEAM_400,B,compound only
+STEAM_400,C,suspension only
+STEAM_400,D,solution

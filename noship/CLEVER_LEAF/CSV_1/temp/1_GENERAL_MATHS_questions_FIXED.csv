@@ -1,0 +1,101 @@
+PublicKey,RootTaxonomy,ChildTaxonomy,questionText,questionType,difficulty,workflowStatus
+GMATH_001,CBSE,GENERAL_MATHS,Calculate 1/2 + 1/3. Write the answer in simplest form.,SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_002,CBSE,GENERAL_MATHS,Calculate 2/5 + 1/10. Write the answer in simplest form.,SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_003,CBSE,GENERAL_MATHS,Calculate 3/4 + 1/8. Write the answer in simplest form.,SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_004,CBSE,GENERAL_MATHS,Calculate 5/6 + 1/3. Write the answer in simplest form.,SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_005,CBSE,GENERAL_MATHS,Calculate 7/10 + 1/5. Write the answer in simplest form.,SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_006,CBSE,GENERAL_MATHS,Calculate 2/3 + 1/6. Write the answer in simplest form.,SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_007,CBSE,GENERAL_MATHS,Calculate 3/5 + 2/15. Write the answer in simplest form.,SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_008,CBSE,GENERAL_MATHS,Calculate 5/8 + 1/4. Write the answer in simplest form.,SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_009,CBSE,GENERAL_MATHS,Calculate 4/9 + 2/3. Write the answer in simplest form.,SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_010,CBSE,GENERAL_MATHS,Calculate 7/12 + 1/6. Write the answer in simplest form.,SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_011,CBSE,GENERAL_MATHS,Calculate 3/10 - 2/5. Write the answer in simplest form.,SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_012,CBSE,GENERAL_MATHS,Calculate 5/9 - 1/6. Write the answer in simplest form.,SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_013,CBSE,GENERAL_MATHS,Calculate 7/15 - 2/5. Write the answer in simplest form.,SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_014,CBSE,GENERAL_MATHS,Calculate 11/12 - 1/4. Write the answer in simplest form.,SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_015,CBSE,GENERAL_MATHS,Calculate 5/7 - 1/14. Write the answer in simplest form.,SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_016,CBSE,GENERAL_MATHS,What is 3.4 + 2.65?,SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_017,CBSE,GENERAL_MATHS,What is 12.8 + 4.75?,SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_018,CBSE,GENERAL_MATHS,What is 0.56 + 0.78?,SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_019,CBSE,GENERAL_MATHS,What is 9.03 + 1.97?,SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_020,CBSE,GENERAL_MATHS,What is 15.6 + 2.45?,SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_021,CBSE,GENERAL_MATHS,Subtract 3.27 from 8.5.,SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_022,CBSE,GENERAL_MATHS,Subtract 6.45 from 10.0.,SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_023,CBSE,GENERAL_MATHS,Subtract 2.8 from 7.25.,SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_024,CBSE,GENERAL_MATHS,Subtract 9.75 from 20.5.,SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_025,CBSE,GENERAL_MATHS,Subtract 1.69 from 5.04.,SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_026,CBSE,GENERAL_MATHS,What is 2.4 × 3?,SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_027,CBSE,GENERAL_MATHS,What is 1.25 × 8?,SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_028,CBSE,GENERAL_MATHS,What is 0.6 × 7?,SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_029,CBSE,GENERAL_MATHS,What is 4.5 × 2?,SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_030,CBSE,GENERAL_MATHS,What is 3.2 × 5?,SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_031,CBSE,GENERAL_MATHS,A rectangle is 8 cm long and 5 cm wide. What is its area?,SINGLE_SELECT,EASY,PRACTICE
+GMATH_032,CBSE,GENERAL_MATHS,A rectangle is 12 cm long and 7 cm wide. What is its area?,SINGLE_SELECT,EASY,PRACTICE
+GMATH_033,CBSE,GENERAL_MATHS,A rectangle is 15 cm long and 4 cm wide. What is its area?,SINGLE_SELECT,EASY,PRACTICE
+GMATH_034,CBSE,GENERAL_MATHS,A rectangle is 9 cm long and 6 cm wide. What is its area?,SINGLE_SELECT,EASY,PRACTICE
+GMATH_035,CBSE,GENERAL_MATHS,A rectangle is 14 cm long and 3 cm wide. What is its area?,SINGLE_SELECT,EASY,PRACTICE
+GMATH_036,CBSE,GENERAL_MATHS,A rectangle is 10 m long and 6 m wide. What is its perimeter?,SINGLE_SELECT,EASY,PRACTICE
+GMATH_037,CBSE,GENERAL_MATHS,A rectangle is 13 m long and 5 m wide. What is its perimeter?,SINGLE_SELECT,EASY,PRACTICE
+GMATH_038,CBSE,GENERAL_MATHS,A rectangle is 18 m long and 4 m wide. What is its perimeter?,SINGLE_SELECT,EASY,PRACTICE
+GMATH_039,CBSE,GENERAL_MATHS,A rectangle is 7 m long and 7 m wide. What is its perimeter?,SINGLE_SELECT,EASY,PRACTICE
+GMATH_040,CBSE,GENERAL_MATHS,A rectangle is 16 m long and 9 m wide. What is its perimeter?,SINGLE_SELECT,EASY,PRACTICE
+GMATH_041,CBSE,GENERAL_MATHS,A triangle has base 10 cm and height 6 cm. What is its area?,SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_042,CBSE,GENERAL_MATHS,A triangle has base 12 cm and height 5 cm. What is its area?,SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_043,CBSE,GENERAL_MATHS,A triangle has base 9 cm and height 8 cm. What is its area?,SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_044,CBSE,GENERAL_MATHS,A triangle has base 14 cm and height 7 cm. What is its area?,SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_045,CBSE,GENERAL_MATHS,A triangle has base 16 cm and height 3 cm. What is its area?,SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_046,CBSE,GENERAL_MATHS,"A rectangular prism has length 4 cm, width 3 cm, and height 5 cm. What is its volume?",SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_047,CBSE,GENERAL_MATHS,"A rectangular prism has length 6 cm, width 2 cm, and height 7 cm. What is its volume?",SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_048,CBSE,GENERAL_MATHS,"A rectangular prism has length 8 cm, width 5 cm, and height 2 cm. What is its volume?",SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_049,CBSE,GENERAL_MATHS,"A rectangular prism has length 10 cm, width 4 cm, and height 3 cm. What is its volume?",SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_050,CBSE,GENERAL_MATHS,"A rectangular prism has length 7 cm, width 6 cm, and height 5 cm. What is its volume?",SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_051,CBSE,GENERAL_MATHS,"A rectangular prism has length 9 cm, width 3 cm, and height 4 cm. What is its volume?",SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_052,CBSE,GENERAL_MATHS,"A rectangular prism has length 5 cm, width 5 cm, and height 5 cm. What is its volume?",SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_053,CBSE,GENERAL_MATHS,"A rectangular prism has length 12 cm, width 2 cm, and height 3 cm. What is its volume?",SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_054,CBSE,GENERAL_MATHS,"A rectangular prism has length 11 cm, width 4 cm, and height 2 cm. What is its volume?",SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_055,CBSE,GENERAL_MATHS,"A rectangular prism has length 6 cm, width 6 cm, and height 3 cm. What is its volume?",SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_056,CBSE,GENERAL_MATHS,Two angles form a straight line. One angle is 35°. What is the other angle?,SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_057,CBSE,GENERAL_MATHS,Two angles form a straight line. One angle is 48°. What is the other angle?,SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_058,CBSE,GENERAL_MATHS,Two angles form a straight line. One angle is 72°. What is the other angle?,SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_059,CBSE,GENERAL_MATHS,Two angles form a straight line. One angle is 105°. What is the other angle?,SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_060,CBSE,GENERAL_MATHS,Two angles form a straight line. One angle is 128°. What is the other angle?,SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_061,CBSE,GENERAL_MATHS,Two angles are complementary. One angle is 22°. What is the other angle?,SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_062,CBSE,GENERAL_MATHS,Two angles are complementary. One angle is 37°. What is the other angle?,SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_063,CBSE,GENERAL_MATHS,Two angles are complementary. One angle is 44°. What is the other angle?,SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_064,CBSE,GENERAL_MATHS,Two angles are complementary. One angle is 58°. What is the other angle?,SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_065,CBSE,GENERAL_MATHS,Two angles are complementary. One angle is 63°. What is the other angle?,SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_066,CBSE,GENERAL_MATHS,How many sides does a hexagon have?,SINGLE_SELECT,EASY,PRACTICE
+GMATH_067,CBSE,GENERAL_MATHS,What is the sum of the three interior angles of any triangle?,SINGLE_SELECT,EASY,PRACTICE
+GMATH_068,CBSE,GENERAL_MATHS,"A quadrilateral has three angles measuring 80°, 95°, and 100°. What is the fourth angle?",SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_069,CBSE,GENERAL_MATHS,How many lines of symmetry does a square have?,SINGLE_SELECT,EASY,PRACTICE
+GMATH_070,CBSE,GENERAL_MATHS,Which shape has exactly one pair of parallel sides?,SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_071,CBSE,GENERAL_MATHS,"The ratio of red marbles to blue marbles is 2:3. If there are 25 marbles in total, how many red marbles are there?",SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_072,CBSE,GENERAL_MATHS,"The ratio of red marbles to blue marbles is 3:5. If there are 40 marbles in total, how many red marbles are there?",SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_073,CBSE,GENERAL_MATHS,"The ratio of red marbles to blue marbles is 4:1. If there are 30 marbles in total, how many red marbles are there?",SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_074,CBSE,GENERAL_MATHS,"The ratio of red marbles to blue marbles is 5:7. If there are 48 marbles in total, how many red marbles are there?",SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_075,CBSE,GENERAL_MATHS,"The ratio of red marbles to blue marbles is 1:4. If there are 35 marbles in total, how many red marbles are there?",SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_076,CBSE,GENERAL_MATHS,What is 10% of 250?,SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_077,CBSE,GENERAL_MATHS,What is 25% of 80?,SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_078,CBSE,GENERAL_MATHS,What is 50% of 46?,SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_079,CBSE,GENERAL_MATHS,What is 20% of 150?,SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_080,CBSE,GENERAL_MATHS,What is 75% of 64?,SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_081,CBSE,GENERAL_MATHS,Convert 3.5 metres to centimetres.,SINGLE_SELECT,EASY,PRACTICE
+GMATH_082,CBSE,GENERAL_MATHS,Convert 2.25 kilograms to grams.,SINGLE_SELECT,EASY,PRACTICE
+GMATH_083,CBSE,GENERAL_MATHS,Convert 4500 millilitres to litres.,SINGLE_SELECT,EASY,PRACTICE
+GMATH_084,CBSE,GENERAL_MATHS,Convert 7.2 kilometres to metres.,SINGLE_SELECT,EASY,PRACTICE
+GMATH_085,CBSE,GENERAL_MATHS,Convert 125 centimetres to metres.,SINGLE_SELECT,EASY,PRACTICE
+GMATH_086,CBSE,GENERAL_MATHS,"For the data set 4, 6, 8, 10, 12, what is the mean?",SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_087,CBSE,GENERAL_MATHS,"For the data set 3, 7, 7, 9, 14, what is the median?",SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_088,CBSE,GENERAL_MATHS,"For the data set 2, 5, 5, 6, 8, 5, what is the mode?",SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_089,CBSE,GENERAL_MATHS,"For the data set 12, 15, 19, 20, 24, what is the range?",SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_090,CBSE,GENERAL_MATHS,"For the data set 10, 20, 30, 40, 50, what is the mean?",SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_091,CBSE,GENERAL_MATHS,"Find the next number in the pattern: 6, 12, 18, 24, __.",SINGLE_SELECT,EASY,PRACTICE
+GMATH_092,CBSE,GENERAL_MATHS,"Find the next number in the pattern: 3, 6, 12, 24, __.",SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_093,CBSE,GENERAL_MATHS,"If n + 15 = 42, what is n?",SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_094,CBSE,GENERAL_MATHS,"If 6 × n = 54, what is n?",SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_095,CBSE,GENERAL_MATHS,"Round 6,748 to the nearest hundred.",SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_096,CBSE,GENERAL_MATHS,Round 18.63 to the nearest whole number.,SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_097,CBSE,GENERAL_MATHS,What is the value of 7²?,SINGLE_SELECT,EASY,PRACTICE
+GMATH_098,CBSE,GENERAL_MATHS,What is the least common multiple of 6 and 8?,SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_099,CBSE,GENERAL_MATHS,What is the greatest common factor of 18 and 24?,SINGLE_SELECT,MEDIUM,PRACTICE
+GMATH_100,CBSE,GENERAL_MATHS,A shop sells pencils in packs of 8. How many pencils are in 9 packs?,SINGLE_SELECT,EASY,PRACTICE

@@ -1,0 +1,401 @@
+PublicKey,RootTaxonomy,ChildTaxonomy,questionText,questionType,difficulty,workflowStatus
+STEAM_001,CBSE,STEAM,Which instrument is used to measure temperature?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_002,CBSE,STEAM,What is the SI unit of force?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_003,CBSE,STEAM,What is the SI unit of electric current?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_004,CBSE,STEAM,Which force pulls objects toward Earth?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_005,CBSE,STEAM,Which type of energy is stored in a stretched rubber band?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_006,CBSE,STEAM,What kind of mirror is commonly used as a rear-view mirror in vehicles?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_007,CBSE,STEAM,Which part of an electric circuit opens and closes the path?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_008,CBSE,STEAM,What happens to speed if the same distance is covered in less time?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_009,CBSE,STEAM,Sound needs which of the following to travel?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_010,CBSE,STEAM,Which material is usually a good conductor of electricity?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_011,CBSE,STEAM,Which gas is most abundant in Earth’s atmosphere?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_012,CBSE,STEAM,What is the chemical formula of water?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_013,CBSE,STEAM,Which substance turns blue litmus red?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_014,CBSE,STEAM,Which process changes water vapour into liquid water?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_015,CBSE,STEAM,Which of these is a metal?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_016,CBSE,STEAM,What is common salt chemically called?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_017,CBSE,STEAM,Which gas is released when acids react with most metals?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_018,CBSE,STEAM,Which particle has a negative charge?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_019,CBSE,STEAM,What is the pH of a neutral solution at 25°C?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_020,CBSE,STEAM,Which method is used to separate sand from water?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_021,CBSE,STEAM,Which part of a plant absorbs water from soil?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_022,CBSE,STEAM,Which organ pumps blood in the human body?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_023,CBSE,STEAM,Which green pigment helps plants make food?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_024,CBSE,STEAM,Which gas do plants mainly take in during photosynthesis?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_025,CBSE,STEAM,Which part of the cell controls most cell activities?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_026,CBSE,STEAM,Which organ helps humans breathe?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_027,CBSE,STEAM,Which blood cells help fight infection?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_028,CBSE,STEAM,Which nutrient is mainly needed for growth and repair?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_029,CBSE,STEAM,Which process removes waste from the body?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_030,CBSE,STEAM,Which organisms make curd from milk?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_031,CBSE,STEAM,A student travels 20 m in 4 s at uniform speed. What is the speed?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_032,CBSE,STEAM,A student travels 45 m in 9 s at uniform speed. What is the speed?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_033,CBSE,STEAM,A student travels 60 m in 12 s at uniform speed. What is the speed?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_034,CBSE,STEAM,A student travels 80 m in 10 s at uniform speed. What is the speed?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_035,CBSE,STEAM,A student travels 100 m in 20 s at uniform speed. What is the speed?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_036,CBSE,STEAM,A student travels 150 m in 30 s at uniform speed. What is the speed?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_037,CBSE,STEAM,A student travels 180 m in 15 s at uniform speed. What is the speed?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_038,CBSE,STEAM,A student travels 240 m in 60 s at uniform speed. What is the speed?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_039,CBSE,STEAM,A student travels 300 m in 50 s at uniform speed. What is the speed?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_040,CBSE,STEAM,A student travels 360 m in 90 s at uniform speed. What is the speed?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_041,CBSE,STEAM,A student travels 420 m in 70 s at uniform speed. What is the speed?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_042,CBSE,STEAM,A student travels 500 m in 100 s at uniform speed. What is the speed?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_043,CBSE,STEAM,A student travels 720 m in 120 s at uniform speed. What is the speed?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_044,CBSE,STEAM,A student travels 900 m in 180 s at uniform speed. What is the speed?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_045,CBSE,STEAM,A student travels 1000 m in 200 s at uniform speed. What is the speed?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_046,CBSE,STEAM,A force acts on a mass of 2 kg and produces an acceleration of 3 m/s². What is the force?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_047,CBSE,STEAM,A force acts on a mass of 4 kg and produces an acceleration of 5 m/s². What is the force?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_048,CBSE,STEAM,A force acts on a mass of 5 kg and produces an acceleration of 2 m/s². What is the force?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_049,CBSE,STEAM,A force acts on a mass of 6 kg and produces an acceleration of 4 m/s². What is the force?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_050,CBSE,STEAM,A force acts on a mass of 8 kg and produces an acceleration of 3 m/s². What is the force?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_051,CBSE,STEAM,A force acts on a mass of 10 kg and produces an acceleration of 1.5 m/s². What is the force?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_052,CBSE,STEAM,A force acts on a mass of 12 kg and produces an acceleration of 2 m/s². What is the force?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_053,CBSE,STEAM,A force acts on a mass of 15 kg and produces an acceleration of 3 m/s². What is the force?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_054,CBSE,STEAM,A force acts on a mass of 20 kg and produces an acceleration of 2.5 m/s². What is the force?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_055,CBSE,STEAM,A force acts on a mass of 25 kg and produces an acceleration of 2 m/s². What is the force?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_056,CBSE,STEAM,A device has potential difference 12 V and current 2 A. What is its resistance?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_057,CBSE,STEAM,A device has potential difference 10 V and current 5 A. What is its resistance?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_058,CBSE,STEAM,A device has potential difference 9 V and current 3 A. What is its resistance?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_059,CBSE,STEAM,A device has potential difference 6 V and current 0.5 A. What is its resistance?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_060,CBSE,STEAM,A device has potential difference 24 V and current 4 A. What is its resistance?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_061,CBSE,STEAM,A device has potential difference 15 V and current 3 A. What is its resistance?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_062,CBSE,STEAM,A device has potential difference 20 V and current 2 A. What is its resistance?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_063,CBSE,STEAM,A device has potential difference 18 V and current 6 A. What is its resistance?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_064,CBSE,STEAM,A device has potential difference 30 V and current 5 A. What is its resistance?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_065,CBSE,STEAM,A device has potential difference 8 V and current 2 A. What is its resistance?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_066,CBSE,STEAM,"Using g = 10 m/s², what is the gravitational potential energy of a 1 kg object raised by 10 m?",SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_067,CBSE,STEAM,"Using g = 10 m/s², what is the gravitational potential energy of a 2 kg object raised by 5 m?",SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_068,CBSE,STEAM,"Using g = 10 m/s², what is the gravitational potential energy of a 3 kg object raised by 4 m?",SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_069,CBSE,STEAM,"Using g = 10 m/s², what is the gravitational potential energy of a 5 kg object raised by 2 m?",SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_070,CBSE,STEAM,"Using g = 10 m/s², what is the gravitational potential energy of a 10 kg object raised by 3 m?",SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_071,CBSE,STEAM,"Using g = 10 m/s², what is the gravitational potential energy of a 4 kg object raised by 8 m?",SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_072,CBSE,STEAM,"Using g = 10 m/s², what is the gravitational potential energy of a 6 kg object raised by 6 m?",SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_073,CBSE,STEAM,"Using g = 10 m/s², what is the gravitational potential energy of a 7 kg object raised by 5 m?",SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_074,CBSE,STEAM,"Using g = 10 m/s², what is the gravitational potential energy of a 8 kg object raised by 10 m?",SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_075,CBSE,STEAM,"Using g = 10 m/s², what is the gravitational potential energy of a 12 kg object raised by 4 m?",SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_076,CBSE,STEAM,A wave has frequency 50 Hz and wavelength 2 m. What is its speed?,SINGLE_SELECT,HARD,PRACTICE
+STEAM_077,CBSE,STEAM,A wave has frequency 100 Hz and wavelength 3 m. What is its speed?,SINGLE_SELECT,HARD,PRACTICE
+STEAM_078,CBSE,STEAM,A wave has frequency 200 Hz and wavelength 1.5 m. What is its speed?,SINGLE_SELECT,HARD,PRACTICE
+STEAM_079,CBSE,STEAM,A wave has frequency 250 Hz and wavelength 2 m. What is its speed?,SINGLE_SELECT,HARD,PRACTICE
+STEAM_080,CBSE,STEAM,A wave has frequency 300 Hz and wavelength 0.5 m. What is its speed?,SINGLE_SELECT,HARD,PRACTICE
+STEAM_081,CBSE,STEAM,A wave has frequency 400 Hz and wavelength 0.75 m. What is its speed?,SINGLE_SELECT,HARD,PRACTICE
+STEAM_082,CBSE,STEAM,A wave has frequency 500 Hz and wavelength 0.6 m. What is its speed?,SINGLE_SELECT,HARD,PRACTICE
+STEAM_083,CBSE,STEAM,A wave has frequency 60 Hz and wavelength 5 m. What is its speed?,SINGLE_SELECT,HARD,PRACTICE
+STEAM_084,CBSE,STEAM,A wave has frequency 80 Hz and wavelength 4 m. What is its speed?,SINGLE_SELECT,HARD,PRACTICE
+STEAM_085,CBSE,STEAM,A wave has frequency 120 Hz and wavelength 2.5 m. What is its speed?,SINGLE_SELECT,HARD,PRACTICE
+STEAM_086,CBSE,STEAM,An object starts with speed 0 m/s and accelerates at 2 m/s² for 5 s. What is its final speed?,SINGLE_SELECT,HARD,PRACTICE
+STEAM_087,CBSE,STEAM,An object starts with speed 5 m/s and accelerates at 1 m/s² for 10 s. What is its final speed?,SINGLE_SELECT,HARD,PRACTICE
+STEAM_088,CBSE,STEAM,An object starts with speed 10 m/s and accelerates at 2 m/s² for 4 s. What is its final speed?,SINGLE_SELECT,HARD,PRACTICE
+STEAM_089,CBSE,STEAM,An object starts with speed 3 m/s and accelerates at 3 m/s² for 6 s. What is its final speed?,SINGLE_SELECT,HARD,PRACTICE
+STEAM_090,CBSE,STEAM,An object starts with speed 4 m/s and accelerates at 2 m/s² for 8 s. What is its final speed?,SINGLE_SELECT,HARD,PRACTICE
+STEAM_091,CBSE,STEAM,An object starts with speed 2 m/s and accelerates at 5 m/s² for 3 s. What is its final speed?,SINGLE_SELECT,HARD,PRACTICE
+STEAM_092,CBSE,STEAM,An object starts with speed 6 m/s and accelerates at 4 m/s² for 5 s. What is its final speed?,SINGLE_SELECT,HARD,PRACTICE
+STEAM_093,CBSE,STEAM,An object starts with speed 8 m/s and accelerates at 1 m/s² for 12 s. What is its final speed?,SINGLE_SELECT,HARD,PRACTICE
+STEAM_094,CBSE,STEAM,An object starts with speed 12 m/s and accelerates at 2 m/s² for 6 s. What is its final speed?,SINGLE_SELECT,HARD,PRACTICE
+STEAM_095,CBSE,STEAM,An object starts with speed 15 m/s and accelerates at 3 m/s² for 5 s. What is its final speed?,SINGLE_SELECT,HARD,PRACTICE
+STEAM_096,CBSE,STEAM,What is the chemical symbol of hydrogen?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_097,CBSE,STEAM,What is the chemical symbol of helium?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_098,CBSE,STEAM,What is the chemical symbol of lithium?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_099,CBSE,STEAM,What is the chemical symbol of carbon?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_100,CBSE,STEAM,What is the chemical symbol of nitrogen?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_101,CBSE,STEAM,What is the chemical symbol of oxygen?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_102,CBSE,STEAM,What is the chemical symbol of sodium?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_103,CBSE,STEAM,What is the chemical symbol of magnesium?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_104,CBSE,STEAM,What is the chemical symbol of aluminium?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_105,CBSE,STEAM,What is the chemical symbol of silicon?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_106,CBSE,STEAM,What is the chemical symbol of phosphorus?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_107,CBSE,STEAM,What is the chemical symbol of sulfur?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_108,CBSE,STEAM,What is the chemical symbol of chlorine?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_109,CBSE,STEAM,What is the chemical symbol of argon?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_110,CBSE,STEAM,What is the chemical symbol of potassium?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_111,CBSE,STEAM,What is the chemical symbol of calcium?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_112,CBSE,STEAM,What is the chemical symbol of iron?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_113,CBSE,STEAM,What is the chemical symbol of copper?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_114,CBSE,STEAM,What is the chemical symbol of zinc?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_115,CBSE,STEAM,What is the chemical symbol of silver?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_116,CBSE,STEAM,What is the atomic number of Helium (He)?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_117,CBSE,STEAM,What is the atomic number of Lithium (Li)?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_118,CBSE,STEAM,What is the atomic number of Carbon (C)?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_119,CBSE,STEAM,What is the atomic number of Nitrogen (N)?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_120,CBSE,STEAM,What is the atomic number of Oxygen (O)?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_121,CBSE,STEAM,What is the atomic number of Sodium (Na)?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_122,CBSE,STEAM,What is the atomic number of Magnesium (Mg)?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_123,CBSE,STEAM,What is the atomic number of Aluminium (Al)?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_124,CBSE,STEAM,What is the atomic number of Silicon (Si)?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_125,CBSE,STEAM,What is the atomic number of Phosphorus (P)?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_126,CBSE,STEAM,What is the atomic number of Sulfur (S)?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_127,CBSE,STEAM,What is the atomic number of Chlorine (Cl)?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_128,CBSE,STEAM,What is the atomic number of Argon (Ar)?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_129,CBSE,STEAM,What is the atomic number of Potassium (K)?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_130,CBSE,STEAM,What is the atomic number of Calcium (Ca)?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_131,CBSE,STEAM,What is the formula of carbon dioxide?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_132,CBSE,STEAM,What is the formula of ammonia?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_133,CBSE,STEAM,What is the formula of methane?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_134,CBSE,STEAM,What is the formula of calcium carbonate?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_135,CBSE,STEAM,What is the formula of sodium bicarbonate?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_136,CBSE,STEAM,What is the formula of hydrochloric acid?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_137,CBSE,STEAM,What is the formula of sulfuric acid?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_138,CBSE,STEAM,What is the formula of nitric acid?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_139,CBSE,STEAM,What is the formula of sodium hydroxide?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_140,CBSE,STEAM,What is the formula of calcium hydroxide?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_141,CBSE,STEAM,What is the formula of glucose?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_142,CBSE,STEAM,What is the formula of oxygen gas?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_143,CBSE,STEAM,What is the formula of ozone?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_144,CBSE,STEAM,What is the formula of hydrogen peroxide?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_145,CBSE,STEAM,What is the formula of ethanol?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_146,CBSE,STEAM,A solution has pH 1. How is it classified?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_147,CBSE,STEAM,A solution has pH 2. How is it classified?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_148,CBSE,STEAM,A solution has pH 3. How is it classified?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_149,CBSE,STEAM,A solution has pH 4. How is it classified?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_150,CBSE,STEAM,A solution has pH 5. How is it classified?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_151,CBSE,STEAM,A solution has pH 6. How is it classified?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_152,CBSE,STEAM,A solution has pH 8. How is it classified?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_153,CBSE,STEAM,A solution has pH 9. How is it classified?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_154,CBSE,STEAM,A solution has pH 10. How is it classified?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_155,CBSE,STEAM,A solution has pH 11. How is it classified?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_156,CBSE,STEAM,A solution has pH 12. How is it classified?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_157,CBSE,STEAM,A solution has pH 13. How is it classified?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_158,CBSE,STEAM,A solution has pH 7 at 25°C. How is it classified?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_159,CBSE,STEAM,How many moles are present in 36 g of water if its molar mass is 18 g/mol?,SINGLE_SELECT,HARD,PRACTICE
+STEAM_160,CBSE,STEAM,How many moles are present in 88 g of carbon dioxide if its molar mass is 44 g/mol?,SINGLE_SELECT,HARD,PRACTICE
+STEAM_161,CBSE,STEAM,How many moles are present in 117 g of sodium chloride if its molar mass is 58.5 g/mol?,SINGLE_SELECT,HARD,PRACTICE
+STEAM_162,CBSE,STEAM,How many moles are present in 64 g of oxygen gas if its molar mass is 32 g/mol?,SINGLE_SELECT,HARD,PRACTICE
+STEAM_163,CBSE,STEAM,How many moles are present in 56 g of nitrogen gas if its molar mass is 28 g/mol?,SINGLE_SELECT,HARD,PRACTICE
+STEAM_164,CBSE,STEAM,Burning magnesium in oxygen forms magnesium oxide. What type of reaction is this?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_165,CBSE,STEAM,Calcium carbonate breaks down on heating to calcium oxide and carbon dioxide. What type of reaction is this?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_166,CBSE,STEAM,Zinc reacts with copper sulphate and forms zinc sulphate and copper. What type of reaction is this?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_167,CBSE,STEAM,Hydrochloric acid reacts with sodium hydroxide to form salt and water. What type of reaction is this?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_168,CBSE,STEAM,Silver nitrate reacts with sodium chloride to form silver chloride precipitate. What type of reaction is this?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_169,CBSE,STEAM,Which cell organelle is known as the powerhouse of the cell?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_170,CBSE,STEAM,Which cell structure is present in plant cells but not in animal cells?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_171,CBSE,STEAM,Which tissue transports water in plants?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_172,CBSE,STEAM,Which tissue transports food in plants?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_173,CBSE,STEAM,Which part of the human brain controls balance and posture?,SINGLE_SELECT,HARD,PRACTICE
+STEAM_174,CBSE,STEAM,Which blood component helps in clotting?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_175,CBSE,STEAM,Where does most digestion and absorption of food occur?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_176,CBSE,STEAM,Which enzyme in saliva begins starch digestion?,SINGLE_SELECT,HARD,PRACTICE
+STEAM_177,CBSE,STEAM,Which part of the nephron filters blood?,SINGLE_SELECT,HARD,PRACTICE
+STEAM_178,CBSE,STEAM,Which hormone regulates blood sugar by lowering it?,SINGLE_SELECT,HARD,PRACTICE
+STEAM_179,CBSE,STEAM,Which part of a flower becomes the fruit after fertilisation?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_180,CBSE,STEAM,Which part of a flower produces pollen grains?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_181,CBSE,STEAM,Which genetic material carries hereditary information?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_182,CBSE,STEAM,What is the basic unit of heredity?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_183,CBSE,STEAM,Which process produces gametes with half the chromosome number?,SINGLE_SELECT,HARD,PRACTICE
+STEAM_184,CBSE,STEAM,Which type of reproduction involves only one parent?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_185,CBSE,STEAM,Which disease is caused by deficiency of vitamin C?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_186,CBSE,STEAM,Which disease is caused by deficiency of iodine?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_187,CBSE,STEAM,Which microorganism causes malaria?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_188,CBSE,STEAM,Which mosquito commonly spreads dengue?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_189,CBSE,STEAM,Which gas is released by plants during photosynthesis?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_190,CBSE,STEAM,Which part of the human respiratory system contains alveoli?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_191,CBSE,STEAM,Which pigment gives red blood cells their colour?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_192,CBSE,STEAM,Which organ produces bile?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_193,CBSE,STEAM,Which organ stores bile?,SINGLE_SELECT,HARD,PRACTICE
+STEAM_194,CBSE,STEAM,Which joint is found at the shoulder?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_195,CBSE,STEAM,Which part of the eye controls the amount of light entering?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_196,CBSE,STEAM,Which part of the eye forms the image?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_197,CBSE,STEAM,Which plant tissue is responsible for growth at tips?,SINGLE_SELECT,HARD,PRACTICE
+STEAM_198,CBSE,STEAM,Which kingdom includes bacteria in the five-kingdom classification?,SINGLE_SELECT,HARD,PRACTICE
+STEAM_199,CBSE,STEAM,"In a mango plant, which structure mainly performs photosynthesis?",SINGLE_SELECT,EASY,PRACTICE
+STEAM_200,CBSE,STEAM,"In a grass plant, which structure mainly performs photosynthesis?",SINGLE_SELECT,EASY,PRACTICE
+STEAM_201,CBSE,STEAM,"In a pea plant, which structure mainly performs photosynthesis?",SINGLE_SELECT,EASY,PRACTICE
+STEAM_202,CBSE,STEAM,"In a hibiscus plant, which structure mainly performs photosynthesis?",SINGLE_SELECT,EASY,PRACTICE
+STEAM_203,CBSE,STEAM,"In a spinach plant, which structure mainly performs photosynthesis?",SINGLE_SELECT,EASY,PRACTICE
+STEAM_204,CBSE,STEAM,"In a neem plant, which structure mainly performs photosynthesis?",SINGLE_SELECT,EASY,PRACTICE
+STEAM_205,CBSE,STEAM,"In a rose plant, which structure mainly performs photosynthesis?",SINGLE_SELECT,EASY,PRACTICE
+STEAM_206,CBSE,STEAM,"In a banana plant, which structure mainly performs photosynthesis?",SINGLE_SELECT,EASY,PRACTICE
+STEAM_207,CBSE,STEAM,"In a mustard plant, which structure mainly performs photosynthesis?",SINGLE_SELECT,EASY,PRACTICE
+STEAM_208,CBSE,STEAM,"In a sunflower plant, which structure mainly performs photosynthesis?",SINGLE_SELECT,EASY,PRACTICE
+STEAM_209,CBSE,STEAM,What is the main function of the human heart?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_210,CBSE,STEAM,What is the main function of the human lungs?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_211,CBSE,STEAM,What is the main function of the human stomach?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_212,CBSE,STEAM,What is the main function of the human kidney?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_213,CBSE,STEAM,What is the main function of the human brain?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_214,CBSE,STEAM,What is the main function of the human liver?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_215,CBSE,STEAM,What is the main function of the human skin?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_216,CBSE,STEAM,What is the main function of the human small intestine?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_217,CBSE,STEAM,What is the main function of the human pancreas?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_218,CBSE,STEAM,What is the main function of the human testes?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_219,CBSE,STEAM,What is the main function of the human ovary?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_220,CBSE,STEAM,What is the main function of the human bone marrow?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_221,CBSE,STEAM,"In a food chain, what role does grass usually play?",SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_222,CBSE,STEAM,"In a food chain, what role does deer usually play?",SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_223,CBSE,STEAM,"In a food chain, what role does tiger usually play?",SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_224,CBSE,STEAM,"In a food chain, what role does mushroom usually play?",SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_225,CBSE,STEAM,"In a food chain, what role does algae usually play?",SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_226,CBSE,STEAM,"In a food chain, what role does rabbit usually play?",SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_227,CBSE,STEAM,"In a food chain, what role does eagle usually play?",SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_228,CBSE,STEAM,"In a food chain, what role does earthworm usually play?",SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_229,CBSE,STEAM,Why do passengers jerk forward when a moving bus stops suddenly?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_230,CBSE,STEAM,Which colour of visible light has the longest wavelength?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_231,CBSE,STEAM,Which device converts electrical energy into sound energy?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_232,CBSE,STEAM,Which device converts chemical energy into electrical energy?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_233,CBSE,STEAM,Which quantity is measured in hertz?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_234,CBSE,STEAM,Why are tyres given grooves?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_235,CBSE,STEAM,Which lens is used to correct myopia?,SINGLE_SELECT,HARD,PRACTICE
+STEAM_236,CBSE,STEAM,Which lens is used to correct hypermetropia?,SINGLE_SELECT,HARD,PRACTICE
+STEAM_237,CBSE,STEAM,What is the angle of reflection if the angle of incidence is 35°?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_238,CBSE,STEAM,Which physical quantity equals force divided by area?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_239,CBSE,STEAM,What is the SI unit of work?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_240,CBSE,STEAM,What is the SI unit of power?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_241,CBSE,STEAM,What happens to the current in a circuit if resistance increases while voltage stays constant?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_242,CBSE,STEAM,Which electromagnetic radiation is used in TV remote controls?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_243,CBSE,STEAM,Which simple machine is a seesaw an example of?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_244,CBSE,STEAM,What is the acceleration of a body moving with constant velocity?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_245,CBSE,STEAM,Which object has the greatest inertia?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_246,CBSE,STEAM,What does a fuse protect an electrical circuit from?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_247,CBSE,STEAM,"In a series circuit, what is the same through all components?",SINGLE_SELECT,HARD,PRACTICE
+STEAM_248,CBSE,STEAM,"In a parallel circuit, what is the same across each branch?",SINGLE_SELECT,HARD,PRACTICE
+STEAM_249,CBSE,STEAM,Which gas turns lime water milky?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_250,CBSE,STEAM,What is formed when an acid reacts with a base?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_251,CBSE,STEAM,Which non-metal is liquid at room temperature?,SINGLE_SELECT,HARD,PRACTICE
+STEAM_252,CBSE,STEAM,Which metal is liquid at room temperature?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_253,CBSE,STEAM,Which gas supports burning?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_254,CBSE,STEAM,Which gas is commonly used in balloons because it is light and non-flammable?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_255,CBSE,STEAM,Which acid is present in vinegar?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_256,CBSE,STEAM,Which acid is present in lemon juice?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_257,CBSE,STEAM,Which base is commonly called caustic soda?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_258,CBSE,STEAM,Which salt is used in baking soda?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_259,CBSE,STEAM,Rusting of iron needs oxygen and what else?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_260,CBSE,STEAM,Which separation method is best for separating iron filings from sand?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_261,CBSE,STEAM,Which technique separates components based on different boiling points?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_262,CBSE,STEAM,Which process is used to obtain salt from seawater?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_263,CBSE,STEAM,Which indicator is obtained from lichens?,SINGLE_SELECT,HARD,PRACTICE
+STEAM_264,CBSE,STEAM,Which family of elements is generally very unreactive?,SINGLE_SELECT,HARD,PRACTICE
+STEAM_265,CBSE,STEAM,Which subatomic particle is found outside the nucleus?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_266,CBSE,STEAM,Which subatomic particles are found in the nucleus?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_267,CBSE,STEAM,Which is a physical change?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_268,CBSE,STEAM,Which is a chemical change?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_269,CBSE,STEAM,A force of 5 N moves an object by 2 m in the direction of the force. How much work is done?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_270,CBSE,STEAM,A force of 10 N moves an object by 3 m in the direction of the force. How much work is done?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_271,CBSE,STEAM,A force of 20 N moves an object by 4 m in the direction of the force. How much work is done?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_272,CBSE,STEAM,A force of 25 N moves an object by 2 m in the direction of the force. How much work is done?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_273,CBSE,STEAM,A force of 50 N moves an object by 5 m in the direction of the force. How much work is done?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_274,CBSE,STEAM,A force of 15 N moves an object by 6 m in the direction of the force. How much work is done?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_275,CBSE,STEAM,A force of 40 N moves an object by 3 m in the direction of the force. How much work is done?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_276,CBSE,STEAM,A force of 60 N moves an object by 2 m in the direction of the force. How much work is done?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_277,CBSE,STEAM,A force of 75 N moves an object by 4 m in the direction of the force. How much work is done?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_278,CBSE,STEAM,100 J of work is done in 10 s. What is the power?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_279,CBSE,STEAM,200 J of work is done in 20 s. What is the power?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_280,CBSE,STEAM,300 J of work is done in 15 s. What is the power?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_281,CBSE,STEAM,400 J of work is done in 10 s. What is the power?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_282,CBSE,STEAM,500 J of work is done in 25 s. What is the power?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_283,CBSE,STEAM,600 J of work is done in 30 s. What is the power?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_284,CBSE,STEAM,750 J of work is done in 15 s. What is the power?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_285,CBSE,STEAM,900 J of work is done in 30 s. What is the power?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_286,CBSE,STEAM,1000 J of work is done in 50 s. What is the power?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_287,CBSE,STEAM,1200 J of work is done in 60 s. What is the power?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_288,CBSE,STEAM,A force of 10 N acts on an area of 2 m². What is the pressure?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_289,CBSE,STEAM,A force of 20 N acts on an area of 4 m². What is the pressure?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_290,CBSE,STEAM,A force of 50 N acts on an area of 5 m². What is the pressure?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_291,CBSE,STEAM,A force of 100 N acts on an area of 10 m². What is the pressure?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_292,CBSE,STEAM,A force of 75 N acts on an area of 3 m². What is the pressure?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_293,CBSE,STEAM,A force of 120 N acts on an area of 6 m². What is the pressure?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_294,CBSE,STEAM,A force of 200 N acts on an area of 20 m². What is the pressure?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_295,CBSE,STEAM,A force of 90 N acts on an area of 9 m². What is the pressure?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_296,CBSE,STEAM,A force of 160 N acts on an area of 8 m². What is the pressure?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_297,CBSE,STEAM,A force of 300 N acts on an area of 15 m². What is the pressure?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_298,CBSE,STEAM,Which vitamin deficiency causes night blindness?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_299,CBSE,STEAM,Which vitamin helps blood clotting?,SINGLE_SELECT,HARD,PRACTICE
+STEAM_300,CBSE,STEAM,Which mineral is needed for haemoglobin formation?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_301,CBSE,STEAM,Which mineral is needed for strong bones and teeth?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_302,CBSE,STEAM,Which vaccine is given to protect against tuberculosis?,SINGLE_SELECT,HARD,PRACTICE
+STEAM_303,CBSE,STEAM,Which vector spreads malaria?,SINGLE_SELECT,HARD,PRACTICE
+STEAM_304,CBSE,STEAM,Which part of the plant embryo develops into the shoot?,SINGLE_SELECT,HARD,PRACTICE
+STEAM_305,CBSE,STEAM,Which part of the plant embryo develops into the root?,SINGLE_SELECT,HARD,PRACTICE
+STEAM_306,CBSE,STEAM,Which type of blood vessel carries blood away from the heart?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_307,CBSE,STEAM,Which type of blood vessel carries blood toward the heart?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_308,CBSE,STEAM,Which chamber of the heart pumps oxygenated blood to the body?,SINGLE_SELECT,HARD,PRACTICE
+STEAM_309,CBSE,STEAM,Which chamber of the heart receives deoxygenated blood from the body?,SINGLE_SELECT,HARD,PRACTICE
+STEAM_310,CBSE,STEAM,Which part of the digestive system absorbs excess water from undigested food?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_311,CBSE,STEAM,Which organelle contains chlorophyll?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_312,CBSE,STEAM,Which process releases energy from food in cells?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_313,CBSE,STEAM,Which plant process loses water vapour through stomata?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_314,CBSE,STEAM,Which gas do animals release during respiration?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_315,CBSE,STEAM,Which part of the nervous system is protected by the vertebral column?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_316,CBSE,STEAM,Which sense organ detects sound?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_317,CBSE,STEAM,Which receptors on the tongue help detect taste?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_318,CBSE,STEAM,5 g of salt is dissolved in 95 g of water. What is the mass percentage of salt?,SINGLE_SELECT,HARD,PRACTICE
+STEAM_319,CBSE,STEAM,10 g of salt is dissolved in 90 g of water. What is the mass percentage of salt?,SINGLE_SELECT,HARD,PRACTICE
+STEAM_320,CBSE,STEAM,20 g of salt is dissolved in 180 g of water. What is the mass percentage of salt?,SINGLE_SELECT,HARD,PRACTICE
+STEAM_321,CBSE,STEAM,25 g of salt is dissolved in 75 g of water. What is the mass percentage of salt?,SINGLE_SELECT,HARD,PRACTICE
+STEAM_322,CBSE,STEAM,30 g of salt is dissolved in 270 g of water. What is the mass percentage of salt?,SINGLE_SELECT,HARD,PRACTICE
+STEAM_323,CBSE,STEAM,50 g of salt is dissolved in 450 g of water. What is the mass percentage of salt?,SINGLE_SELECT,HARD,PRACTICE
+STEAM_324,CBSE,STEAM,100 g of salt is dissolved in 900 g of water. What is the mass percentage of salt?,SINGLE_SELECT,HARD,PRACTICE
+STEAM_325,CBSE,STEAM,"In the five-kingdom classification, Amoeba belongs to which kingdom?",SINGLE_SELECT,HARD,PRACTICE
+STEAM_326,CBSE,STEAM,"In the five-kingdom classification, mushroom belongs to which kingdom?",SINGLE_SELECT,HARD,PRACTICE
+STEAM_327,CBSE,STEAM,"In the five-kingdom classification, blue-green bacteria belongs to which kingdom?",SINGLE_SELECT,HARD,PRACTICE
+STEAM_328,CBSE,STEAM,"In the five-kingdom classification, mango tree belongs to which kingdom?",SINGLE_SELECT,HARD,PRACTICE
+STEAM_329,CBSE,STEAM,"In the five-kingdom classification, human belongs to which kingdom?",SINGLE_SELECT,HARD,PRACTICE
+STEAM_330,CBSE,STEAM,"In the five-kingdom classification, yeast belongs to which kingdom?",SINGLE_SELECT,HARD,PRACTICE
+STEAM_331,CBSE,STEAM,"In the five-kingdom classification, Paramecium belongs to which kingdom?",SINGLE_SELECT,HARD,PRACTICE
+STEAM_332,CBSE,STEAM,"In the five-kingdom classification, Rhizobium belongs to which kingdom?",SINGLE_SELECT,HARD,PRACTICE
+STEAM_333,CBSE,STEAM,"In the five-kingdom classification, fern belongs to which kingdom?",SINGLE_SELECT,HARD,PRACTICE
+STEAM_334,CBSE,STEAM,"In the five-kingdom classification, earthworm belongs to which kingdom?",SINGLE_SELECT,HARD,PRACTICE
+STEAM_335,CBSE,STEAM,Why does a pressure cooker cook food faster?,SINGLE_SELECT,HARD,PRACTICE
+STEAM_336,CBSE,STEAM,Why does a pencil partly dipped in water appear bent?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_337,CBSE,STEAM,Why do we see lightning before hearing thunder?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_338,CBSE,STEAM,Why are railway tracks laid with small gaps between sections?,SINGLE_SELECT,HARD,PRACTICE
+STEAM_339,CBSE,STEAM,Why is sodium stored under kerosene?,SINGLE_SELECT,HARD,PRACTICE
+STEAM_340,CBSE,STEAM,Why is carbon dioxide used in fire extinguishers?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_341,CBSE,STEAM,Why are gold and platinum called noble metals?,SINGLE_SELECT,HARD,PRACTICE
+STEAM_342,CBSE,STEAM,Why does copper turn green in moist air over time?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_343,CBSE,STEAM,Why do villi in the small intestine have many blood capillaries?,SINGLE_SELECT,HARD,PRACTICE
+STEAM_344,CBSE,STEAM,Why do desert plants have thick waxy cuticles?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_345,CBSE,STEAM,Why does the left ventricle have a thicker wall than the right ventricle?,SINGLE_SELECT,HARD,PRACTICE
+STEAM_346,CBSE,STEAM,Why are decomposers important in an ecosystem?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_347,CBSE,STEAM,Which tiny openings on the leaf surface help in gas exchange?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_348,CBSE,STEAM,Which structure is mainly used for respiration in earthworm?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_349,CBSE,STEAM,What does the term ecosystem mean?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_350,CBSE,STEAM,Which definition best matches the term molecule?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_351,CBSE,STEAM,A trolley moves at 3 m/s for 2 s. What distance does it cover?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_352,CBSE,STEAM,A solid has mass 4 g and volume 5 cm³. What is its density?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_353,CBSE,STEAM,Which statement correctly describes a mixture of 4 g salt and 3 g sand?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_354,CBSE,STEAM,What happens to blue litmus paper when dipped in nitric acid?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_355,CBSE,STEAM,What happens to red litmus paper when dipped in ammonium hydroxide?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_356,CBSE,STEAM,Which tiny openings on the lower epidermis help in gas exchange?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_357,CBSE,STEAM,What does the term food chain mean?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_358,CBSE,STEAM,Which definition best matches the term atom?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_359,CBSE,STEAM,A trolley moves at 10 m/s for 4 s. What distance does it cover?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_360,CBSE,STEAM,A solid has mass 20 g and volume 10 cm³. What is its density?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_361,CBSE,STEAM,Which statement correctly describes a mixture of 3 g salt and 2 g sand?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_362,CBSE,STEAM,What happens to red litmus paper when dipped in magnesium hydroxide?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_363,CBSE,STEAM,Which structure is mainly used for respiration in frog?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_364,CBSE,STEAM,A trolley moves at 5 m/s for 3 s. What distance does it cover?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_365,CBSE,STEAM,A solid has mass 10 g and volume 2 cm³. What is its density?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_366,CBSE,STEAM,Which statement correctly describes a mixture of 2 g salt and 1 g sand?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_367,CBSE,STEAM,What happens to blue litmus paper when dipped in hydrochloric acid?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_368,CBSE,STEAM,What happens to red litmus paper when dipped in calcium hydroxide?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_369,CBSE,STEAM,Which tiny openings on the upper epidermis help in gas exchange?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_370,CBSE,STEAM,Which structure is mainly used for respiration in human?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_371,CBSE,STEAM,What does the term biodiversity mean?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_372,CBSE,STEAM,Which definition best matches the term compound?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_373,CBSE,STEAM,A solid has mass 12 g and volume 10 cm³. What is its density?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_374,CBSE,STEAM,Which statement correctly describes a mixture of 3 g salt and 5 g sand?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_375,CBSE,STEAM,What happens to blue litmus paper when dipped in acetic acid?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_376,CBSE,STEAM,Which tiny openings on the green leaf help in gas exchange?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_377,CBSE,STEAM,Which structure is mainly used for respiration in cockroach?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_378,CBSE,STEAM,What does the term habitat mean?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_379,CBSE,STEAM,A trolley moves at 3 m/s for 4 s. What distance does it cover?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_380,CBSE,STEAM,A solid has mass 15 g and volume 4 cm³. What is its density?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_381,CBSE,STEAM,What happens to blue litmus paper when dipped in sulfuric acid?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_382,CBSE,STEAM,Which definition best matches the term element?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_383,CBSE,STEAM,A trolley moves at 4 m/s for 5 s. What distance does it cover?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_384,CBSE,STEAM,A solid has mass 4 g and volume 10 cm³. What is its density?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_385,CBSE,STEAM,"In a laboratory, a spring balance reads 11 N for a hanging object. Which physical quantity is being measured?",SINGLE_SELECT,EASY,PRACTICE
+STEAM_386,CBSE,STEAM,A battery supplies 4 V to a simple circuit. Which quantity does 4 V represent?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_387,CBSE,STEAM,A sample contains 23 protons in each atom. What does this number represent?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_388,CBSE,STEAM,"During an experiment, 5 g of a substance dissolves completely in water. What is formed?",SINGLE_SELECT,EASY,PRACTICE
+STEAM_389,CBSE,STEAM,A plant kept in sunlight for 8 hours is tested for starch. Which process produced the starch?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_390,CBSE,STEAM,A microscope view shows 10 similar cells working together. What biological level of organisation is this most likely to represent?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_391,CBSE,STEAM,"In a laboratory, a spring balance reads 17 N for a hanging object. Which physical quantity is being measured?",SINGLE_SELECT,EASY,PRACTICE
+STEAM_392,CBSE,STEAM,A battery supplies 10 V to a simple circuit. Which quantity does 10 V represent?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_393,CBSE,STEAM,A sample contains 29 protons in each atom. What does this number represent?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_394,CBSE,STEAM,"During an experiment, 11 g of a substance dissolves completely in water. What is formed?",SINGLE_SELECT,EASY,PRACTICE
+STEAM_395,CBSE,STEAM,A plant kept in sunlight for 14 hours is tested for starch. Which process produced the starch?,SINGLE_SELECT,EASY,PRACTICE
+STEAM_396,CBSE,STEAM,A microscope view shows 16 similar cells working together. What biological level of organisation is this most likely to represent?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_397,CBSE,STEAM,"In a laboratory, a spring balance reads 23 N for a hanging object. Which physical quantity is being measured?",SINGLE_SELECT,EASY,PRACTICE
+STEAM_398,CBSE,STEAM,A battery supplies 16 V to a simple circuit. Which quantity does 16 V represent?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_399,CBSE,STEAM,A sample contains 35 protons in each atom. What does this number represent?,SINGLE_SELECT,MEDIUM,PRACTICE
+STEAM_400,CBSE,STEAM,"During an experiment, 17 g of a substance dissolves completely in water. What is formed?",SINGLE_SELECT,EASY,PRACTICE
