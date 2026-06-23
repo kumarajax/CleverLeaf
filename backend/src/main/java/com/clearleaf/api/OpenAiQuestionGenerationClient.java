@@ -9,38 +9,34 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpStatus;
 
 @Service
 public class OpenAiQuestionGenerationClient implements QuestionGenerationClient {
     private final ObjectMapper objectMapper;
-    private final RestClient restClient;
-    private final String apiKey;
-    private final String model;
+    private final String defaultBaseUrl;
 
     public OpenAiQuestionGenerationClient(
             ObjectMapper objectMapper,
-            @Value("${app.ai.openai.base-url}") String baseUrl,
-            @Value("${app.ai.openai.api-key}") String apiKey,
-            @Value("${app.ai.model}") String model) {
+            @Value("${app.ai.openai.base-url}") String baseUrl) {
         this.objectMapper = objectMapper;
-        this.apiKey = apiKey == null ? "" : apiKey.trim();
-        this.model = model;
-        this.restClient = RestClient.builder()
-                .baseUrl(baseUrl)
-                .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-                .build();
+        this.defaultBaseUrl = baseUrl;
     }
 
     @Override
-    public GeneratedQuestionBatch generate(QuestionGenerationRequest request) {
-        if (apiKey.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "OPENAI_API_KEY is not configured");
+    public GeneratedQuestionBatch generate(QuestionGenerationRequest request, AiProviderCredentials credentials) {
+        if (credentials == null || credentials.apiKey() == null || credentials.apiKey().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "AI provider connection is not configured");
         }
         try {
+            RestClient restClient = RestClient.builder()
+                    .baseUrl(credentials.baseUrl() == null || credentials.baseUrl().isBlank() ? defaultBaseUrl : credentials.baseUrl())
+                    .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                    .build();
             Map<String, Object> body = Map.of(
-                    "model", model,
+                    "model", credentials.model(),
                     "input", List.of(Map.of(
                             "role", "user",
                             "content", List.of(Map.of(
@@ -53,7 +49,7 @@ public class OpenAiQuestionGenerationClient implements QuestionGenerationClient 
                             "schema", schema())));
             String raw = restClient.post()
                     .uri("/responses")
-                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey)
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + credentials.apiKey())
                     .body(body)
                     .retrieve()
                     .body(String.class);
@@ -61,9 +57,37 @@ public class OpenAiQuestionGenerationClient implements QuestionGenerationClient 
             return objectMapper.readValue(outputText, GeneratedQuestionBatch.class);
         } catch (ResponseStatusException ex) {
             throw ex;
+        } catch (RestClientResponseException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, openAiErrorMessage(ex), ex);
         } catch (Exception ex) {
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Unable to generate questions", ex);
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Unable to generate questions: " + safeMessage(ex), ex);
         }
+    }
+
+    private String openAiErrorMessage(RestClientResponseException ex) {
+        String message = null;
+        try {
+            JsonNode root = objectMapper.readTree(ex.getResponseBodyAsString());
+            message = root.path("error").path("message").asText(null);
+        } catch (Exception ignored) {
+            message = null;
+        }
+        if (message == null || message.isBlank()) {
+            message = ex.getResponseBodyAsString();
+        }
+        if (message == null || message.isBlank()) {
+            message = ex.getStatusText();
+        }
+        return "OpenAI request failed (" + ex.getStatusCode().value() + "): " + truncate(message);
+    }
+
+    private String safeMessage(Exception ex) {
+        return truncate(ex.getMessage() == null || ex.getMessage().isBlank() ? ex.getClass().getSimpleName() : ex.getMessage());
+    }
+
+    private String truncate(String message) {
+        if (message == null) return "";
+        return message.length() <= 500 ? message : message.substring(0, 500) + "...";
     }
 
     private String outputText(String raw) throws Exception {

@@ -256,6 +256,17 @@ type AiGenerationJob = {
   questions: AiGeneratedQuestion[];
 };
 
+type AiConnectionResponse = {
+  provider: string;
+  model: string;
+  maskedApiKey?: string | null;
+  status: string;
+  lastVerifiedAt?: string | null;
+  lastError?: string | null;
+  configured: boolean;
+  fallbackConfigured: boolean;
+};
+
 type PageMetadata = {
   number: number;
   size: number;
@@ -636,12 +647,20 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
   const [testTab, setTestTab] = useState<"history" | "create" | "assign" | "results">("history");
   const [importTab, setImportTab] = useState<"csv" | "json">("csv");
   const [aiSourceType, setAiSourceType] = useState<"PDF" | "TEXT">("PDF");
+  const [aiConnection, setAiConnection] = useState<AiConnectionResponse | null>(null);
+  const [aiConnectionProvider, setAiConnectionProvider] = useState("OPENAI");
+  const [aiConnectionModel, setAiConnectionModel] = useState("gpt-5.5");
+  const [aiConnectionApiKey, setAiConnectionApiKey] = useState("");
+  const [aiConnectionVerifiedSignature, setAiConnectionVerifiedSignature] = useState("");
+  const [aiConnectionBusy, setAiConnectionBusy] = useState(false);
+  const [aiConnectionBanner, setAiConnectionBanner] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [aiSourceFile, setAiSourceFile] = useState<File | null>(null);
   const [aiSourceText, setAiSourceText] = useState("");
   const [aiTopic, setAiTopic] = useState("");
   const [aiInstructions, setAiInstructions] = useState("");
   const [aiQuestionCount, setAiQuestionCount] = useState(12);
   const [aiJobs, setAiJobs] = useState<AiGenerationJob[]>([]);
+  const [aiJobPageIndex, setAiJobPageIndex] = useState(0);
   const [selectedAiJobId, setSelectedAiJobId] = useState("");
   const [selectedAiJob, setSelectedAiJob] = useState<AiGenerationJob | null>(null);
   const [aiError, setAiError] = useState("");
@@ -694,6 +713,12 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
   const [selectedAssignedQuestionIds, setSelectedAssignedQuestionIds] = useState<string[]>([]);
 
   const currentToken = session?.accessToken ?? "";
+  const aiConnectionSignature = `${aiConnectionProvider}|${aiConnectionModel.trim()}|${aiConnectionApiKey.trim()}`;
+  const aiCanSaveConnection = Boolean(aiConnectionApiKey.trim()) && aiConnectionVerifiedSignature === aiConnectionSignature;
+  const aiCanGenerate = Boolean(aiConnection?.configured || aiConnection?.fallbackConfigured);
+  const aiJobPageSize = 5;
+  const aiJobPageCount = Math.max(1, Math.ceil(aiJobs.length / aiJobPageSize));
+  const visibleAiJobs = useMemo(() => aiJobs.slice(aiJobPageIndex * aiJobPageSize, aiJobPageIndex * aiJobPageSize + aiJobPageSize), [aiJobPageIndex, aiJobs]);
   const questionTypes = questionTypeLookups.filter((lookup) => lookup.lookupCode !== "ALL").map((lookup) => lookup.lookupCode);
   const difficulties = difficultyLookups.filter((lookup) => lookup.lookupCode !== "ALL").map((lookup) => lookup.lookupCode);
   const workflowStatuses = workflowStatusLookups.filter((lookup) => lookup.lookupCode !== "ALL").map((lookup) => lookup.lookupCode);
@@ -1377,11 +1402,16 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
 
   useEffect(() => {
     if (activeTab !== "ai" || !currentToken || !tenantResolved) return;
-    loadAiJobs().catch((exception) =>
+    Promise.all([loadAiConnection(), loadAiJobs()]).catch((exception) =>
       setAiError(exception instanceof Error ? exception.message : "Unable to load AI jobs.")
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, currentToken, tenantResolved, selectedTenantId]);
+
+  useEffect(() => {
+    const maxPageIndex = Math.max(0, Math.ceil(aiJobs.length / aiJobPageSize) - 1);
+    if (aiJobPageIndex > maxPageIndex) setAiJobPageIndex(maxPageIndex);
+  }, [aiJobPageIndex, aiJobs.length]);
 
   useEffect(() => {
     if (!questionForm.taxonomyNodeId && selectedTaxonomyNodeId) {
@@ -1978,6 +2008,89 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
     }
   }
 
+  async function loadAiConnection() {
+    const response = await fetch(`${apiBaseUrl}/api/admin/ai-question-generation/connection`, {
+      headers: authHeaders(),
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(body.error || body.message || `Request failed with ${response.status}`);
+    }
+    const connection = body as AiConnectionResponse;
+    setAiConnection(connection);
+    setAiConnectionProvider(connection.provider || "OPENAI");
+    setAiConnectionModel(connection.model || "gpt-5.5");
+    return connection;
+  }
+
+  async function verifyAiConnection() {
+    setAiConnectionBusy(true);
+    setAiError("");
+    setAiConnectionBanner(null);
+    try {
+      if (!aiConnectionApiKey.trim()) {
+        const connection = await loadAiConnection();
+        const configured = Boolean(connection.configured || connection.fallbackConfigured);
+        setAiConnectionBanner({
+          type: configured ? "success" : "error",
+          message: configured ? "Connection successful." : "Connection failed. Enter an API key and verify it.",
+        });
+        return;
+      }
+      const response = await fetch(`${apiBaseUrl}/api/admin/ai-question-generation/connection/verify`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeaders(),
+        },
+        body: JSON.stringify({
+          provider: aiConnectionProvider,
+          model: aiConnectionModel,
+          apiKey: aiConnectionApiKey,
+        }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error || body.message || `Request failed with ${response.status}`);
+      setAiConnectionVerifiedSignature(aiConnectionSignature);
+      setAiConnectionBanner({ type: "success", message: "Connection successful." });
+    } catch (exception) {
+      setAiConnectionVerifiedSignature("");
+      setAiConnectionBanner({ type: "error", message: exception instanceof Error ? exception.message : "Connection failed." });
+    } finally {
+      setAiConnectionBusy(false);
+    }
+  }
+
+  async function saveAiConnection() {
+    setAiConnectionBusy(true);
+    setAiError("");
+    setAiConnectionBanner(null);
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/admin/ai-question-generation/connection`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeaders(),
+        },
+        body: JSON.stringify({
+          provider: aiConnectionProvider,
+          model: aiConnectionModel,
+          apiKey: aiConnectionApiKey,
+        }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error || body.message || `Request failed with ${response.status}`);
+      setAiConnection(body as AiConnectionResponse);
+      setAiConnectionApiKey("");
+      setAiConnectionVerifiedSignature("");
+      setAiConnectionBanner({ type: "success", message: "Connection is saved." });
+    } catch (exception) {
+      setAiConnectionBanner({ type: "error", message: exception instanceof Error ? exception.message : "Unable to save AI connection." });
+    } finally {
+      setAiConnectionBusy(false);
+    }
+  }
+
   async function loadAiJobs() {
     const response = await fetch(`${apiBaseUrl}/api/admin/ai-question-generation/jobs`, {
       headers: authHeaders(),
@@ -2012,9 +2125,15 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
     setAiBusy(true);
     setAiError("");
     try {
+      if (!aiCanGenerate) {
+        throw new Error("Configure and save an AI connection before creating generation jobs.");
+      }
       const nodeId = selectedTaxonomyNodeId;
       if (!nodeId || !leafNodeIds.has(nodeId)) {
         throw new Error("Select an active leaf taxonomy node before generating questions.");
+      }
+      if (!aiTopic.trim()) {
+        throw new Error("Topic / learning objective is required.");
       }
       let sourceObjectKey = "";
       let sourceFilename = "";
@@ -2028,9 +2147,12 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
           body: formData,
         });
         const uploadBody = await uploadResponse.json().catch(() => ({}));
-        if (!uploadResponse.ok) throw new Error(uploadBody.error || `Request failed with ${uploadResponse.status}`);
+        if (!uploadResponse.ok) throw new Error(uploadBody.error || uploadBody.message || `Request failed with ${uploadResponse.status}`);
         sourceObjectKey = uploadBody.objectKey;
+        if (!sourceObjectKey) throw new Error("PDF upload did not return a file reference.");
         sourceFilename = aiSourceFile.name;
+      } else if (!aiSourceText.trim()) {
+        throw new Error("Source text is required.");
       }
       const response = await fetch(`${apiBaseUrl}/api/admin/ai-question-generation/jobs`, {
         method: "POST",
@@ -2044,7 +2166,7 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
           sourceObjectKey: sourceObjectKey || null,
           sourceFilename: sourceFilename || null,
           sourceText: aiSourceType === "TEXT" ? aiSourceText : null,
-          topic: aiTopic,
+          topic: aiTopic.trim(),
           instructions: aiInstructions || null,
           questionCount: aiQuestionCount,
           allowedQuestionTypes: ["SINGLE_SELECT", "MULTIPLE_SELECT"],
@@ -2052,11 +2174,15 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
         }),
       });
       const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body.error || `Request failed with ${response.status}`);
-      setSelectedAiJob(body as AiGenerationJob);
-      setSelectedAiJobId(body.id);
+      if (!response.ok) throw new Error(body.error || body.message || `Request failed with ${response.status}`);
+      const createdJob = body as AiGenerationJob;
+      setSelectedAiJob(createdJob);
+      setSelectedAiJobId(createdJob.id);
+      const generatedJob = await generateAiJobRequest(createdJob.id);
+      setSelectedAiJob(generatedJob);
+      setSelectedAiJobId(generatedJob.id);
       await loadAiJobs();
-      setStatus("AI generation job created.");
+      setStatus("AI questions generated. Review and approve the generated questions.");
     } catch (exception) {
       setAiError(exception instanceof Error ? exception.message : "Unable to create AI job.");
     } finally {
@@ -2064,31 +2190,21 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
     }
   }
 
-  async function generateAiJob(jobId: string) {
-    setAiBusy(true);
-    setAiError("");
-    try {
-      const response = await fetch(`${apiBaseUrl}/api/admin/ai-question-generation/jobs/${jobId}/generate`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...authHeaders(),
-        },
-        body: JSON.stringify({
-          allowedQuestionTypes: ["SINGLE_SELECT", "MULTIPLE_SELECT"],
-          difficultyMix: { EASY: 1, MEDIUM: 2, HARD: 1 },
-        }),
-      });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body.error || body.message || `Request failed with ${response.status}`);
-      setSelectedAiJob(body as AiGenerationJob);
-      await loadAiJobs();
-      setStatus("AI questions generated.");
-    } catch (exception) {
-      setAiError(exception instanceof Error ? exception.message : "Unable to generate AI questions.");
-    } finally {
-      setAiBusy(false);
-    }
+  async function generateAiJobRequest(jobId: string) {
+    const response = await fetch(`${apiBaseUrl}/api/admin/ai-question-generation/jobs/${jobId}/generate`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeaders(),
+      },
+      body: JSON.stringify({
+        allowedQuestionTypes: ["SINGLE_SELECT", "MULTIPLE_SELECT"],
+        difficultyMix: { EASY: 1, MEDIUM: 2, HARD: 1 },
+      }),
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(body.error || body.message || `Request failed with ${response.status}`);
+    return body as AiGenerationJob;
   }
 
   function startEditAiQuestion(question: AiGeneratedQuestion) {
@@ -2182,7 +2298,10 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
       });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body.error || `Request failed with ${response.status}`);
-      setSelectedAiJob(body as AiGenerationJob);
+      const approvedJob = body as AiGenerationJob;
+      setSelectedAiJob(approvedJob);
+      setSelectedAiJobId(approvedJob.id);
+      setAiJobs((current) => current.map((job) => job.id === approvedJob.id ? approvedJob : job));
       resetQuestionCursor();
       await loadQuestions();
     } catch (exception) {
@@ -3251,10 +3370,45 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
             <div className="section-header">
               <h2>AI</h2>
             </div>
-            <div className="split-layout">
-              <div className="card">
+            {aiConnectionBanner ? (
+              <div className={`notice ai-status-banner ${aiConnectionBanner.type === "success" ? "success" : "error"}`}>
+                <span>{aiConnectionBanner.message}</span>
+                <button type="button" aria-label="Close status message" onClick={() => setAiConnectionBanner(null)}>x</button>
+              </div>
+            ) : null}
+            <div className="ai-tab-stack">
+              <div className="card ai-form-card">
+                <h3>Connection</h3>
+                <div className="ai-form">
+                  <label>
+                    LLM provider
+                    <select value={aiConnectionProvider} onChange={(event) => setAiConnectionProvider(event.target.value)}>
+                      <option value="OPENAI">OpenAI</option>
+                    </select>
+                  </label>
+                  <label>
+                    Model
+                    <input value={aiConnectionModel} onChange={(event) => setAiConnectionModel(event.target.value)} placeholder="gpt-5.5" />
+                  </label>
+                  <label>
+                    API key
+                    <input type="password" value={aiConnectionApiKey} onChange={(event) => setAiConnectionApiKey(event.target.value)} placeholder={aiConnection?.maskedApiKey ? `Current key: ${aiConnection.maskedApiKey}` : "Paste API key"} autoComplete="off" />
+                  </label>
+                </div>
+                <div className="dashboard-actions">
+                  <button type="button" className="secondary-button compact-button" disabled={aiConnectionBusy} onClick={verifyAiConnection}>
+                    {aiConnectionBusy ? "Checking..." : "Verify connection"}
+                  </button>
+                  <button type="button" className="primary-button compact-button" disabled={aiConnectionBusy || !aiCanSaveConnection} onClick={saveAiConnection}>
+                    Save connection
+                  </button>
+                </div>
+              </div>
+
+              <div className="card ai-form-card">
                 <h3>Generate questions</h3>
-                <div className="form-grid">
+                {!aiCanGenerate ? <p className="notice warning">Configure and save an AI connection before creating generation jobs.</p> : null}
+                <div className="ai-form">
                   <label>
                     Source
                     <select value={aiSourceType} onChange={(event) => setAiSourceType(event.target.value as "PDF" | "TEXT")}>
@@ -3262,34 +3416,36 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
                       <option value="TEXT">Text</option>
                     </select>
                   </label>
+                  {aiSourceType === "PDF" ? (
+                    <>
+                      <label className="file-drop compact-file-drop ai-file-drop">
+                        Choose PDF
+                        <input type="file" accept="application/pdf,.pdf" onChange={(event) => setAiSourceFile(event.target.files?.[0] ?? null)} />
+                      </label>
+                      {aiSourceFile ? <span className="muted selected-file-name">{aiSourceFile.name}</span> : null}
+                    </>
+                  ) : (
+                    <label>
+                      Source text
+                      <textarea className="ai-source-textarea" value={aiSourceText} onChange={(event) => setAiSourceText(event.target.value)} />
+                    </label>
+                  )}
                   <label>
                     Questions
                     <input type="number" min={1} max={100} value={aiQuestionCount} onChange={(event) => setAiQuestionCount(Number(event.target.value))} />
                   </label>
-                </div>
-                {aiSourceType === "PDF" ? (
-                  <label className="file-drop compact-file-drop">
-                    Choose PDF
-                    <input type="file" accept="application/pdf,.pdf" onChange={(event) => setAiSourceFile(event.target.files?.[0] ?? null)} />
-                  </label>
-                ) : (
                   <label>
-                    Source text
-                    <textarea value={aiSourceText} onChange={(event) => setAiSourceText(event.target.value)} />
+                    Topic / learning objective
+                    <input value={aiTopic} onChange={(event) => setAiTopic(event.target.value)} placeholder="Adding fractions with like denominators" />
                   </label>
-                )}
-                {aiSourceFile ? <span className="muted selected-file-name">{aiSourceFile.name}</span> : null}
-                <label>
-                  Topic / learning objective
-                  <input value={aiTopic} onChange={(event) => setAiTopic(event.target.value)} placeholder="Adding fractions with like denominators" />
-                </label>
-                <label>
-                  Additional instructions
-                  <textarea value={aiInstructions} onChange={(event) => setAiInstructions(event.target.value)} placeholder="Grade 5 level. Avoid long word problems." />
-                </label>
+                  <label>
+                    Instructions
+                    <textarea className="ai-instructions-textarea" value={aiInstructions} onChange={(event) => setAiInstructions(event.target.value)} placeholder="Paste detailed generation instructions, grading expectations, exclusions, examples, or any other long prompt text." />
+                  </label>
+                </div>
                 <div className="dashboard-actions">
-                  <button type="button" className="primary-button compact-button" disabled={aiBusy} onClick={createAiJob}>
-                    {aiBusy ? "Working..." : "Create AI job"}
+                  <button type="button" className="primary-button compact-button" disabled={aiBusy || !aiCanGenerate} onClick={createAiJob}>
+                    {aiBusy ? "Working..." : "Generate questions"}
                   </button>
                   <button type="button" className="secondary-button compact-button" disabled={aiBusy} onClick={() => loadAiJobs().catch((exception) => setAiError(exception instanceof Error ? exception.message : "Unable to load AI jobs."))}>
                     Refresh
@@ -3298,24 +3454,45 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
                 {aiError ? <p className="notice error">{aiError}</p> : null}
               </div>
 
-              <div className="card">
+              <div className="card table-card">
                 <h3>Jobs</h3>
-                <div className="question-list ai-job-list">
-                  {aiJobs.map((job) => (
-                    <button
-                      key={job.id}
-                      type="button"
-                      className={selectedAiJobId === job.id ? "question-row-card active" : "question-row-card"}
-                      onClick={() => loadAiJob(job.id).catch((exception) => setAiError(exception instanceof Error ? exception.message : "Unable to load AI job."))}
-                    >
-                      <span>
-                        <span className="question-summary-text">{job.topic}</span>
-                        <small>{job.taxonomyKey} / {job.childNodeKey}</small>
-                      </span>
-                      <small>{job.status} | {job.generatedCount} generated | {job.approvedCount} approved</small>
-                    </button>
-                  ))}
-                  {aiJobs.length === 0 ? <p className="muted">No AI jobs yet.</p> : null}
+                <div className="table-wrap">
+                  <table className="data-table ai-jobs-table">
+                    <thead>
+                      <tr><th>Created</th><th>Root taxonomy</th><th>Child node</th><th>Topic</th><th>Status</th><th>Generated</th><th>Approved</th><th>Review</th><th>Approve</th></tr>
+                    </thead>
+                    <tbody>
+                      {visibleAiJobs.map((job) => (
+                        <tr key={job.id} className={selectedAiJobId === job.id ? "selected-row" : undefined}>
+                          <td>{formatDateTime(job.createdAt)}</td>
+                          <td>{job.taxonomyKey}</td>
+                          <td>{job.childNodeKey}</td>
+                          <td>{job.topic}</td>
+                          <td>{job.status}</td>
+                          <td>{job.generatedCount}</td>
+                          <td>{job.approvedCount}</td>
+                          <td>
+                            <button type="button" className="secondary-button compact-button ai-job-action-button" disabled={aiBusy} onClick={() => loadAiJob(job.id).catch((exception) => setAiError(exception instanceof Error ? exception.message : "Unable to load AI job."))}>
+                              Review
+                            </button>
+                          </td>
+                          <td>
+                            <button type="button" className="primary-button compact-button ai-job-action-button" disabled={aiBusy || job.validCount === 0} onClick={() => bulkApproveAiJob(job.id)}>
+                              Approve
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                      {visibleAiJobs.length === 0 ? (
+                        <tr><td colSpan={9}>No AI jobs yet.</td></tr>
+                      ) : null}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="pagination-actions ai-jobs-pagination">
+                  <button type="button" className="secondary-button compact-button" disabled={aiJobPageIndex === 0} onClick={() => setAiJobPageIndex((current) => Math.max(0, current - 1))}>Previous</button>
+                  <span className="muted">Page {aiJobPageIndex + 1} of {aiJobPageCount}</span>
+                  <button type="button" className="secondary-button compact-button" disabled={aiJobPageIndex >= aiJobPageCount - 1} onClick={() => setAiJobPageIndex((current) => Math.min(aiJobPageCount - 1, current + 1))}>Next</button>
                 </div>
               </div>
             </div>
@@ -3323,15 +3500,8 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
             {selectedAiJob ? (
               <div className="card table-card">
                 <div className="section-header compact-section-header">
-                  <div>
-                    <h3>{selectedAiJob.topic}</h3>
-                    <p>{selectedAiJob.taxonomyPath}</p>
-                    <small>taxonomyKey: {selectedAiJob.taxonomyKey} | childNodeKey: {selectedAiJob.childNodeKey}</small>
-                  </div>
+                  <h3>Review questions</h3>
                   <div className="dashboard-actions">
-                    <button type="button" className="primary-button compact-button" disabled={aiBusy || selectedAiJob.status === "GENERATED"} onClick={() => generateAiJob(selectedAiJob.id)}>
-                      Generate
-                    </button>
                     <button type="button" className="secondary-button compact-button" disabled={aiBusy || selectedAiJob.validCount === 0} onClick={() => bulkApproveAiJob(selectedAiJob.id)}>
                       Bulk approve valid
                     </button>
@@ -3424,7 +3594,7 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
                       </div>
                     );
                   })}
-                  {selectedAiJob.questions.length === 0 ? <p className="muted">Create the job, then click Generate to create draft questions for review.</p> : null}
+                  {selectedAiJob.questions.length === 0 ? <p className="muted">No generated questions are available for this job yet.</p> : null}
                 </div>
               </div>
             ) : null}

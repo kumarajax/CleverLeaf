@@ -19,11 +19,34 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/admin/ai-question-generation")
 public class AiQuestionGenerationController {
     private final AiQuestionGenerationService service;
+    private final AiProviderConnectionService connections;
     private final TenantAuthorizationService tenantAuthorization;
 
-    public AiQuestionGenerationController(AiQuestionGenerationService service, TenantAuthorizationService tenantAuthorization) {
+    public AiQuestionGenerationController(
+            AiQuestionGenerationService service,
+            AiProviderConnectionService connections,
+            TenantAuthorizationService tenantAuthorization) {
         this.service = service;
+        this.connections = connections;
         this.tenantAuthorization = tenantAuthorization;
+    }
+
+    @GetMapping("/connection")
+    public AiConnectionResponse connection(
+            @RequestHeader(value = TenantAuthorizationService.TENANT_HEADER, required = false) String tenantHeader) {
+        return connections.getConnection(tenantAuthorization.tenantId(tenantHeader));
+    }
+
+    @PostMapping("/connection/verify")
+    public AiConnectionResponse verifyConnection(@RequestBody AiConnectionRequest request) {
+        return connections.verifyConnection(request);
+    }
+
+    @PutMapping("/connection")
+    public AiConnectionResponse saveConnection(
+            @RequestHeader(value = TenantAuthorizationService.TENANT_HEADER, required = false) String tenantHeader,
+            @RequestBody AiConnectionRequest request) {
+        return connections.saveConnection(tenantAuthorization.tenantId(tenantHeader), request);
     }
 
     @GetMapping("/jobs")

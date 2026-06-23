@@ -56,6 +56,7 @@ app:
   ai:
     provider: ${APP_AI_PROVIDER:openai}
     model: ${APP_AI_MODEL:gpt-5.5}
+    connection-encryption-key: ${APP_AI_CONNECTION_ENCRYPTION_KEY:${APP_SIGNUP_PASSWORD_ENCRYPTION_KEY:local-dev-change-me}}
     openai:
       api-key: ${OPENAI_API_KEY:}
       base-url: ${OPENAI_BASE_URL:https://api.openai.com/v1}

@@ -1597,6 +1597,70 @@ h1 {
   color: #5b6d66;
 }
 
+.ai-tab-stack,
+.ai-form {
+  display: grid;
+  gap: 14px;
+}
+
+.ai-form-card {
+  max-width: 920px;
+}
+
+.ai-form label {
+  color: #354b42;
+  display: grid;
+  font-size: 14px;
+  gap: 6px;
+  min-width: 0;
+}
+
+.ai-form input,
+.ai-form select,
+.ai-form textarea {
+  border: 1px solid #b9ccc0;
+  border-radius: 7px;
+  font: inherit;
+  min-height: 38px;
+  min-width: 0;
+  padding: 9px 10px;
+  width: 100%;
+}
+
+.ai-form textarea {
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.ai-file-drop {
+  justify-self: start;
+}
+
+.ai-source-textarea {
+  min-height: 220px;
+}
+
+.ai-instructions-textarea {
+  min-height: 460px;
+}
+
+.ai-status-banner {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+
+.ai-status-banner button {
+  background: transparent;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  line-height: 1;
+  padding: 4px 6px;
+}
+
 .ai-job-list .question-row-card {
   border: 1px solid #d8e6dc;
   text-align: left;
@@ -1711,6 +1775,52 @@ h1 {
 
 .data-table tbody tr:hover {
   background: #fbfdf9;
+}
+
+.data-table tr.selected-row td {
+  background: #f0f7f2;
+}
+
+.ai-jobs-table {
+  font-size: 13px;
+}
+
+.ai-jobs-table th,
+.ai-jobs-table td {
+  padding: 6px 8px;
+  vertical-align: middle;
+}
+
+.ai-jobs-table th {
+  font-size: 11px;
+  letter-spacing: 0;
+}
+
+.ai-jobs-table td {
+  line-height: 1.3;
+}
+
+.ai-job-action-button {
+  min-width: 64px;
+  width: 64px;
+}
+
+.ai-jobs-pagination {
+  align-items: center;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: -8px;
+}
+
+.ai-jobs-pagination .compact-button {
+  min-width: 58px;
+  width: 58px;
+}
+
+.ai-jobs-pagination span {
+  font-size: 12px;
+  min-width: 72px;
+  text-align: center;
 }
 
 .table-actions {

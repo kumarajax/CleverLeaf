@@ -39,6 +39,7 @@ public class AiQuestionGenerationService {
     private final QuestionRepository questions;
     private final QuestionAuthoringService authoring;
     private final QuestionGenerationClient generationClient;
+    private final AiProviderConnectionService connections;
 
     public AiQuestionGenerationService(
             JdbcTemplate jdbcTemplate,
@@ -47,7 +48,8 @@ public class AiQuestionGenerationService {
             TaxonomyNodeRepository taxonomyNodes,
             QuestionRepository questions,
             QuestionAuthoringService authoring,
-            QuestionGenerationClient generationClient) {
+            QuestionGenerationClient generationClient,
+            AiProviderConnectionService connections) {
         this.jdbcTemplate = jdbcTemplate;
         this.objectMapper = objectMapper;
         this.storage = storage;
@@ -55,6 +57,7 @@ public class AiQuestionGenerationService {
         this.questions = questions;
         this.authoring = authoring;
         this.generationClient = generationClient;
+        this.connections = connections;
     }
 
     @Transactional
@@ -97,6 +100,7 @@ public class AiQuestionGenerationService {
             if (chunks.isEmpty()) {
                 throw new IllegalArgumentException("No usable source text was found");
             }
+            AiProviderCredentials credentials = connections.resolveCredentials(tenantId);
             int remaining = job.questionCount();
             for (AiChunkRow chunk : chunks) {
                 if (remaining <= 0) break;
@@ -111,7 +115,7 @@ public class AiQuestionGenerationService {
                         allowedTypes(settings),
                         difficultyMix(settings),
                         chunk.sourceReference(),
-                        chunk.chunkText()));
+                        chunk.chunkText()), credentials);
                 int accepted = storeBatch(job, chunk, batch);
                 remaining -= accepted;
             }
@@ -612,6 +616,9 @@ public class AiQuestionGenerationService {
     }
 
     private String rootMessage(RuntimeException ex) {
+        if (ex instanceof ResponseStatusException responseStatusException && responseStatusException.getReason() != null) {
+            return responseStatusException.getReason();
+        }
         Throwable current = ex;
         while (current.getCause() != null) current = current.getCause();
         return current.getMessage() == null ? ex.getMessage() : current.getMessage();
