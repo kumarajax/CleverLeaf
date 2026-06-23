@@ -59,14 +59,14 @@ public class BulkImportService {
     }
 
     @Transactional(readOnly = true)
-    public BulkImportPreviewResponse preview(BulkImportStep step, String objectKey) {
-        List<BulkImportRowResult> rows = parseRows(step, objectKey);
+    public BulkImportPreviewResponse preview(UUID tenantId, BulkImportStep step, String objectKey) {
+        List<BulkImportRowResult> rows = parseRows(tenantId, step, objectKey);
         long valid = rows.stream().filter(BulkImportRowResult::valid).count();
         return new BulkImportPreviewResponse(objectKey, step.name(), rows.size(), (int) valid, rows.size() - (int) valid, rows);
     }
 
-    public BulkImportSummary importStep(BulkImportStep step, String objectKey, String actor) {
-        List<BulkImportRowResult> previewRows = parseRows(step, objectKey);
+    public BulkImportSummary importStep(UUID tenantId, BulkImportStep step, String objectKey, String actor) {
+        List<BulkImportRowResult> previewRows = parseRows(tenantId, step, objectKey);
         List<BulkImportRowResult> results = new ArrayList<>();
         int imported = 0;
         for (BulkImportRowResult row : previewRows) {
@@ -77,10 +77,10 @@ public class BulkImportService {
             List<String> errors = new ArrayList<>();
             try {
                 switch (step) {
-                    case TAXONOMIES -> importTaxonomy(row.values());
-                    case QUESTIONS -> importQuestion(row.values(), actor);
-                    case QUESTION_OPTIONS -> importQuestionOption(row.values());
-                    case CORRECT_ANSWERS -> importCorrectAnswer(row.values());
+                    case TAXONOMIES -> importTaxonomy(tenantId, row.values());
+                    case QUESTIONS -> importQuestion(tenantId, row.values(), actor);
+                    case QUESTION_OPTIONS -> importQuestionOption(tenantId, row.values());
+                    case CORRECT_ANSWERS -> importCorrectAnswer(tenantId, row.values());
                 }
                 imported++;
             } catch (DuplicateQuestionImportException ex) {
@@ -92,11 +92,11 @@ public class BulkImportService {
             results.add(new BulkImportRowResult(row.lineNumber(), row.values(), errors, errors.isEmpty()));
         }
         int failed = previewRows.size() - imported;
-        recordStepRun(step, objectKey, previewRows.size(), imported, failed, results);
+        recordStepRun(tenantId, step, objectKey, previewRows.size(), imported, failed, results);
         return new BulkImportSummary(objectKey, step.name(), previewRows.size(), imported, failed, results);
     }
 
-    private void recordStepRun(BulkImportStep step, String objectKey, int totalRows, int imported, int failed, List<BulkImportRowResult> results) {
+    private void recordStepRun(UUID tenantId, BulkImportStep step, String objectKey, int totalRows, int imported, int failed, List<BulkImportRowResult> results) {
         int validRows = (int) results.stream().filter(BulkImportRowResult::valid).count();
         String status = failed == 0 ? "IMPORTED" : imported == 0 ? "FAILED" : "PARTIAL";
         String errors = results.stream()
@@ -106,12 +106,12 @@ public class BulkImportService {
                 .toString();
         jdbcTemplate.update("""
                 INSERT INTO bulk_import_step_run
-                    (id, step_code, object_key, status, total_rows, valid_rows, imported_rows, failed_rows, errors_json)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, UUID.randomUUID(), step.name(), objectKey, status, totalRows, validRows, imported, failed, errors);
+                    (id, tenant_id, step_code, object_key, status, total_rows, valid_rows, imported_rows, failed_rows, errors_json)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, UUID.randomUUID(), tenantId, step.name(), objectKey, status, totalRows, validRows, imported, failed, errors);
     }
 
-    private List<BulkImportRowResult> parseRows(BulkImportStep step, String objectKey) {
+    private List<BulkImportRowResult> parseRows(UUID tenantId, BulkImportStep step, String objectKey) {
         if (!storage.exists(objectKey)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Uploaded import file was not found");
         }
@@ -235,61 +235,68 @@ public class BulkImportService {
         }
     }
 
-    private void importTaxonomy(Map<String, String> values) {
+    private void importTaxonomy(UUID tenantId, Map<String, String> values) {
         String externalKey = requireText(value(values, "PublicKey", "externalKey"), "PublicKey");
         String levelKey = normalizeLevelKey(requireText(values.get("levelKey"), "levelKey"));
-        LookupEntity level = lookupOrCreateTaxonomyLevel(levelKey);
+        LookupEntity level = lookupOrCreateTaxonomyLevel(tenantId, levelKey);
         TaxonomyNodeEntity parent = null;
         String parentPublicKey = value(values, "ParentPublicKey", "parentExternalKey");
         if (!blank(parentPublicKey)) {
-            parent = taxonomyNodes.findByExternalKey(parentPublicKey.trim())
+            parent = taxonomyNodes.findByExternalKeyAndTenantId(parentPublicKey.trim(), tenantId)
                     .orElseThrow(() -> new IllegalArgumentException("Unknown ParentPublicKey: " + parentPublicKey));
         }
-        TaxonomyNodeEntity node = taxonomyNodes.findByExternalKey(externalKey).orElseGet(() -> {
+        TaxonomyNodeEntity node = taxonomyNodes.findByExternalKeyAndTenantId(externalKey, tenantId).orElseGet(() -> {
             TaxonomyNodeEntity created = new TaxonomyNodeEntity();
             created.setId(UUID.randomUUID());
+            created.setTenantId(tenantId);
             created.setExternalKey(externalKey);
             return created;
         });
+        node.setTenantId(tenantId);
         node.setLevelType(level);
         node.setParentNode(parent);
         TaxonomyNodeEntity root = parent == null ? node : rootTaxonomyNode(parent);
         String nodeKey = normalizeNodeKey(values.get("nodeKey"));
         node.setRootTaxonomyNode(root);
         node.setNodeKey(nodeKey);
-        validateRootNodeKeyAvailable(root, nodeKey, node.getId());
+        validateRootNodeKeyAvailable(tenantId, root, nodeKey, node.getId());
         node.setDisplayName(requireText(values.get("displayName"), "displayName"));
         node.setStatus(blank(values.get("status")) ? "ACTIVE" : values.get("status").trim().toUpperCase(Locale.ROOT));
         node.setSortOrder(parseIntegerOrDefault(values.get("sortOrder"), 0));
         taxonomyNodes.save(node);
     }
 
-    private LookupEntity lookupOrCreateTaxonomyLevel(String levelKey) {
-        return lookups.findByLookupTypeAndLookupCodeIgnoreCase(LookupType.TAXONOMY_TYPE, levelKey)
-                .orElseGet(() -> lookups.save(new LookupEntity(
-                        UUID.randomUUID(),
-                        LookupType.TAXONOMY_TYPE,
-                        levelKey,
-                        displayName(levelKey),
-                        "Imported taxonomy level",
-                        1000,
-                        true)));
+    private LookupEntity lookupOrCreateTaxonomyLevel(UUID tenantId, String levelKey) {
+        return lookups.findByLookupTypeAndLookupCodeIgnoreCaseAndTenantId(LookupType.TAXONOMY_TYPE, levelKey, tenantId)
+                .orElseGet(() -> {
+                    LookupEntity lookup = new LookupEntity(
+                            UUID.randomUUID(),
+                            LookupType.TAXONOMY_TYPE,
+                            levelKey,
+                            displayName(levelKey),
+                            "Imported taxonomy level",
+                            1000,
+                            true);
+                    lookup.setTenantId(tenantId);
+                    return lookups.save(lookup);
+                });
     }
 
-    private void importQuestion(Map<String, String> values, String actor) {
+    private void importQuestion(UUID tenantId, Map<String, String> values, String actor) {
         String externalKey = requireText(value(values, "PublicKey", "externalKey"), "PublicKey");
-        TaxonomyNodeEntity taxonomy = taxonomyForQuestion(values);
+        TaxonomyNodeEntity taxonomy = taxonomyForQuestion(tenantId, values);
         QuestionType type = parseRequiredEnum(values.get("questionType"), QuestionType.class, "questionType");
         Difficulty difficulty = parseRequiredEnum(values.get("difficulty"), Difficulty.class, "difficulty");
         WorkflowStatus status = blank(values.get("workflowStatus"))
                 ? WorkflowStatus.DRAFT
                 : parseRequiredEnum(values.get("workflowStatus"), WorkflowStatus.class, "workflowStatus");
-        QuestionEntity existing = questions.findByExternalKey(externalKey).orElse(null);
+        QuestionEntity existing = questions.findByExternalKeyAndTenantId(externalKey, tenantId).orElse(null);
         String normalizedQuestionText = normalizeQuestionText(values.get("questionText"));
-        QuestionEntity duplicate = questions.findByRootTaxonomyNode_IdAndChildTaxonomyNode_IdAndNormalizedQuestionText(
+        QuestionEntity duplicate = questions.findByRootTaxonomyNode_IdAndChildTaxonomyNode_IdAndNormalizedQuestionTextAndTenantId(
                         rootTaxonomyNode(taxonomy).getId(),
                         taxonomy.getId(),
-                        normalizedQuestionText)
+                        normalizedQuestionText,
+                        tenantId)
                 .orElse(null);
         if (duplicate != null && (existing == null || !duplicate.getId().equals(existing.getId()))) {
             throw new DuplicateQuestionImportException("Duplicate question already exists in "
@@ -325,22 +332,23 @@ public class BulkImportService {
                 splitTags(values.get("tags")),
                 true);
         UUID questionId = existing == null
-                ? authoring.create(request).id()
-                : authoring.update(existing.getId(), request).id();
-        QuestionEntity question = questions.findById(questionId)
+                ? authoring.create(tenantId, request).id()
+                : authoring.update(tenantId, existing.getId(), request).id();
+        QuestionEntity question = questions.findByIdAndTenantId(questionId, tenantId)
                 .orElseThrow(() -> new IllegalStateException("Imported question was not found"));
         question.setExternalKey(externalKey);
         questions.save(question);
     }
 
-    private void importQuestionOption(Map<String, String> values) {
-        QuestionEntity question = questionByExternalKey(value(values, "QuestionPublicKey", "questionExternalKey"));
+    private void importQuestionOption(UUID tenantId, Map<String, String> values) {
+        QuestionEntity question = questionByExternalKey(tenantId, value(values, "QuestionPublicKey", "questionExternalKey"));
         QuestionOptionEntity option = question.getOptions().stream()
                 .filter(current -> current.getOptionKey().equalsIgnoreCase(requireText(values.get("optionKey"), "optionKey")))
                 .findFirst()
                 .orElseGet(() -> {
                     QuestionOptionEntity created = new QuestionOptionEntity();
                     created.setId(UUID.randomUUID());
+                    created.setTenantId(question.getTenantId());
                     created.setQuestion(question);
                     question.getOptions().add(created);
                     return created;
@@ -352,8 +360,8 @@ public class BulkImportService {
         questions.save(question);
     }
 
-    private void importCorrectAnswer(Map<String, String> values) {
-        QuestionEntity question = questionByExternalKey(value(values, "QuestionPublicKey", "questionExternalKey"));
+    private void importCorrectAnswer(UUID tenantId, Map<String, String> values) {
+        QuestionEntity question = questionByExternalKey(tenantId, value(values, "QuestionPublicKey", "questionExternalKey"));
         QuestionType type = parseRequiredEnum(question.getQuestionType(), QuestionType.class, "questionType");
         if (type == QuestionType.SINGLE_SELECT || type == QuestionType.MULTIPLE_SELECT || type == QuestionType.TRUE_FALSE) {
             String optionKey = requireText(values.get("optionKey"), "optionKey").toUpperCase(Locale.ROOT);
@@ -373,6 +381,7 @@ public class BulkImportService {
         }
         QuestionAnswerEntity answer = new QuestionAnswerEntity();
         answer.setId(UUID.randomUUID());
+        answer.setTenantId(question.getTenantId());
         answer.setQuestion(question);
         answer.setAnswerValue(requireText(values.get("answerValue"), "answerValue"));
         answer.setAnswerType(blank(values.get("answerType")) ? type.name() : values.get("answerType").trim().toUpperCase(Locale.ROOT));
@@ -383,20 +392,20 @@ public class BulkImportService {
         questions.save(question);
     }
 
-    private QuestionEntity questionByExternalKey(String externalKey) {
-        return questions.findByExternalKey(requireText(externalKey, "QuestionPublicKey"))
+    private QuestionEntity questionByExternalKey(UUID tenantId, String externalKey) {
+        return questions.findByExternalKeyAndTenantId(requireText(externalKey, "QuestionPublicKey"), tenantId)
                 .orElseThrow(() -> new IllegalArgumentException("Unknown QuestionPublicKey: " + externalKey));
     }
 
-    private TaxonomyNodeEntity taxonomyForQuestion(Map<String, String> values) {
+    private TaxonomyNodeEntity taxonomyForQuestion(UUID tenantId, Map<String, String> values) {
         String legacyKey = value(values, "taxonomyExternalKey");
         if (!blank(legacyKey)) {
-            return taxonomyNodes.findByExternalKey(legacyKey.trim())
+            return taxonomyNodes.findByExternalKeyAndTenantId(legacyKey.trim(), tenantId)
                     .orElseThrow(() -> new IllegalArgumentException("Unknown taxonomyExternalKey: " + legacyKey));
         }
         String rootTaxonomy = requireText(values.get("RootTaxonomy"), "RootTaxonomy");
         String childTaxonomy = requireText(values.get("ChildTaxonomy"), "ChildTaxonomy");
-        List<TaxonomyNodeEntity> all = taxonomyNodes.findAll();
+        List<TaxonomyNodeEntity> all = taxonomyNodes.findAll((root, query, criteriaBuilder) -> criteriaBuilder.equal(root.get("tenantId"), tenantId));
         List<TaxonomyNodeEntity> roots = all.stream()
                 .filter(node -> node.getParentNode() == null)
                 .filter(node -> matchesTaxonomyKey(node, rootTaxonomy))
@@ -456,8 +465,8 @@ public class BulkImportService {
         return current;
     }
 
-    private void validateRootNodeKeyAvailable(TaxonomyNodeEntity root, String nodeKey, UUID currentId) {
-        if (taxonomyNodes.existsByRootTaxonomyNode_IdAndNodeKeyAndIdNot(root.getId(), nodeKey, currentId)) {
+    private void validateRootNodeKeyAvailable(UUID tenantId, TaxonomyNodeEntity root, String nodeKey, UUID currentId) {
+        if (taxonomyNodes.existsByRootTaxonomyNode_IdAndTenantIdAndNodeKeyAndIdNot(root.getId(), tenantId, nodeKey, currentId)) {
             throw new IllegalArgumentException("nodeKey already exists under root taxonomy: " + root.getNodeKey());
         }
     }

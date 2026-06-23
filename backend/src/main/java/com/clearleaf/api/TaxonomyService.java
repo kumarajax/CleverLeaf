@@ -192,9 +192,10 @@ public class TaxonomyService {
         }
         setSubtreeStatus(tenantId, edition.getId(), "ACTIVE");
 
-        TaxonomyEditionStateEntity editionState = editionStates.findByCurriculumId(curriculum.getId())
+        TaxonomyEditionStateEntity editionState = editionStates.findByCurriculumIdAndTenantId(curriculum.getId(), tenantId)
                 .orElseGet(TaxonomyEditionStateEntity::new);
         editionState.setCurriculumId(curriculum.getId());
+        editionState.setTenantId(tenantId);
         editionState.setActiveEditionNode(edition);
         editionStates.save(editionState);
 
@@ -424,7 +425,7 @@ public class TaxonomyService {
                 levelCode(entity),
                 gradeLabel(entity),
                 taxonomyPath(entity),
-                questions.countTestableByTaxonomyNodeIds(descendantIds(entity.getTenantId(), entity.getId()), TESTABLE_WORKFLOW_STATUSES));
+                questions.countTestableByTaxonomyNodeIds(descendantIds(entity.getTenantId(), entity.getId()), TESTABLE_WORKFLOW_STATUSES, entity.getTenantId()));
     }
 
     private List<UUID> descendantIds(UUID tenantId, UUID rootId) {

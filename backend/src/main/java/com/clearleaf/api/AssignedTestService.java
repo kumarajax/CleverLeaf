@@ -87,10 +87,10 @@ public class AssignedTestService {
     }
 
     @Transactional(readOnly = true)
-    public List<AdminAssignedTestSummary> adminTests(String creatorSubject) {
-        return adminTests.findByCreatorSubjectOrderByCreatedAtDesc(requireSubject(creatorSubject))
+    public List<AdminAssignedTestSummary> adminTests(UUID tenantId, String creatorSubject) {
+        return adminTests.findByCreatorSubjectAndTenantIdOrderByCreatedAtDesc(requireSubject(creatorSubject), tenantId)
                 .stream()
-                .map(test -> versions.findFirstByTest_IdOrderByVersionNumberDesc(test.getId())
+                .map(test -> versions.findFirstByTest_IdAndTenantIdOrderByVersionNumberDesc(test.getId(), tenantId)
                         .map(this::toSummary)
                         .orElse(null))
                 .filter(java.util.Objects::nonNull)
@@ -98,10 +98,10 @@ public class AssignedTestService {
     }
 
     @Transactional
-    public AdminAssignedTestDetail createAdminTest(String creatorSubject, CreateAdminAssignedTestRequest request) {
+    public AdminAssignedTestDetail createAdminTest(UUID tenantId, String creatorSubject, CreateAdminAssignedTestRequest request) {
         String subject = requireSubject(creatorSubject);
         String publicKey = requireText(request.publicKey(), "publicKey").toUpperCase(Locale.ROOT);
-        if (adminTests.findByPublicKeyIgnoreCase(publicKey).isPresent()) {
+        if (adminTests.findByPublicKeyIgnoreCaseAndTenantId(publicKey, tenantId).isPresent()) {
             throw new IllegalArgumentException("Test publicKey already exists: " + publicKey);
         }
         List<UUID> questionIds = request.questionIds() == null ? List.of() : request.questionIds().stream().distinct().toList();
@@ -112,6 +112,7 @@ public class AssignedTestService {
 
         AdminTestEntity test = new AdminTestEntity();
         test.setId(UUID.randomUUID());
+        test.setTenantId(tenantId);
         test.setPublicKey(publicKey);
         test.setName(requireText(request.name(), "name"));
         test.setCreatorSubject(subject);
@@ -119,6 +120,7 @@ public class AssignedTestService {
 
         AdminTestVersionEntity version = new AdminTestVersionEntity();
         version.setId(UUID.randomUUID());
+        version.setTenantId(tenantId);
         version.setTest(test);
         version.setVersionNumber(1);
         version.setTimeAllowedSeconds(timeAllowedSeconds);
@@ -128,11 +130,12 @@ public class AssignedTestService {
 
         for (int index = 0; index < questionIds.size(); index++) {
             UUID questionId = questionIds.get(index);
-            QuestionEntity question = questions.findById(questionId)
+            QuestionEntity question = questions.findByIdAndTenantId(questionId, tenantId)
                     .orElseThrow(() -> new IllegalArgumentException("Unknown question: " + questionId));
             validateAssignedTestQuestion(question);
             AdminTestVersionQuestionEntity versionQuestion = new AdminTestVersionQuestionEntity();
             versionQuestion.setId(UUID.randomUUID());
+            versionQuestion.setTenantId(tenantId);
             versionQuestion.setVersion(version);
             versionQuestion.setQuestion(question);
             versionQuestion.setQuestionOrder(index + 1);
@@ -143,13 +146,13 @@ public class AssignedTestService {
     }
 
     @Transactional(readOnly = true)
-    public AdminAssignedTestDetail adminTest(String creatorSubject, UUID versionId) {
-        return toDetail(requireCreatorVersion(creatorSubject, versionId));
+    public AdminAssignedTestDetail adminTest(UUID tenantId, String creatorSubject, UUID versionId) {
+        return toDetail(requireCreatorVersion(tenantId, creatorSubject, versionId));
     }
 
     @Transactional
-    public AdminAssignedTestSummary activateTest(String creatorSubject, UUID versionId) {
-        AdminTestVersionEntity version = requireCreatorVersion(creatorSubject, versionId);
+    public AdminAssignedTestSummary activateTest(UUID tenantId, String creatorSubject, UUID versionId) {
+        AdminTestVersionEntity version = requireCreatorVersion(tenantId, creatorSubject, versionId);
         AdminTestEntity test = version.getTest();
         if (!TEST_STATUS_DRAFT.equals(test.getStatus())) {
             throw new IllegalStateException("Only draft tests can be activated");
@@ -163,8 +166,8 @@ public class AssignedTestService {
     }
 
     @Transactional
-    public void deleteTest(String creatorSubject, UUID versionId) {
-        AdminTestVersionEntity version = requireCreatorVersion(creatorSubject, versionId);
+    public void deleteTest(UUID tenantId, String creatorSubject, UUID versionId) {
+        AdminTestVersionEntity version = requireCreatorVersion(tenantId, creatorSubject, versionId);
         AdminTestEntity test = version.getTest();
         if (TEST_STATUS_PUBLISHED.equals(test.getStatus())) {
             throw new IllegalStateException("Published tests cannot be deleted");
@@ -176,9 +179,10 @@ public class AssignedTestService {
     }
 
     @Transactional
-    public AssignedTestImportJobResponse startAssignmentImport(String actorSubject, String objectKey) {
+    public AssignedTestImportJobResponse startAssignmentImport(UUID tenantId, String actorSubject, String objectKey) {
         AssignedTestImportJobEntity job = new AssignedTestImportJobEntity();
         job.setId(UUID.randomUUID());
+        job.setTenantId(tenantId);
         job.setActorSubject(requireSubject(actorSubject));
         job.setObjectKey(requireText(objectKey, "objectKey"));
         job.setStatus("QUEUED");
@@ -188,53 +192,54 @@ public class AssignedTestService {
     }
 
     @Transactional(readOnly = true)
-    public AssignedTestImportJobResponse importJob(String actorSubject, UUID jobId) {
-        return toJob(jobs.findByIdAndActorSubject(jobId, requireSubject(actorSubject))
+    public AssignedTestImportJobResponse importJob(UUID tenantId, String actorSubject, UUID jobId) {
+        return toJob(jobs.findByIdAndActorSubjectAndTenantId(jobId, requireSubject(actorSubject), tenantId)
                 .orElseThrow(() -> new IllegalArgumentException("Unknown import job: " + jobId)));
     }
 
     @Transactional(readOnly = true)
-    public List<AssignedTestImportRowResponse> importRows(String actorSubject, UUID jobId) {
-        importJob(actorSubject, jobId);
+    public List<AssignedTestImportRowResponse> importRows(UUID tenantId, String actorSubject, UUID jobId) {
+        importJob(tenantId, actorSubject, jobId);
         return jobRows.findTop200ByJob_IdOrderByLineNumberAsc(jobId).stream().map(this::toRow).toList();
     }
 
     @Transactional(readOnly = true)
-    public List<AdminAssignedTestResult> adminResults(String creatorSubject, UUID versionId) {
-        AdminTestVersionEntity version = requireCreatorVersion(creatorSubject, versionId);
-        return assignments.findByVersion_Test_CreatorSubjectOrderByAssignedAtDesc(requireSubject(creatorSubject)).stream()
+    public List<AdminAssignedTestResult> adminResults(UUID tenantId, String creatorSubject, UUID versionId) {
+        AdminTestVersionEntity version = requireCreatorVersion(tenantId, creatorSubject, versionId);
+        return assignments.findByVersion_Test_CreatorSubjectAndTenantIdOrderByAssignedAtDesc(requireSubject(creatorSubject), tenantId).stream()
                 .filter(assignment -> assignment.getVersion().getId().equals(version.getId()))
                 .map(assignment -> toAdminResult(assignment, false))
                 .toList();
     }
 
     @Transactional(readOnly = true)
-    public AdminAssignedTestResult adminResult(String creatorSubject, UUID versionId, UUID assignmentId) {
-        AdminTestVersionEntity version = requireCreatorVersion(creatorSubject, versionId);
+    public AdminAssignedTestResult adminResult(UUID tenantId, String creatorSubject, UUID versionId, UUID assignmentId) {
+        AdminTestVersionEntity version = requireCreatorVersion(tenantId, creatorSubject, versionId);
         AssignedTestAssignmentEntity assignment = assignments.findById(assignmentId)
+                .filter(candidate -> candidate.getTenantId().equals(tenantId))
                 .filter(candidate -> candidate.getVersion().getId().equals(version.getId()))
                 .orElseThrow(() -> new IllegalArgumentException("Unknown assigned test result: " + assignmentId));
         return toAdminResult(assignment, true);
     }
 
     @Transactional
-    public AdminAssignedTestResult assignStudent(String creatorSubject, UUID versionId, AssignAdminTestRequest request) {
-        AdminTestVersionEntity version = requireCreatorVersion(creatorSubject, versionId);
+    public AdminAssignedTestResult assignStudent(UUID tenantId, String creatorSubject, UUID versionId, AssignAdminTestRequest request) {
+        AdminTestVersionEntity version = requireCreatorVersion(tenantId, creatorSubject, versionId);
         ensureAssignable(version);
         String studentSubject = requireText(request == null ? null : request.studentSubject(), "studentSubject");
-        AssignedTestAssignmentEntity assignment = assignments.findFirstByVersion_IdAndStudentSubjectIgnoreCaseAndStatusInOrderByAssignedAtDesc(
-                        version.getId(), studentSubject, OPEN_ASSIGNMENT_STATUSES)
+        AssignedTestAssignmentEntity assignment = assignments.findFirstByVersion_IdAndStudentSubjectIgnoreCaseAndStatusInAndTenantIdOrderByAssignedAtDesc(
+                        version.getId(), studentSubject, OPEN_ASSIGNMENT_STATUSES, tenantId)
                 .orElseGet(() -> createAssignment(version, studentSubject, null));
         publishTest(version);
         return toAdminResult(assignment, false);
     }
 
     @Transactional
-    public AdminAssignedTestSummary publishResults(String creatorSubject, UUID versionId) {
-        AdminTestVersionEntity version = requireCreatorVersion(creatorSubject, versionId);
+    public AdminAssignedTestSummary publishResults(UUID tenantId, String creatorSubject, UUID versionId) {
+        AdminTestVersionEntity version = requireCreatorVersion(tenantId, creatorSubject, versionId);
         Instant now = Instant.now();
         version.setResultsPublishedAt(now);
-        assignments.findByVersion_Test_CreatorSubjectOrderByAssignedAtDesc(requireSubject(creatorSubject)).stream()
+        assignments.findByVersion_Test_CreatorSubjectAndTenantIdOrderByAssignedAtDesc(requireSubject(creatorSubject), tenantId).stream()
                 .filter(assignment -> assignment.getVersion().getId().equals(version.getId()))
                 .filter(assignment -> "SUBMITTED".equals(assignment.getStatus()))
                 .forEach(assignment -> assignment.setResultsPublishedAt(now));
@@ -243,9 +248,10 @@ public class AssignedTestService {
     }
 
     @Transactional
-    public AdminAssignedTestResult publishStudentResult(String creatorSubject, UUID versionId, UUID assignmentId) {
-        AdminTestVersionEntity version = requireCreatorVersion(creatorSubject, versionId);
+    public AdminAssignedTestResult publishStudentResult(UUID tenantId, String creatorSubject, UUID versionId, UUID assignmentId) {
+        AdminTestVersionEntity version = requireCreatorVersion(tenantId, creatorSubject, versionId);
         AssignedTestAssignmentEntity assignment = assignments.findById(assignmentId)
+                .filter(candidate -> candidate.getTenantId().equals(tenantId))
                 .filter(candidate -> candidate.getVersion().getId().equals(version.getId()))
                 .orElseThrow(() -> new IllegalArgumentException("Unknown assigned test result: " + assignmentId));
         if (!"SUBMITTED".equals(assignment.getStatus())) {
@@ -257,10 +263,11 @@ public class AssignedTestService {
     }
 
     @Transactional
-    public AdminAssignedTestResult reassignStudentTest(String creatorSubject, UUID versionId, UUID assignmentId) {
-        AdminTestVersionEntity version = requireCreatorVersion(creatorSubject, versionId);
+    public AdminAssignedTestResult reassignStudentTest(UUID tenantId, String creatorSubject, UUID versionId, UUID assignmentId) {
+        AdminTestVersionEntity version = requireCreatorVersion(tenantId, creatorSubject, versionId);
         ensureAssignable(version);
         AssignedTestAssignmentEntity assignment = assignments.findById(assignmentId)
+                .filter(candidate -> candidate.getTenantId().equals(tenantId))
                 .filter(candidate -> candidate.getVersion().getId().equals(version.getId()))
                 .orElseThrow(() -> new IllegalArgumentException("Unknown assigned test result: " + assignmentId));
         if (!REASSIGNABLE_ASSIGNMENT_STATUSES.contains(assignment.getStatus())) {
@@ -269,8 +276,8 @@ public class AssignedTestService {
         if (isResultPublished(assignment)) {
             throw new IllegalStateException("Published results cannot be reassigned");
         }
-        assignments.findFirstByVersion_IdAndStudentSubjectIgnoreCaseAndStatusInOrderByAssignedAtDesc(
-                version.getId(), assignment.getStudentSubject(), OPEN_ASSIGNMENT_STATUSES)
+        assignments.findFirstByVersion_IdAndStudentSubjectIgnoreCaseAndStatusInAndTenantIdOrderByAssignedAtDesc(
+                version.getId(), assignment.getStudentSubject(), OPEN_ASSIGNMENT_STATUSES, tenantId)
                 .ifPresent(openAssignment -> {
                     if (!openAssignment.getId().equals(assignment.getId())) {
                         throw new IllegalStateException("Student already has an open assignment for this test");
@@ -285,9 +292,9 @@ public class AssignedTestService {
     }
 
     @Transactional(readOnly = true)
-    public List<StudentAssignedTestSummary> studentAssigned(Collection<String> studentIdentifiers, boolean resultsOnly) {
+    public List<StudentAssignedTestSummary> studentAssigned(UUID tenantId, Collection<String> studentIdentifiers, boolean resultsOnly) {
         List<String> identifiers = requireIdentifiers(studentIdentifiers);
-        return assignments.findByStudentSubjectInOrderByAssignedAtDesc(identifiers)
+        return assignments.findByStudentSubjectInAndTenantIdOrderByAssignedAtDesc(identifiers, tenantId)
                 .stream()
                 .filter(assignment -> !ASSIGNMENT_STATUS_REASSIGNED.equals(assignment.getStatus()))
                 .filter(assignment -> resultsOnly == (isResultPublished(assignment) && "SUBMITTED".equals(assignment.getStatus())))
@@ -296,8 +303,8 @@ public class AssignedTestService {
     }
 
     @Transactional
-    public StudentTestAttemptResponse startAssigned(String canonicalStudentSubject, Collection<String> studentIdentifiers, UUID assignmentId) {
-        AssignedTestAssignmentEntity assignment = findStudentAssignment(studentIdentifiers, assignmentId);
+    public StudentTestAttemptResponse startAssigned(UUID tenantId, String canonicalStudentSubject, Collection<String> studentIdentifiers, UUID assignmentId) {
+        AssignedTestAssignmentEntity assignment = findStudentAssignment(tenantId, studentIdentifiers, assignmentId);
         AdminTestVersionEntity version = assignment.getVersion();
         Instant now = Instant.now();
         if (!TEST_STATUS_PUBLISHED.equals(version.getTest().getStatus())) {
@@ -309,15 +316,15 @@ public class AssignedTestService {
         if (version.getAvailableUntil() != null && now.isAfter(version.getAvailableUntil())) {
             throw new IllegalStateException("Assigned test is no longer available");
         }
-        return attempts.findByAssignment_Id(assignment.getId())
+        return attempts.findByAssignment_IdAndTenantId(assignment.getId(), tenantId)
                 .map(this::toAttemptResponse)
                 .orElseGet(() -> createAssignedAttempt(assignment, requireSubject(canonicalStudentSubject), now));
     }
 
     @Transactional(readOnly = true)
-    public StudentTestAttemptResponse getAssignedAttempt(Collection<String> studentIdentifiers, UUID assignmentId) {
-        AssignedTestAssignmentEntity assignment = findStudentAssignment(studentIdentifiers, assignmentId);
-        TestAttemptEntity attempt = attempts.findByAssignment_Id(assignment.getId())
+    public StudentTestAttemptResponse getAssignedAttempt(UUID tenantId, Collection<String> studentIdentifiers, UUID assignmentId) {
+        AssignedTestAssignmentEntity assignment = findStudentAssignment(tenantId, studentIdentifiers, assignmentId);
+        TestAttemptEntity attempt = attempts.findByAssignment_IdAndTenantId(assignment.getId(), tenantId)
                 .orElseThrow(() -> new IllegalArgumentException("Assigned test has not been started"));
         if ("SUBMITTED".equals(attempt.getStatus()) && !isResultPublished(assignment)) {
             return toAttemptResponse(attempt, false);
@@ -326,16 +333,16 @@ public class AssignedTestService {
     }
 
     @Transactional(readOnly = true)
-    public StudentTestQuestion getAssignedQuestion(Collection<String> studentIdentifiers, UUID assignmentId, UUID attemptQuestionId) {
-        TestAttemptEntity attempt = findStudentAttempt(studentIdentifiers, assignmentId);
+    public StudentTestQuestion getAssignedQuestion(UUID tenantId, Collection<String> studentIdentifiers, UUID assignmentId, UUID attemptQuestionId) {
+        TestAttemptEntity attempt = findStudentAttempt(tenantId, studentIdentifiers, assignmentId);
         TestAttemptQuestionEntity question = findAttemptQuestion(attempt, attemptQuestionId);
         boolean reveal = "SUBMITTED".equals(attempt.getStatus()) && isResultPublished(attempt.getAssignment());
         return toQuestion(question, reveal);
     }
 
     @Transactional
-    public StudentTestQuestion saveAssignedAnswer(Collection<String> studentIdentifiers, UUID assignmentId, UUID attemptQuestionId, SubmitStudentAnswerRequest request) {
-        TestAttemptEntity attempt = findStudentAttempt(studentIdentifiers, assignmentId);
+    public StudentTestQuestion saveAssignedAnswer(UUID tenantId, Collection<String> studentIdentifiers, UUID assignmentId, UUID attemptQuestionId, SubmitStudentAnswerRequest request) {
+        TestAttemptEntity attempt = findStudentAttempt(tenantId, studentIdentifiers, assignmentId);
         ensureAnswerable(attempt);
         TestAttemptQuestionEntity question = findAttemptQuestion(attempt, attemptQuestionId);
         question.setSubmittedAnswer(serializeAnswer(question.getQuestion(), request));
@@ -347,8 +354,8 @@ public class AssignedTestService {
     }
 
     @Transactional
-    public StudentTestAttemptResponse submitAssigned(Collection<String> studentIdentifiers, UUID assignmentId) {
-        TestAttemptEntity attempt = findStudentAttempt(studentIdentifiers, assignmentId);
+    public StudentTestAttemptResponse submitAssigned(UUID tenantId, Collection<String> studentIdentifiers, UUID assignmentId) {
+        TestAttemptEntity attempt = findStudentAttempt(tenantId, studentIdentifiers, assignmentId);
         if (!"SUBMITTED".equals(attempt.getStatus())) {
             grade(attempt);
             Instant now = Instant.now();
@@ -423,8 +430,8 @@ public class AssignedTestService {
                 rowStatus = "FAILED";
                 message = "TestPublicKey and StudentSubject are required";
             } else {
-                AdminTestEntity test = adminTests.findByPublicKeyIgnoreCase(cleanKey).orElse(null);
-                AdminTestVersionEntity version = test == null ? null : versions.findFirstByTest_IdOrderByVersionNumberDesc(test.getId()).orElse(null);
+                AdminTestEntity test = adminTests.findByPublicKeyIgnoreCaseAndTenantId(cleanKey, job.getTenantId()).orElse(null);
+                AdminTestVersionEntity version = test == null ? null : versions.findFirstByTest_IdAndTenantIdOrderByVersionNumberDesc(test.getId(), job.getTenantId()).orElse(null);
                 if (test == null || version == null) {
                     rowStatus = "FAILED";
                     message = "Unknown TestPublicKey";
@@ -434,8 +441,8 @@ public class AssignedTestService {
                 } else if (!isAssignableStatus(test.getStatus())) {
                     rowStatus = "FAILED";
                     message = "Only active or published tests can be assigned";
-                } else if (assignments.findFirstByVersion_IdAndStudentSubjectIgnoreCaseAndStatusInOrderByAssignedAtDesc(
-                        version.getId(), cleanSubject, OPEN_ASSIGNMENT_STATUSES).isPresent()) {
+                } else if (assignments.findFirstByVersion_IdAndStudentSubjectIgnoreCaseAndStatusInAndTenantIdOrderByAssignedAtDesc(
+                        version.getId(), cleanSubject, OPEN_ASSIGNMENT_STATUSES, job.getTenantId()).isPresent()) {
                     rowStatus = "SKIPPED";
                     message = "Assignment already exists";
                 } else {
@@ -447,6 +454,7 @@ public class AssignedTestService {
             }
             AssignedTestImportRowEntity row = new AssignedTestImportRowEntity();
             row.setId(UUID.randomUUID());
+            row.setTenantId(job.getTenantId());
             row.setJob(job);
             row.setLineNumber(lineNumber);
             row.setTestPublicKey(cleanKey);
@@ -465,6 +473,7 @@ public class AssignedTestService {
         AdminTestVersionEntity version = assignment.getVersion();
         TestAttemptEntity attempt = new TestAttemptEntity();
         attempt.setId(UUID.randomUUID());
+        attempt.setTenantId(assignment.getTenantId());
         attempt.setStudentSubject(studentSubject);
         attempt.setTestName(version.getTest().getName());
         TaxonomyNodeEntity taxonomy = version.getQuestions().getFirst().getQuestion().getChildTaxonomyNode();
@@ -479,6 +488,7 @@ public class AssignedTestService {
         for (AdminTestVersionQuestionEntity versionQuestion : version.getQuestions()) {
             TestAttemptQuestionEntity attemptQuestion = new TestAttemptQuestionEntity();
             attemptQuestion.setId(UUID.randomUUID());
+            attemptQuestion.setTenantId(assignment.getTenantId());
             attemptQuestion.setAttempt(attempt);
             attemptQuestion.setQuestion(versionQuestion.getQuestion());
             attemptQuestion.setQuestionOrder(versionQuestion.getQuestionOrder());
@@ -493,6 +503,7 @@ public class AssignedTestService {
     private AssignedTestAssignmentEntity createAssignment(AdminTestVersionEntity version, String studentSubject, AssignedTestImportJobEntity importJob) {
         AssignedTestAssignmentEntity assignment = new AssignedTestAssignmentEntity();
         assignment.setId(UUID.randomUUID());
+        assignment.setTenantId(version.getTenantId());
         assignment.setVersion(version);
         assignment.setStudentSubject(studentSubject);
         assignment.setStatus(ASSIGNMENT_STATUS_ASSIGNED);
@@ -526,8 +537,8 @@ public class AssignedTestService {
         attempt.setScorePoints(score);
     }
 
-    private AdminTestVersionEntity requireCreatorVersion(String creatorSubject, UUID versionId) {
-        AdminTestVersionEntity version = versions.findById(versionId)
+    private AdminTestVersionEntity requireCreatorVersion(UUID tenantId, String creatorSubject, UUID versionId) {
+        AdminTestVersionEntity version = versions.findByIdAndTenantId(versionId, tenantId)
                 .orElseThrow(() -> new IllegalArgumentException("Unknown test version: " + versionId));
         if (!version.getTest().getCreatorSubject().equals(requireSubject(creatorSubject))) {
             throw new IllegalArgumentException("Only the test creator can access this test");
@@ -566,8 +577,8 @@ public class AssignedTestService {
         }
     }
 
-    private AssignedTestAssignmentEntity findStudentAssignment(Collection<String> studentIdentifiers, UUID assignmentId) {
-        AssignedTestAssignmentEntity assignment = assignments.findByIdAndStudentSubjectIn(assignmentId, requireIdentifiers(studentIdentifiers))
+    private AssignedTestAssignmentEntity findStudentAssignment(UUID tenantId, Collection<String> studentIdentifiers, UUID assignmentId) {
+        AssignedTestAssignmentEntity assignment = assignments.findByIdAndStudentSubjectInAndTenantId(assignmentId, requireIdentifiers(studentIdentifiers), tenantId)
                 .orElseThrow(() -> new IllegalArgumentException("Unknown assigned test: " + assignmentId));
         if (ASSIGNMENT_STATUS_REASSIGNED.equals(assignment.getStatus())) {
             throw new IllegalStateException("Assigned test has been reassigned");
@@ -575,8 +586,8 @@ public class AssignedTestService {
         return assignment;
     }
 
-    private TestAttemptEntity findStudentAttempt(Collection<String> studentIdentifiers, UUID assignmentId) {
-        TestAttemptEntity attempt = attempts.findByAssignment_IdAndStudentSubjectIn(assignmentId, requireIdentifiers(studentIdentifiers))
+    private TestAttemptEntity findStudentAttempt(UUID tenantId, Collection<String> studentIdentifiers, UUID assignmentId) {
+        TestAttemptEntity attempt = attempts.findByAssignment_IdAndStudentSubjectInAndTenantId(assignmentId, requireIdentifiers(studentIdentifiers), tenantId)
                 .orElseThrow(() -> new IllegalArgumentException("Assigned test has not been started"));
         if (ASSIGNMENT_STATUS_REASSIGNED.equals(attempt.getAssignment().getStatus())) {
             throw new IllegalStateException("Assigned test has been reassigned");
@@ -616,10 +627,10 @@ public class AssignedTestService {
                 version.getAvailableFrom(),
                 version.getAvailableUntil(),
                 version.getResultsPublishedAt(),
-                assignments.countByVersion_IdAndStatusNot(version.getId(), ASSIGNMENT_STATUS_REASSIGNED),
-                assignments.countByVersion_IdAndStatus(version.getId(), "SUBMITTED"),
-                assignments.countPublishedByVersionId(version.getId(), ASSIGNMENT_STATUS_REASSIGNED),
-                assignments.latestResultsPublishedAtByVersionId(version.getId(), ASSIGNMENT_STATUS_REASSIGNED),
+                assignments.countByVersion_IdAndTenantIdAndStatusNot(version.getId(), version.getTenantId(), ASSIGNMENT_STATUS_REASSIGNED),
+                assignments.countByVersion_IdAndTenantIdAndStatus(version.getId(), version.getTenantId(), "SUBMITTED"),
+                assignments.countPublishedByVersionId(version.getId(), version.getTenantId(), ASSIGNMENT_STATUS_REASSIGNED),
+                assignments.latestResultsPublishedAtByVersionId(version.getId(), version.getTenantId(), ASSIGNMENT_STATUS_REASSIGNED),
                 test.getCreatedAt());
     }
 
@@ -643,7 +654,7 @@ public class AssignedTestService {
     }
 
     private AdminAssignedTestResult toAdminResult(AssignedTestAssignmentEntity assignment, boolean includeAttempt) {
-        TestAttemptEntity attempt = attempts.findByAssignment_Id(assignment.getId()).orElse(null);
+        TestAttemptEntity attempt = attempts.findByAssignment_IdAndTenantId(assignment.getId(), assignment.getTenantId()).orElse(null);
         return new AdminAssignedTestResult(
                 assignment.getId(),
                 attempt == null ? null : attempt.getId(),
@@ -659,7 +670,7 @@ public class AssignedTestService {
     }
 
     private StudentAssignedTestSummary toStudentSummary(AssignedTestAssignmentEntity assignment) {
-        TestAttemptEntity attempt = attempts.findByAssignment_Id(assignment.getId()).orElse(null);
+        TestAttemptEntity attempt = attempts.findByAssignment_IdAndTenantId(assignment.getId(), assignment.getTenantId()).orElse(null);
         return new StudentAssignedTestSummary(
                 assignment.getId(),
                 attempt == null ? null : attempt.getId(),

@@ -19,6 +19,9 @@ public class LookupEntity {
     @Id
     private UUID id;
 
+    @Column(name = "tenant_id", nullable = false)
+    private UUID tenantId;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "lookup_type", nullable = false, length = 64)
     private LookupType lookupType;
@@ -49,6 +52,7 @@ public class LookupEntity {
 
     public LookupEntity(UUID id, LookupType lookupType, String lookupCode, String lookupMeaning, String lookupDescription, int sortOrder, boolean active) {
         this.id = id;
+        this.tenantId = TenantEntity.DEMO_TENANT_ID;
         this.lookupType = lookupType;
         this.lookupCode = lookupCode;
         this.lookupMeaning = lookupMeaning;
@@ -77,6 +81,14 @@ public class LookupEntity {
 
     public void setId(UUID id) {
         this.id = id;
+    }
+
+    public UUID getTenantId() {
+        return tenantId;
+    }
+
+    public void setTenantId(UUID tenantId) {
+        this.tenantId = tenantId;
     }
 
     public LookupType getLookupType() {

@@ -50,16 +50,16 @@ public class QuestionAuthoringService {
     }
 
     @Transactional(readOnly = true)
-    public Page<QuestionAdminRecord> list(QuestionSearchCriteria criteria, Pageable pageable) {
-        Specification<QuestionEntity> specification = specification(criteria);
+    public Page<QuestionAdminRecord> list(UUID tenantId, QuestionSearchCriteria criteria, Pageable pageable) {
+        Specification<QuestionEntity> specification = specification(requireUuid(tenantId, "tenantId"), criteria);
         if (specification == null) return Page.empty(pageable);
         return questions.findAll(specification, pageable).map(this::toAdminRecord);
     }
 
     @Transactional(readOnly = true)
-    public QuestionCursorPage listCursor(QuestionSearchCriteria criteria, String cursor, int requestedSize) {
+    public QuestionCursorPage listCursor(UUID tenantId, QuestionSearchCriteria criteria, String cursor, int requestedSize) {
         int size = Math.clamp(requestedSize, 1, 100);
-        Specification<QuestionEntity> specification = specification(criteria);
+        Specification<QuestionEntity> specification = specification(requireUuid(tenantId, "tenantId"), criteria);
         if (specification == null) {
             return new QuestionCursorPage(List.of(), null, false, 0, 0);
         }
@@ -75,38 +75,40 @@ public class QuestionAuthoringService {
     }
 
     @Transactional(readOnly = true)
-    public QuestionAdminRecord get(UUID id) {
-        return toAdminRecord(findQuestion(requireUuid(id, "id")));
+    public QuestionAdminRecord get(UUID tenantId, UUID id) {
+        return toAdminRecord(findQuestion(requireUuid(tenantId, "tenantId"), requireUuid(id, "id")));
     }
 
     @Transactional
-    public CreatedQuestionResponse create(CreateQuestionRequest request) {
+    public CreatedQuestionResponse create(UUID tenantId, CreateQuestionRequest request) {
         QuestionEntity question = new QuestionEntity();
         question.setId(UUID.randomUUID());
+        question.setTenantId(requireUuid(tenantId, "tenantId"));
         save(question, request, null);
         return new CreatedQuestionResponse(question.getId(), request.question().workflowStatus());
     }
 
     @Transactional
-    public QuestionAdminRecord update(UUID id, CreateQuestionRequest request) {
-        QuestionEntity question = findQuestion(requireUuid(id, "id"));
+    public QuestionAdminRecord update(UUID tenantId, UUID id, CreateQuestionRequest request) {
+        QuestionEntity question = findQuestion(requireUuid(tenantId, "tenantId"), requireUuid(id, "id"));
         String previousWorkflowStatus = question.getWorkflowStatus();
         save(question, request, previousWorkflowStatus);
         return toAdminRecord(question);
     }
 
     @Transactional
-    public void delete(UUID id) {
-        questions.findById(requireUuid(id, "id")).ifPresent(questions::delete);
+    public void delete(UUID tenantId, UUID id) {
+        questions.findByIdAndTenantId(requireUuid(id, "id"), requireUuid(tenantId, "tenantId")).ifPresent(questions::delete);
     }
 
-    private Specification<QuestionEntity> specification(QuestionSearchCriteria criteria) {
+    private Specification<QuestionEntity> specification(UUID tenantId, QuestionSearchCriteria criteria) {
         Specification<QuestionEntity> specification = Specification
-                .where(QuestionSpecifications.questionType(criteria.questionType()))
+                .where(QuestionSpecifications.tenant(tenantId))
+                .and(QuestionSpecifications.questionType(criteria.questionType()))
                 .and(QuestionSpecifications.difficulty(criteria.difficulty()))
                 .and(QuestionSpecifications.workflowStatuses(criteria.normalizedWorkflowStatuses()))
                 .and(QuestionSpecifications.textSearch(criteria.search()));
-        Set<UUID> eligibleNodes = eligibleTaxonomyNodes(criteria);
+        Set<UUID> eligibleNodes = eligibleTaxonomyNodes(tenantId, criteria);
         if (eligibleNodes != null) {
             if (eligibleNodes.isEmpty()) return null;
             specification = specification.and(QuestionSpecifications.assignedToAny(eligibleNodes));
@@ -201,6 +203,7 @@ public class QuestionAuthoringService {
             QuestionOption option = options.get(index);
             QuestionOptionEntity entity = new QuestionOptionEntity();
             entity.setId(UUID.randomUUID());
+            entity.setTenantId(question.getTenantId());
             entity.setQuestion(question);
             entity.setOptionKey(requireText(option.key(), "option.key"));
             entity.setOptionText(trimToNull(option.text()));
@@ -217,6 +220,7 @@ public class QuestionAuthoringService {
             QuestionAnswer answer = answers.get(index);
             QuestionAnswerEntity entity = new QuestionAnswerEntity();
             entity.setId(UUID.randomUUID());
+            entity.setTenantId(question.getTenantId());
             entity.setQuestion(question);
             entity.setAnswerValue(trimToNull(answer.answerValue()));
             entity.setAnswerMediaObjectKey(trimToNull(answer.answerMediaObjectKey()));
@@ -236,9 +240,13 @@ public class QuestionAuthoringService {
             if (!assignedNodeIds.add(taxonomyNodeId)) {
                 throw new IllegalArgumentException("Duplicate taxonomy assignment: " + taxonomyNodeId);
             }
-            TaxonomyNodeEntity node = activeLeafNode(taxonomyNodeId);
+            TaxonomyNodeEntity node = activeLeafNode(question.getTenantId(), taxonomyNodeId);
+            if (!question.getTenantId().equals(node.getTenantId())) {
+                throw new IllegalArgumentException("Question taxonomy node belongs to a different tenant");
+            }
             QuestionTaxonomyNodeEntity entity = new QuestionTaxonomyNodeEntity();
             entity.setId(new QuestionTaxonomyNodeId(question.getId(), taxonomyNodeId));
+            entity.setTenantId(question.getTenantId());
             entity.setQuestion(question);
             entity.setTaxonomyNode(node);
             entity.setPrimary(assignment.primary());
@@ -253,6 +261,7 @@ public class QuestionAuthoringService {
         for (String tag : tags) {
             QuestionTagEntity entity = new QuestionTagEntity();
             entity.setId(new QuestionTagId(question.getId(), tag));
+            entity.setTenantId(question.getTenantId());
             entity.setQuestion(question);
             question.getTags().add(entity);
         }
@@ -261,6 +270,7 @@ public class QuestionAuthoringService {
     private void addWorkflowEvent(QuestionEntity question, String previousStatus, String nextStatus, String actor) {
         QuestionWorkflowEventEntity event = new QuestionWorkflowEventEntity();
         event.setId(UUID.randomUUID());
+        event.setTenantId(question.getTenantId());
         event.setQuestion(question);
         event.setFromStatus(previousStatus);
         event.setToStatus(nextStatus);
@@ -314,35 +324,35 @@ public class QuestionAuthoringService {
         }
     }
 
-    private TaxonomyNodeEntity activeLeafNode(UUID id) {
-        TaxonomyNodeEntity node = taxonomyNodes.findById(id)
+    private TaxonomyNodeEntity activeLeafNode(UUID tenantId, UUID id) {
+        TaxonomyNodeEntity node = taxonomyNodes.findByIdAndTenantId(id, tenantId)
                 .orElseThrow(() -> new IllegalArgumentException("Question taxonomy node is missing"));
         if (!"ACTIVE".equals(node.getStatus())) {
             throw new IllegalArgumentException("Question taxonomy node is inactive");
         }
-        if (taxonomyNodes.existsByParentNode_Id(id)) {
+        if (taxonomyNodes.existsByParentNode_IdAndTenantId(id, tenantId)) {
             throw new IllegalArgumentException("Questions must be assigned to taxonomy leaf nodes");
         }
         return node;
     }
 
-    private Set<UUID> eligibleTaxonomyNodes(QuestionSearchCriteria criteria) {
+    private Set<UUID> eligibleTaxonomyNodes(UUID tenantId, QuestionSearchCriteria criteria) {
         Set<UUID> eligible = null;
         if (criteria.taxonomyNodeId() != null) {
             eligible = criteria.includeDescendants()
-                    ? descendantsIncluding(criteria.taxonomyNodeId())
+                    ? descendantsIncluding(tenantId, criteria.taxonomyNodeId())
                     : Set.of(criteria.taxonomyNodeId());
         }
         for (UUID pedigreeNodeId : criteria.pedigreeNodeIds()) {
-            Set<UUID> descendants = descendantsIncluding(pedigreeNodeId);
+            Set<UUID> descendants = descendantsIncluding(tenantId, pedigreeNodeId);
             if (eligible == null) eligible = descendants;
             else eligible.retainAll(descendants);
         }
         return eligible;
     }
 
-    private Set<UUID> descendantsIncluding(UUID rootId) {
-        taxonomyNodes.findById(rootId)
+    private Set<UUID> descendantsIncluding(UUID tenantId, UUID rootId) {
+        taxonomyNodes.findByIdAndTenantId(rootId, tenantId)
                 .orElseThrow(() -> new IllegalArgumentException("Taxonomy node was not found: " + rootId));
         Set<UUID> result = new LinkedHashSet<>();
         ArrayDeque<UUID> pending = new ArrayDeque<>();
@@ -350,7 +360,7 @@ public class QuestionAuthoringService {
         while (!pending.isEmpty()) {
             UUID id = pending.removeFirst();
             if (!result.add(id)) continue;
-            taxonomyNodes.findByParentNode_IdOrderBySortOrderAscDisplayNameAsc(id)
+            taxonomyNodes.findByParentNode_IdAndTenantIdOrderBySortOrderAscDisplayNameAsc(id, tenantId)
                     .forEach(child -> pending.addLast(child.getId()));
         }
         return result;
@@ -377,8 +387,8 @@ public class QuestionAuthoringService {
         return Base64.getUrlEncoder().withoutPadding().encodeToString(value.getBytes(StandardCharsets.UTF_8));
     }
 
-    private QuestionEntity findQuestion(UUID id) {
-        return questions.findById(id)
+    private QuestionEntity findQuestion(UUID tenantId, UUID id) {
+        return questions.findByIdAndTenantId(id, tenantId)
                 .orElseThrow(() -> new IllegalArgumentException("Question was not found: " + id));
     }
 

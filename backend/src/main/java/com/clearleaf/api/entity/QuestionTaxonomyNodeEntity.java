@@ -11,12 +11,16 @@ import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 
 import java.time.Instant;
+import java.util.UUID;
 
 @Entity
 @Table(name = "question_taxonomy_node")
 public class QuestionTaxonomyNodeEntity {
     @EmbeddedId
     private QuestionTaxonomyNodeId id;
+
+    @Column(name = "tenant_id", nullable = false)
+    private UUID tenantId;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @MapsId("questionId")
@@ -36,10 +40,15 @@ public class QuestionTaxonomyNodeEntity {
 
     @PrePersist
     void onCreate() {
+        if (tenantId == null && question != null) {
+            tenantId = question.getTenantId();
+        }
         if (createdAt == null) createdAt = Instant.now();
     }
 
     public void setId(QuestionTaxonomyNodeId id) { this.id = id; }
+    public UUID getTenantId() { return tenantId; }
+    public void setTenantId(UUID tenantId) { this.tenantId = tenantId; }
     public void setQuestion(QuestionEntity question) { this.question = question; }
     public TaxonomyNodeEntity getTaxonomyNode() { return taxonomyNode; }
     public void setTaxonomyNode(TaxonomyNodeEntity taxonomyNode) { this.taxonomyNode = taxonomyNode; }

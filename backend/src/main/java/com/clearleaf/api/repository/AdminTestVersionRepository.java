@@ -7,4 +7,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface AdminTestVersionRepository extends JpaRepository<AdminTestVersionEntity, UUID> {
     Optional<AdminTestVersionEntity> findFirstByTest_IdOrderByVersionNumberDesc(UUID testId);
+    Optional<AdminTestVersionEntity> findFirstByTest_IdAndTenantIdOrderByVersionNumberDesc(UUID testId, UUID tenantId);
+    Optional<AdminTestVersionEntity> findByIdAndTenantId(UUID id, UUID tenantId);
 }

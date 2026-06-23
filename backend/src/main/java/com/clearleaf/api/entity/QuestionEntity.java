@@ -26,6 +26,9 @@ public class QuestionEntity {
     @Id
     private UUID id;
 
+    @Column(name = "tenant_id", nullable = false)
+    private UUID tenantId;
+
     @Column(name = "question_type", nullable = false, length = 32)
     private String questionType;
 
@@ -124,6 +127,8 @@ public class QuestionEntity {
 
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
+    public UUID getTenantId() { return tenantId; }
+    public void setTenantId(UUID tenantId) { this.tenantId = tenantId; }
     public String getQuestionType() { return questionType; }
     public void setQuestionType(String questionType) { this.questionType = questionType; }
     public String getDifficulty() { return difficulty; }

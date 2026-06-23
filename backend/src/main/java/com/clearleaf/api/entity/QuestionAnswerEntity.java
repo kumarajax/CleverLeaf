@@ -6,6 +6,7 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 
 import java.math.BigDecimal;
@@ -16,6 +17,9 @@ import java.util.UUID;
 public class QuestionAnswerEntity {
     @Id
     private UUID id;
+
+    @Column(name = "tenant_id", nullable = false)
+    private UUID tenantId;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "question_id", nullable = false)
@@ -42,8 +46,18 @@ public class QuestionAnswerEntity {
     @Column(name = "sort_order", nullable = false)
     private int sortOrder;
 
+    @PrePersist
+    void onCreate() {
+        if (tenantId == null && question != null) {
+            tenantId = question.getTenantId();
+        }
+    }
+
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
+    public UUID getTenantId() { return tenantId; }
+    public void setTenantId(UUID tenantId) { this.tenantId = tenantId; }
+    public QuestionEntity getQuestion() { return question; }
     public void setQuestion(QuestionEntity question) { this.question = question; }
     public String getAnswerValue() { return answerValue; }
     public void setAnswerValue(String answerValue) { this.answerValue = answerValue; }

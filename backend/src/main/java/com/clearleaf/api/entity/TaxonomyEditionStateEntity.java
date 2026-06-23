@@ -19,6 +19,9 @@ public class TaxonomyEditionStateEntity {
     @Column(name = "curriculum_id")
     private UUID curriculumId;
 
+    @Column(name = "tenant_id", nullable = false)
+    private UUID tenantId;
+
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "active_edition_id", nullable = false)
     private TaxonomyNodeEntity activeEditionNode;
@@ -34,6 +37,9 @@ public class TaxonomyEditionStateEntity {
 
     @PrePersist
     void onCreate() {
+        if (tenantId == null && activeEditionNode != null) {
+            tenantId = activeEditionNode.getTenantId();
+        }
         Instant now = Instant.now();
         if (createdAt == null) {
             createdAt = now;
@@ -52,6 +58,14 @@ public class TaxonomyEditionStateEntity {
 
     public void setCurriculumId(UUID curriculumId) {
         this.curriculumId = curriculumId;
+    }
+
+    public UUID getTenantId() {
+        return tenantId;
+    }
+
+    public void setTenantId(UUID tenantId) {
+        this.tenantId = tenantId;
     }
 
     public TaxonomyNodeEntity getActiveEditionNode() {

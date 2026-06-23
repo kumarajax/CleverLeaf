@@ -21,6 +21,8 @@ public interface TaxonomyNodeRepository extends JpaRepository<TaxonomyNodeEntity
 
     Optional<TaxonomyNodeEntity> findByExternalKey(String externalKey);
 
+    Optional<TaxonomyNodeEntity> findByExternalKeyAndTenantId(String externalKey, UUID tenantId);
+
     Optional<TaxonomyNodeEntity> findByIdAndTenantId(UUID id, UUID tenantId);
 
     boolean existsByRootTaxonomyNode_IdAndNodeKeyAndIdNot(UUID rootTaxonomyNodeId, String nodeKey, UUID id);

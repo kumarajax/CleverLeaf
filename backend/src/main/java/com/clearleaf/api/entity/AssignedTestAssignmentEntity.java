@@ -17,6 +17,9 @@ public class AssignedTestAssignmentEntity {
     @Id
     private UUID id;
 
+    @Column(name = "tenant_id", nullable = false)
+    private UUID tenantId;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "version_id", nullable = false)
     private AdminTestVersionEntity version;
@@ -48,11 +51,16 @@ public class AssignedTestAssignmentEntity {
 
     @PrePersist
     void onCreate() {
+        if (tenantId == null && version != null) {
+            tenantId = version.getTenantId();
+        }
         if (assignedAt == null) assignedAt = Instant.now();
     }
 
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
+    public UUID getTenantId() { return tenantId; }
+    public void setTenantId(UUID tenantId) { this.tenantId = tenantId; }
     public AdminTestVersionEntity getVersion() { return version; }
     public void setVersion(AdminTestVersionEntity version) { this.version = version; }
     public String getStudentSubject() { return studentSubject; }

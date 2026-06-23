@@ -18,6 +18,9 @@ public class QuestionWorkflowEventEntity {
     @Id
     private UUID id;
 
+    @Column(name = "tenant_id", nullable = false)
+    private UUID tenantId;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "question_id", nullable = false)
     private QuestionEntity question;
@@ -38,10 +41,15 @@ public class QuestionWorkflowEventEntity {
 
     @PrePersist
     void onCreate() {
+        if (tenantId == null && question != null) {
+            tenantId = question.getTenantId();
+        }
         if (createdAt == null) createdAt = Instant.now();
     }
 
     public void setId(UUID id) { this.id = id; }
+    public UUID getTenantId() { return tenantId; }
+    public void setTenantId(UUID tenantId) { this.tenantId = tenantId; }
     public void setQuestion(QuestionEntity question) { this.question = question; }
     public void setFromStatus(String fromStatus) { this.fromStatus = fromStatus; }
     public void setToStatus(String toStatus) { this.toStatus = toStatus; }

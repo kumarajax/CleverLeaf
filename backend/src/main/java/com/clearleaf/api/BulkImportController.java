@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
@@ -16,9 +17,11 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/admin/imports/bulk")
 public class BulkImportController {
     private final BulkImportService imports;
+    private final TenantAuthorizationService tenantAuthorization;
 
-    public BulkImportController(BulkImportService imports) {
+    public BulkImportController(BulkImportService imports, TenantAuthorizationService tenantAuthorization) {
         this.imports = imports;
+        this.tenantAuthorization = tenantAuthorization;
     }
 
     @GetMapping("/metadata")
@@ -29,8 +32,9 @@ public class BulkImportController {
     @GetMapping("/{step}/preview")
     public BulkImportPreviewResponse preview(
             @PathVariable("step") BulkImportStep step,
+            @RequestHeader(value = TenantAuthorizationService.TENANT_HEADER, required = false) String tenantHeader,
             @RequestParam("objectKey") String objectKey) {
-        return imports.preview(step, objectKey);
+        return imports.preview(tenantAuthorization.tenantId(tenantHeader), step, objectKey);
     }
 
     @PostMapping("/{step}")
@@ -38,8 +42,9 @@ public class BulkImportController {
     public BulkImportSummary importStep(
             @PathVariable("step") BulkImportStep step,
             @RequestParam("objectKey") String objectKey,
+            @RequestHeader(value = TenantAuthorizationService.TENANT_HEADER, required = false) String tenantHeader,
             @AuthenticationPrincipal Jwt jwt) {
-        return imports.importStep(step, objectKey, actor(jwt));
+        return imports.importStep(tenantAuthorization.tenantId(tenantHeader), step, objectKey, actor(jwt));
     }
 
     private String actor(Jwt jwt) {

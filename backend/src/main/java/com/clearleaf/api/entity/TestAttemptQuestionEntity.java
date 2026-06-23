@@ -18,6 +18,9 @@ public class TestAttemptQuestionEntity {
     @Id
     private UUID id;
 
+    @Column(name = "tenant_id", nullable = false)
+    private UUID tenantId;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "attempt_id", nullable = false)
     private TestAttemptEntity attempt;
@@ -48,6 +51,9 @@ public class TestAttemptQuestionEntity {
 
     @PrePersist
     void onCreate() {
+        if (tenantId == null && attempt != null) {
+            tenantId = attempt.getTenantId();
+        }
         Instant now = Instant.now();
         if (createdAt == null) createdAt = now;
         updatedAt = now;
@@ -60,6 +66,8 @@ public class TestAttemptQuestionEntity {
 
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
+    public UUID getTenantId() { return tenantId; }
+    public void setTenantId(UUID tenantId) { this.tenantId = tenantId; }
     public TestAttemptEntity getAttempt() { return attempt; }
     public void setAttempt(TestAttemptEntity attempt) { this.attempt = attempt; }
     public QuestionEntity getQuestion() { return question; }

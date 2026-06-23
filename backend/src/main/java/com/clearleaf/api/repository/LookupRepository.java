@@ -9,4 +9,5 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
 public interface LookupRepository extends JpaRepository<LookupEntity, UUID>, JpaSpecificationExecutor<LookupEntity> {
     Optional<LookupEntity> findByLookupTypeAndLookupCodeIgnoreCase(LookupType lookupType, String lookupCode);
+    Optional<LookupEntity> findByLookupTypeAndLookupCodeIgnoreCaseAndTenantId(LookupType lookupType, String lookupCode, UUID tenantId);
 }

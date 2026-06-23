@@ -20,6 +20,9 @@ public class AdminTestEntity {
     @Id
     private UUID id;
 
+    @Column(name = "tenant_id", nullable = false)
+    private UUID tenantId;
+
     @Column(name = "public_key", nullable = false, length = 128)
     private String publicKey;
 
@@ -56,6 +59,8 @@ public class AdminTestEntity {
 
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
+    public UUID getTenantId() { return tenantId; }
+    public void setTenantId(UUID tenantId) { this.tenantId = tenantId; }
     public String getPublicKey() { return publicKey; }
     public void setPublicKey(String publicKey) { this.publicKey = publicKey; }
     public String getName() { return name; }

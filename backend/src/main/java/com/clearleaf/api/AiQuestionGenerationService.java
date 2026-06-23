@@ -84,7 +84,7 @@ public class AiQuestionGenerationService {
                 trimToNull(request.sourceObjectKey()), trimToNull(request.sourceFilename()), requireText(request.topic(), "topic"),
                 trimToNull(request.instructions()), Math.clamp(request.questionCount(), 1, 100), "CREATED", requireText(actor, "actor"));
         if ("TEXT".equals(sourceType)) {
-            createChunks(id, normalizeText(request.sourceText()), null);
+            createChunks(tenantId, id, normalizeText(request.sourceText()), null);
         }
         return getJob(tenantId, id);
     }
@@ -93,10 +93,10 @@ public class AiQuestionGenerationService {
     public AiGenerationJobResponse generate(UUID tenantId, UUID jobId, AiGenerationJobRequest settings) {
         AiGenerationJobRow job = requireJob(tenantId, jobId);
         try {
-            if ("PDF".equals(job.sourceType()) && chunkCount(job.id()) == 0) {
-                createChunks(job.id(), extractPdfText(job.sourceObjectKey()), "Page");
+            if ("PDF".equals(job.sourceType()) && chunkCount(tenantId, job.id()) == 0) {
+                createChunks(tenantId, job.id(), extractPdfText(job.sourceObjectKey()), "Page");
             }
-            List<AiChunkRow> chunks = chunks(job.id());
+            List<AiChunkRow> chunks = chunks(tenantId, job.id());
             if (chunks.isEmpty()) {
                 throw new IllegalArgumentException("No usable source text was found");
             }
@@ -164,7 +164,7 @@ public class AiQuestionGenerationService {
                 SET status = ?, review_status = ?, question_type = ?, difficulty = ?, question_text = ?,
                     explanation = ?, source_reference = ?, options_json = ?::jsonb,
                     correct_option_keys_json = ?::jsonb, validation_errors_json = ?::jsonb, updated_at = now()
-                WHERE id = ?
+                WHERE id = ? AND tenant_id = ?
                 """,
                 errors.isEmpty() ? "VALID" : "INVALID",
                 "PENDING",
@@ -176,7 +176,8 @@ public class AiQuestionGenerationService {
                 writeJson(options),
                 writeJson(correctKeys),
                 writeJson(errors),
-                id);
+                id,
+                tenantId);
         return requireGenerated(tenantId, id);
     }
 
@@ -195,7 +196,7 @@ public class AiQuestionGenerationService {
                 .map(option -> new QuestionOption(option.key(), option.text(), option.mediaObjectKey(), option.mediaContentType(),
                         generated.correctOptionKeys().stream().anyMatch(key -> key.equalsIgnoreCase(option.key()))))
                 .toList();
-        CreatedQuestionResponse created = authoring.create(new CreateQuestionRequest(
+        CreatedQuestionResponse created = authoring.create(tenantId, new CreateQuestionRequest(
                 node.getId(),
                 actor,
                 new QuestionDraft(
@@ -216,13 +217,13 @@ public class AiQuestionGenerationService {
         jdbcTemplate.update("""
                 UPDATE ai_generated_question
                 SET review_status = 'APPROVED', created_question_id = ?, updated_at = now()
-                WHERE id = ?
-                """, created.id(), id);
+                WHERE id = ? AND tenant_id = ?
+                """, created.id(), id, tenantId);
         jdbcTemplate.update("""
                 UPDATE ai_generation_job
                 SET updated_at = now()
-                WHERE id = ?
-                """, job.id());
+                WHERE id = ? AND tenant_id = ?
+                """, job.id(), tenantId);
         return requireGenerated(tenantId, id);
     }
 
@@ -233,8 +234,8 @@ public class AiQuestionGenerationService {
         jdbcTemplate.update("""
                 UPDATE ai_generated_question
                 SET review_status = 'REJECTED', validation_errors_json = ?::jsonb, updated_at = now()
-                WHERE id = ?
-                """, writeJson(errors), id);
+                WHERE id = ? AND tenant_id = ?
+                """, writeJson(errors), id, tenantId);
         return requireGenerated(tenantId, id);
     }
 
@@ -263,12 +264,13 @@ public class AiQuestionGenerationService {
             }
             jdbcTemplate.update("""
                     INSERT INTO ai_generated_question
-                        (id, job_id, chunk_id, taxonomy_key, child_node_key, status, review_status, question_type,
+                        (id, tenant_id, job_id, chunk_id, taxonomy_key, child_node_key, status, review_status, question_type,
                          difficulty, question_text, explanation, source_reference, options_json,
                          correct_option_keys_json, validation_errors_json)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?::jsonb, ?::jsonb)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?::jsonb, ?::jsonb)
                     """,
                     UUID.randomUUID(),
+                    job.tenantId(),
                     job.id(),
                     chunk.id(),
                     nullToExpected(question.taxonomyKey(), job.taxonomyKey()),
@@ -331,12 +333,13 @@ public class AiQuestionGenerationService {
     }
 
     private boolean duplicateQuestion(AiGenerationJobRow job, String questionText) {
-        TaxonomyNodeEntity node = taxonomyNodes.findById(job.taxonomyNodeId())
+        TaxonomyNodeEntity node = taxonomyNodes.findByIdAndTenantId(job.taxonomyNodeId(), job.tenantId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Taxonomy node was not found"));
-        return questions.findByRootTaxonomyNode_IdAndChildTaxonomyNode_IdAndNormalizedQuestionText(
+        return questions.findByRootTaxonomyNode_IdAndChildTaxonomyNode_IdAndNormalizedQuestionTextAndTenantId(
                         rootTaxonomyNode(node).getId(),
                         node.getId(),
-                        normalizeQuestionText(questionText))
+                        normalizeQuestionText(questionText),
+                        job.tenantId())
                 .isPresent();
     }
 
@@ -347,7 +350,7 @@ public class AiQuestionGenerationService {
                 .toLowerCase(Locale.ROOT);
     }
 
-    private void createChunks(UUID jobId, String text, String referencePrefix) {
+    private void createChunks(UUID tenantId, UUID jobId, String text, String referencePrefix) {
         List<String> words = List.of(text.split("\\s+"));
         int index = 0;
         int start = 0;
@@ -358,9 +361,9 @@ public class AiQuestionGenerationService {
                 String reference = (referencePrefix == null ? "Text" : referencePrefix) + " chunk " + (index + 1);
                 jdbcTemplate.update("""
                         INSERT INTO ai_source_chunk
-                            (id, job_id, chunk_index, source_reference, chunk_text)
-                        VALUES (?, ?, ?, ?, ?)
-                        """, UUID.randomUUID(), jobId, index, reference, chunk);
+                            (id, tenant_id, job_id, chunk_index, source_reference, chunk_text)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                        """, UUID.randomUUID(), tenantId, jobId, index, reference, chunk);
                 index++;
             }
             if (end == words.size()) break;
@@ -387,8 +390,8 @@ public class AiQuestionGenerationService {
     }
 
     private AiGenerationJobResponse toJobResponse(AiGenerationJobRow job, boolean includeQuestions) {
-        List<AiGeneratedQuestionResponse> generated = includeQuestions ? generatedQuestions(job.id()) : List.of();
-        Map<String, Integer> counts = counts(job.id());
+        List<AiGeneratedQuestionResponse> generated = includeQuestions ? generatedQuestions(job.tenantId(), job.id()) : List.of();
+        Map<String, Integer> counts = counts(job.tenantId(), job.id());
         return new AiGenerationJobResponse(job.id(), job.taxonomyNodeId(), job.taxonomyKey(), job.childNodeKey(), job.taxonomyPath(),
                 job.sourceType(), job.sourceObjectKey(), job.sourceFilename(), job.topic(), job.instructions(), job.questionCount(),
                 job.status(), job.errorMessage(), counts.getOrDefault("chunks", 0), counts.getOrDefault("generated", 0),
@@ -416,20 +419,19 @@ public class AiQuestionGenerationService {
                 timestamp(rs.getTimestamp("updated_at")));
     }
 
-    private List<AiGeneratedQuestionResponse> generatedQuestions(UUID jobId) {
+    private List<AiGeneratedQuestionResponse> generatedQuestions(UUID tenantId, UUID jobId) {
         return jdbcTemplate.query("""
                 SELECT * FROM ai_generated_question
-                WHERE job_id = ?
+                WHERE job_id = ? AND tenant_id = ?
                 ORDER BY created_at ASC
-                """, this::toGenerated, jobId);
+                """, this::toGenerated, jobId, tenantId);
     }
 
     private AiGeneratedQuestionResponse requireGenerated(UUID tenantId, UUID id) {
         return jdbcTemplate.query("""
                 SELECT generated.*
                 FROM ai_generated_question generated
-                JOIN ai_generation_job job ON job.id = generated.job_id
-                WHERE generated.id = ? AND job.tenant_id = ?
+                WHERE generated.id = ? AND generated.tenant_id = ?
                 """, this::toGenerated, id, tenantId).stream()
                 .findFirst()
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Generated question was not found"));
@@ -464,28 +466,28 @@ public class AiQuestionGenerationService {
                 timestamp(rs.getTimestamp("updated_at")));
     }
 
-    private List<AiChunkRow> chunks(UUID jobId) {
+    private List<AiChunkRow> chunks(UUID tenantId, UUID jobId) {
         return jdbcTemplate.query("""
                 SELECT * FROM ai_source_chunk
-                WHERE job_id = ?
+                WHERE job_id = ? AND tenant_id = ?
                 ORDER BY chunk_index ASC
                 """, (rs, rowNum) -> new AiChunkRow(
                 UUID.fromString(rs.getString("id")),
                 rs.getInt("chunk_index"),
                 rs.getString("source_reference"),
-                rs.getString("chunk_text")), jobId);
+                rs.getString("chunk_text")), jobId, tenantId);
     }
 
-    private int chunkCount(UUID jobId) {
-        Integer count = jdbcTemplate.queryForObject("SELECT count(*) FROM ai_source_chunk WHERE job_id = ?", Integer.class, jobId);
+    private int chunkCount(UUID tenantId, UUID jobId) {
+        Integer count = jdbcTemplate.queryForObject("SELECT count(*) FROM ai_source_chunk WHERE job_id = ? AND tenant_id = ?", Integer.class, jobId, tenantId);
         return count == null ? 0 : count;
     }
 
-    private Map<String, Integer> counts(UUID jobId) {
-        Integer chunks = jdbcTemplate.queryForObject("SELECT count(*) FROM ai_source_chunk WHERE job_id = ?", Integer.class, jobId);
-        Integer generated = jdbcTemplate.queryForObject("SELECT count(*) FROM ai_generated_question WHERE job_id = ?", Integer.class, jobId);
-        Integer valid = jdbcTemplate.queryForObject("SELECT count(*) FROM ai_generated_question WHERE job_id = ? AND status = 'VALID'", Integer.class, jobId);
-        Integer approved = jdbcTemplate.queryForObject("SELECT count(*) FROM ai_generated_question WHERE job_id = ? AND review_status = 'APPROVED'", Integer.class, jobId);
+    private Map<String, Integer> counts(UUID tenantId, UUID jobId) {
+        Integer chunks = jdbcTemplate.queryForObject("SELECT count(*) FROM ai_source_chunk WHERE job_id = ? AND tenant_id = ?", Integer.class, jobId, tenantId);
+        Integer generated = jdbcTemplate.queryForObject("SELECT count(*) FROM ai_generated_question WHERE job_id = ? AND tenant_id = ?", Integer.class, jobId, tenantId);
+        Integer valid = jdbcTemplate.queryForObject("SELECT count(*) FROM ai_generated_question WHERE job_id = ? AND tenant_id = ? AND status = 'VALID'", Integer.class, jobId, tenantId);
+        Integer approved = jdbcTemplate.queryForObject("SELECT count(*) FROM ai_generated_question WHERE job_id = ? AND tenant_id = ? AND review_status = 'APPROVED'", Integer.class, jobId, tenantId);
         return Map.of("chunks", nullToZero(chunks), "generated", nullToZero(generated), "valid", nullToZero(valid), "approved", nullToZero(approved));
     }
 

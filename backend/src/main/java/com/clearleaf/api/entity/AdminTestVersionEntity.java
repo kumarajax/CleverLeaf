@@ -23,6 +23,9 @@ public class AdminTestVersionEntity {
     @Id
     private UUID id;
 
+    @Column(name = "tenant_id", nullable = false)
+    private UUID tenantId;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "test_id", nullable = false)
     private AdminTestEntity test;
@@ -57,6 +60,9 @@ public class AdminTestVersionEntity {
 
     @PrePersist
     void onCreate() {
+        if (tenantId == null && test != null) {
+            tenantId = test.getTenantId();
+        }
         Instant now = Instant.now();
         if (createdAt == null) createdAt = now;
         if (frozenAt == null) frozenAt = now;
@@ -70,6 +76,8 @@ public class AdminTestVersionEntity {
 
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
+    public UUID getTenantId() { return tenantId; }
+    public void setTenantId(UUID tenantId) { this.tenantId = tenantId; }
     public AdminTestEntity getTest() { return test; }
     public void setTest(AdminTestEntity test) { this.test = test; }
     public int getVersionNumber() { return versionNumber; }

@@ -54,7 +54,7 @@ public class StudentTestService {
     }
 
     @Transactional
-    public StudentTestAttemptResponse createAttempt(String studentSubject, CreateStudentTestRequest request) {
+    public StudentTestAttemptResponse createAttempt(UUID tenantId, String studentSubject, CreateStudentTestRequest request) {
         if (studentSubject == null || studentSubject.isBlank()) {
             throw new IllegalArgumentException("student subject is required");
         }
@@ -62,10 +62,10 @@ public class StudentTestService {
         String difficulty = normalizeDifficulty(request == null ? null : request.difficulty());
         int questionCount = request == null || request.questionCount() <= 0 ? 10 : Math.min(request.questionCount(), 50);
         int timePerQuestion = secondsPerQuestion(request == null ? null : request.secondsPerQuestion(), difficulty);
-        TaxonomyNodeEntity taxonomy = taxonomyNodes.findById(taxonomyNodeId)
+        TaxonomyNodeEntity taxonomy = taxonomyNodes.findByIdAndTenantId(taxonomyNodeId, tenantId)
                 .orElseThrow(() -> new IllegalArgumentException("Unknown taxonomy node: " + taxonomyNodeId));
-        List<UUID> taxonomyNodeIds = descendantIds(taxonomy.getId());
-        List<QuestionEntity> selected = selectRandomQuestions(taxonomyNodeIds, difficulty, questionCount);
+        List<UUID> taxonomyNodeIds = descendantIds(tenantId, taxonomy.getId());
+        List<QuestionEntity> selected = selectRandomQuestions(tenantId, taxonomyNodeIds, difficulty, questionCount);
         if (selected.size() < questionCount) {
             throw new IllegalArgumentException("Only " + selected.size() + " matching question(s) are available for this test");
         }
@@ -73,6 +73,7 @@ public class StudentTestService {
         Instant now = Instant.now();
         TestAttemptEntity attempt = new TestAttemptEntity();
         attempt.setId(UUID.randomUUID());
+        attempt.setTenantId(tenantId);
         attempt.setStudentSubject(studentSubject);
         attempt.setTestName(defaultTestName(request == null ? null : request.testName(), taxonomy, difficulty));
         attempt.setTaxonomyNode(taxonomy);
@@ -85,6 +86,7 @@ public class StudentTestService {
         for (int index = 0; index < selected.size(); index++) {
             TestAttemptQuestionEntity attemptQuestion = new TestAttemptQuestionEntity();
             attemptQuestion.setId(UUID.randomUUID());
+            attemptQuestion.setTenantId(tenantId);
             attemptQuestion.setAttempt(attempt);
             attemptQuestion.setQuestion(selected.get(index));
             attemptQuestion.setQuestionOrder(index + 1);
@@ -103,12 +105,13 @@ public class StudentTestService {
         return uniqueById.values().stream().toList();
     }
 
-    private List<QuestionEntity> selectRandomQuestions(List<UUID> taxonomyNodeIds, String difficulty, int questionCount) {
+    private List<QuestionEntity> selectRandomQuestions(UUID tenantId, List<UUID> taxonomyNodeIds, String difficulty, int questionCount) {
         if (!"MIXED".equals(difficulty)) {
             return uniqueQuestions(questions.findRandomEligibleForTest(
                     taxonomyNodeIds,
                     difficulty,
                     TESTABLE_WORKFLOW_STATUSES,
+                    tenantId,
                     PageRequest.of(0, questionCount * 3)), questionCount);
         }
 
@@ -125,6 +128,7 @@ public class StudentTestService {
                     taxonomyNodeIds,
                     bucket,
                     TESTABLE_WORKFLOW_STATUSES,
+                    tenantId,
                     PageRequest.of(0, target * 3));
             for (QuestionEntity question : bucketQuestions) {
                 selected.putIfAbsent(question.getId(), question);
@@ -140,6 +144,7 @@ public class StudentTestService {
                     taxonomyNodeIds,
                     List.of("EASY", "MEDIUM", "HARD"),
                     TESTABLE_WORKFLOW_STATUSES,
+                    tenantId,
                     PageRequest.of(0, (questionCount - selected.size()) * 6));
             for (QuestionEntity question : fallback) {
                 selected.putIfAbsent(question.getId(), question);
@@ -151,6 +156,7 @@ public class StudentTestService {
 
     @Transactional(readOnly = true)
     public Page<StudentTestAttemptSummary> history(
+            UUID tenantId,
             String studentSubject,
             int page,
             int size,
@@ -160,7 +166,7 @@ public class StudentTestService {
         if (studentSubject == null || studentSubject.isBlank()) {
             throw new IllegalArgumentException("student subject is required");
         }
-        Specification<TestAttemptEntity> specification = historySpecification(studentSubject, dateFrom, dateTo, taxonomy);
+        Specification<TestAttemptEntity> specification = historySpecification(tenantId, studentSubject, dateFrom, dateTo, taxonomy);
         PageRequest pageable = PageRequest.of(
                 Math.max(0, page),
                 Math.max(1, Math.min(size, 50)),
@@ -169,8 +175,8 @@ public class StudentTestService {
     }
 
     @Transactional(readOnly = true)
-    public StudentTestAttemptResponse getAttempt(String studentSubject, UUID attemptId) {
-        TestAttemptEntity attempt = findAttempt(studentSubject, attemptId);
+    public StudentTestAttemptResponse getAttempt(UUID tenantId, String studentSubject, UUID attemptId) {
+        TestAttemptEntity attempt = findAttempt(tenantId, studentSubject, attemptId);
         TestAttemptQuestionEntity current = attempt.getQuestions().stream()
                 .min(Comparator.comparingInt(TestAttemptQuestionEntity::getQuestionOrder))
                 .orElseThrow(() -> new IllegalStateException("Test attempt has no questions"));
@@ -178,15 +184,15 @@ public class StudentTestService {
     }
 
     @Transactional(readOnly = true)
-    public StudentTestQuestion getQuestion(String studentSubject, UUID attemptId, UUID attemptQuestionId) {
-        TestAttemptEntity attempt = findAttempt(studentSubject, attemptId);
+    public StudentTestQuestion getQuestion(UUID tenantId, String studentSubject, UUID attemptId, UUID attemptQuestionId) {
+        TestAttemptEntity attempt = findAttempt(tenantId, studentSubject, attemptId);
         TestAttemptQuestionEntity attemptQuestion = findAttemptQuestion(attempt, attemptQuestionId);
         return toQuestion(attemptQuestion, "SUBMITTED".equals(attempt.getStatus()) || attemptQuestion.getCorrect() != null);
     }
 
     @Transactional
-    public StudentTestQuestion saveAnswer(String studentSubject, UUID attemptId, UUID attemptQuestionId, SubmitStudentAnswerRequest request) {
-        TestAttemptEntity attempt = findAttempt(studentSubject, attemptId);
+    public StudentTestQuestion saveAnswer(UUID tenantId, String studentSubject, UUID attemptId, UUID attemptQuestionId, SubmitStudentAnswerRequest request) {
+        TestAttemptEntity attempt = findAttempt(tenantId, studentSubject, attemptId);
         ensureAnswerable(attempt);
         TestAttemptQuestionEntity attemptQuestion = findAttemptQuestion(attempt, attemptQuestionId);
         if (attemptQuestion.getCorrect() != null) {
@@ -201,8 +207,8 @@ public class StudentTestService {
     }
 
     @Transactional
-    public StudentTestQuestion submitQuestion(String studentSubject, UUID attemptId, UUID attemptQuestionId, SubmitStudentAnswerRequest request) {
-        TestAttemptEntity attempt = findAttempt(studentSubject, attemptId);
+    public StudentTestQuestion submitQuestion(UUID tenantId, String studentSubject, UUID attemptId, UUID attemptQuestionId, SubmitStudentAnswerRequest request) {
+        TestAttemptEntity attempt = findAttempt(tenantId, studentSubject, attemptId);
         ensureAnswerable(attempt);
         TestAttemptQuestionEntity attemptQuestion = findAttemptQuestion(attempt, attemptQuestionId);
         if (attemptQuestion.getCorrect() != null) {
@@ -218,8 +224,8 @@ public class StudentTestService {
     }
 
     @Transactional
-    public StudentTestAttemptResponse submit(String studentSubject, UUID attemptId) {
-        TestAttemptEntity attempt = findAttempt(studentSubject, attemptId);
+    public StudentTestAttemptResponse submit(UUID tenantId, String studentSubject, UUID attemptId) {
+        TestAttemptEntity attempt = findAttempt(tenantId, studentSubject, attemptId);
         if ("SUBMITTED".equals(attempt.getStatus())) {
             return toAttemptResponse(attempt, attempt.getQuestions().getFirst());
         }
@@ -237,8 +243,8 @@ public class StudentTestService {
         return toAttemptResponse(attempt, attempt.getQuestions().getFirst());
     }
 
-    private TestAttemptEntity findAttempt(String studentSubject, UUID attemptId) {
-        return attempts.findByIdAndStudentSubject(requireUuid(attemptId, "attemptId"), studentSubject)
+    private TestAttemptEntity findAttempt(UUID tenantId, String studentSubject, UUID attemptId) {
+        return attempts.findByIdAndStudentSubjectAndTenantId(requireUuid(attemptId, "attemptId"), studentSubject, tenantId)
                 .orElseThrow(() -> new IllegalArgumentException("Unknown test attempt: " + attemptId));
     }
 
@@ -254,7 +260,7 @@ public class StudentTestService {
             throw new IllegalStateException("Test has already been submitted");
         }
         if (Instant.now().isAfter(attempt.getExpiresAt())) {
-            submit(attempt.getStudentSubject(), attempt.getId());
+            submit(attempt.getTenantId(), attempt.getStudentSubject(), attempt.getId());
             throw new IllegalStateException("Test time has expired");
         }
     }
@@ -330,12 +336,14 @@ public class StudentTestService {
     }
 
     private Specification<TestAttemptEntity> historySpecification(
+            UUID tenantId,
             String studentSubject,
             String dateFrom,
             String dateTo,
             String taxonomy) {
         return (root, query, criteriaBuilder) -> {
             List<jakarta.persistence.criteria.Predicate> predicates = new ArrayList<>();
+            predicates.add(criteriaBuilder.equal(root.get("tenantId"), tenantId));
             predicates.add(criteriaBuilder.equal(root.get("studentSubject"), studentSubject));
             Instant from = parseStartDate(dateFrom);
             if (from != null) {
@@ -377,7 +385,7 @@ public class StudentTestService {
         return String.join(" / ", labels);
     }
 
-    private List<UUID> descendantIds(UUID rootId) {
+    private List<UUID> descendantIds(UUID tenantId, UUID rootId) {
         ArrayDeque<UUID> queue = new ArrayDeque<>();
         List<UUID> ids = new ArrayList<>();
         Set<UUID> visited = new LinkedHashSet<>();
@@ -386,7 +394,7 @@ public class StudentTestService {
             UUID current = queue.removeFirst();
             if (!visited.add(current)) continue;
             ids.add(current);
-            for (TaxonomyNodeEntity child : taxonomyNodes.findByParentNode_IdOrderBySortOrderAscDisplayNameAsc(current)) {
+            for (TaxonomyNodeEntity child : taxonomyNodes.findByParentNode_IdAndTenantIdOrderBySortOrderAscDisplayNameAsc(current, tenantId)) {
                 queue.addLast(child.getId());
             }
         }

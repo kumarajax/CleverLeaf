@@ -7,4 +7,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface TaxonomyEditionStateRepository extends JpaRepository<TaxonomyEditionStateEntity, UUID> {
     Optional<TaxonomyEditionStateEntity> findByCurriculumId(UUID curriculumId);
+    Optional<TaxonomyEditionStateEntity> findByCurriculumIdAndTenantId(UUID curriculumId, UUID tenantId);
 }

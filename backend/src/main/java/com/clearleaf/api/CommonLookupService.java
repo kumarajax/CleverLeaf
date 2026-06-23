@@ -8,6 +8,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.util.UUID;
 
 @Service
 public class CommonLookupService {
@@ -18,9 +19,10 @@ public class CommonLookupService {
     }
 
     @Transactional(readOnly = true)
-    public Page<LookupResponse> list(String lookupType, String status, Pageable pageable) {
+    public Page<LookupResponse> list(UUID tenantId, String lookupType, String status, Pageable pageable) {
         LookupType type = parseLookupType(lookupType);
-        Specification<LookupEntity> specification = LookupSpecifications.byType(type)
+        Specification<LookupEntity> specification = LookupSpecifications.tenant(tenantId)
+                .and(LookupSpecifications.byType(type))
                 .and(statusSpecification(status));
         return lookups.findAll(specification, pageable).map(this::toResponse);
     }

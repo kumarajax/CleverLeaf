@@ -6,6 +6,7 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import java.util.UUID;
 
@@ -14,6 +15,9 @@ import java.util.UUID;
 public class AssignedTestImportRowEntity {
     @Id
     private UUID id;
+
+    @Column(name = "tenant_id", nullable = false)
+    private UUID tenantId;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "job_id", nullable = false)
@@ -34,8 +38,17 @@ public class AssignedTestImportRowEntity {
     @Column
     private String message;
 
+    @PrePersist
+    void onCreate() {
+        if (tenantId == null && job != null) {
+            tenantId = job.getTenantId();
+        }
+    }
+
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
+    public UUID getTenantId() { return tenantId; }
+    public void setTenantId(UUID tenantId) { this.tenantId = tenantId; }
     public AssignedTestImportJobEntity getJob() { return job; }
     public void setJob(AssignedTestImportJobEntity job) { this.job = job; }
     public int getLineNumber() { return lineNumber; }

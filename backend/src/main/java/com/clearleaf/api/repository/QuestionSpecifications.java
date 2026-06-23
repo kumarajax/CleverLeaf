@@ -15,6 +15,10 @@ public final class QuestionSpecifications {
         return equal("questionType", value);
     }
 
+    public static Specification<QuestionEntity> tenant(UUID tenantId) {
+        return (root, query, criteriaBuilder) -> criteriaBuilder.equal(root.get("tenantId"), tenantId);
+    }
+
     public static Specification<QuestionEntity> difficulty(String value) {
         return equal("difficulty", value);
     }

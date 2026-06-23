@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
@@ -19,65 +20,94 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/admin/assigned-tests")
 public class AdminAssignedTestController {
     private final AssignedTestService tests;
+    private final TenantAuthorizationService tenantAuthorization;
 
-    public AdminAssignedTestController(AssignedTestService tests) {
+    public AdminAssignedTestController(AssignedTestService tests, TenantAuthorizationService tenantAuthorization) {
         this.tests = tests;
+        this.tenantAuthorization = tenantAuthorization;
     }
 
     @GetMapping
-    public List<AdminAssignedTestSummary> list(@AuthenticationPrincipal Jwt jwt) {
-        return tests.adminTests(jwt.getSubject());
+    public List<AdminAssignedTestSummary> list(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestHeader(value = TenantAuthorizationService.TENANT_HEADER, required = false) String tenantHeader) {
+        return tests.adminTests(tenantAuthorization.tenantId(tenantHeader), jwt.getSubject());
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public AdminAssignedTestDetail create(@AuthenticationPrincipal Jwt jwt, @RequestBody CreateAdminAssignedTestRequest request) {
-        return tests.createAdminTest(jwt.getSubject(), request);
+    public AdminAssignedTestDetail create(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestBody CreateAdminAssignedTestRequest request,
+            @RequestHeader(value = TenantAuthorizationService.TENANT_HEADER, required = false) String tenantHeader) {
+        return tests.createAdminTest(tenantAuthorization.tenantId(tenantHeader), jwt.getSubject(), request);
     }
 
     @GetMapping("/{versionId}")
-    public AdminAssignedTestDetail get(@AuthenticationPrincipal Jwt jwt, @PathVariable("versionId") UUID versionId) {
-        return tests.adminTest(jwt.getSubject(), versionId);
+    public AdminAssignedTestDetail get(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable("versionId") UUID versionId,
+            @RequestHeader(value = TenantAuthorizationService.TENANT_HEADER, required = false) String tenantHeader) {
+        return tests.adminTest(tenantAuthorization.tenantId(tenantHeader), jwt.getSubject(), versionId);
     }
 
     @PostMapping("/{versionId}/activate")
-    public AdminAssignedTestSummary activate(@AuthenticationPrincipal Jwt jwt, @PathVariable("versionId") UUID versionId) {
-        return tests.activateTest(jwt.getSubject(), versionId);
+    public AdminAssignedTestSummary activate(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable("versionId") UUID versionId,
+            @RequestHeader(value = TenantAuthorizationService.TENANT_HEADER, required = false) String tenantHeader) {
+        return tests.activateTest(tenantAuthorization.tenantId(tenantHeader), jwt.getSubject(), versionId);
     }
 
     @DeleteMapping("/{versionId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void delete(@AuthenticationPrincipal Jwt jwt, @PathVariable("versionId") UUID versionId) {
-        tests.deleteTest(jwt.getSubject(), versionId);
+    public void delete(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable("versionId") UUID versionId,
+            @RequestHeader(value = TenantAuthorizationService.TENANT_HEADER, required = false) String tenantHeader) {
+        tests.deleteTest(tenantAuthorization.tenantId(tenantHeader), jwt.getSubject(), versionId);
     }
 
     @PostMapping("/assignment-imports")
     @ResponseStatus(HttpStatus.ACCEPTED)
-    public AssignedTestImportJobResponse importAssignments(@AuthenticationPrincipal Jwt jwt, @RequestParam("objectKey") String objectKey) {
-        return tests.startAssignmentImport(jwt.getSubject(), objectKey);
+    public AssignedTestImportJobResponse importAssignments(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestParam("objectKey") String objectKey,
+            @RequestHeader(value = TenantAuthorizationService.TENANT_HEADER, required = false) String tenantHeader) {
+        return tests.startAssignmentImport(tenantAuthorization.tenantId(tenantHeader), jwt.getSubject(), objectKey);
     }
 
     @GetMapping("/assignment-imports/{jobId}")
-    public AssignedTestImportJobResponse importJob(@AuthenticationPrincipal Jwt jwt, @PathVariable("jobId") UUID jobId) {
-        return tests.importJob(jwt.getSubject(), jobId);
+    public AssignedTestImportJobResponse importJob(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable("jobId") UUID jobId,
+            @RequestHeader(value = TenantAuthorizationService.TENANT_HEADER, required = false) String tenantHeader) {
+        return tests.importJob(tenantAuthorization.tenantId(tenantHeader), jwt.getSubject(), jobId);
     }
 
     @GetMapping("/assignment-imports/{jobId}/rows")
-    public List<AssignedTestImportRowResponse> importRows(@AuthenticationPrincipal Jwt jwt, @PathVariable("jobId") UUID jobId) {
-        return tests.importRows(jwt.getSubject(), jobId);
+    public List<AssignedTestImportRowResponse> importRows(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable("jobId") UUID jobId,
+            @RequestHeader(value = TenantAuthorizationService.TENANT_HEADER, required = false) String tenantHeader) {
+        return tests.importRows(tenantAuthorization.tenantId(tenantHeader), jwt.getSubject(), jobId);
     }
 
     @GetMapping("/{versionId}/results")
-    public List<AdminAssignedTestResult> results(@AuthenticationPrincipal Jwt jwt, @PathVariable("versionId") UUID versionId) {
-        return tests.adminResults(jwt.getSubject(), versionId);
+    public List<AdminAssignedTestResult> results(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable("versionId") UUID versionId,
+            @RequestHeader(value = TenantAuthorizationService.TENANT_HEADER, required = false) String tenantHeader) {
+        return tests.adminResults(tenantAuthorization.tenantId(tenantHeader), jwt.getSubject(), versionId);
     }
 
     @GetMapping("/{versionId}/results/{assignmentId}")
     public AdminAssignedTestResult result(
             @AuthenticationPrincipal Jwt jwt,
             @PathVariable("versionId") UUID versionId,
-            @PathVariable("assignmentId") UUID assignmentId) {
-        return tests.adminResult(jwt.getSubject(), versionId, assignmentId);
+            @PathVariable("assignmentId") UUID assignmentId,
+            @RequestHeader(value = TenantAuthorizationService.TENANT_HEADER, required = false) String tenantHeader) {
+        return tests.adminResult(tenantAuthorization.tenantId(tenantHeader), jwt.getSubject(), versionId, assignmentId);
     }
 
     @PostMapping("/{versionId}/assignments")
@@ -85,21 +115,26 @@ public class AdminAssignedTestController {
     public AdminAssignedTestResult assignStudent(
             @AuthenticationPrincipal Jwt jwt,
             @PathVariable("versionId") UUID versionId,
-            @RequestBody AssignAdminTestRequest request) {
-        return tests.assignStudent(jwt.getSubject(), versionId, request);
+            @RequestBody AssignAdminTestRequest request,
+            @RequestHeader(value = TenantAuthorizationService.TENANT_HEADER, required = false) String tenantHeader) {
+        return tests.assignStudent(tenantAuthorization.tenantId(tenantHeader), jwt.getSubject(), versionId, request);
     }
 
     @PostMapping("/{versionId}/publish-results")
-    public AdminAssignedTestSummary publishResults(@AuthenticationPrincipal Jwt jwt, @PathVariable("versionId") UUID versionId) {
-        return tests.publishResults(jwt.getSubject(), versionId);
+    public AdminAssignedTestSummary publishResults(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable("versionId") UUID versionId,
+            @RequestHeader(value = TenantAuthorizationService.TENANT_HEADER, required = false) String tenantHeader) {
+        return tests.publishResults(tenantAuthorization.tenantId(tenantHeader), jwt.getSubject(), versionId);
     }
 
     @PostMapping("/{versionId}/results/{assignmentId}/publish")
     public AdminAssignedTestResult publishStudentResult(
             @AuthenticationPrincipal Jwt jwt,
             @PathVariable("versionId") UUID versionId,
-            @PathVariable("assignmentId") UUID assignmentId) {
-        return tests.publishStudentResult(jwt.getSubject(), versionId, assignmentId);
+            @PathVariable("assignmentId") UUID assignmentId,
+            @RequestHeader(value = TenantAuthorizationService.TENANT_HEADER, required = false) String tenantHeader) {
+        return tests.publishStudentResult(tenantAuthorization.tenantId(tenantHeader), jwt.getSubject(), versionId, assignmentId);
     }
 
     @PostMapping("/{versionId}/results/{assignmentId}/reassign")
@@ -107,7 +142,8 @@ public class AdminAssignedTestController {
     public AdminAssignedTestResult reassignStudentTest(
             @AuthenticationPrincipal Jwt jwt,
             @PathVariable("versionId") UUID versionId,
-            @PathVariable("assignmentId") UUID assignmentId) {
-        return tests.reassignStudentTest(jwt.getSubject(), versionId, assignmentId);
+            @PathVariable("assignmentId") UUID assignmentId,
+            @RequestHeader(value = TenantAuthorizationService.TENANT_HEADER, required = false) String tenantHeader) {
+        return tests.reassignStudentTest(tenantAuthorization.tenantId(tenantHeader), jwt.getSubject(), versionId, assignmentId);
     }
 }

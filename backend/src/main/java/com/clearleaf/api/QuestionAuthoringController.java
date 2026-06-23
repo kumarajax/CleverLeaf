@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -22,9 +23,11 @@ import org.springframework.web.bind.annotation.RequestParam;
 @RequestMapping("/api/admin/questions")
 public class QuestionAuthoringController {
     private final QuestionAuthoringService questions;
+    private final TenantAuthorizationService tenantAuthorization;
 
-    public QuestionAuthoringController(QuestionAuthoringService questions) {
+    public QuestionAuthoringController(QuestionAuthoringService questions, TenantAuthorizationService tenantAuthorization) {
         this.questions = questions;
+        this.tenantAuthorization = tenantAuthorization;
     }
 
     @GetMapping
@@ -42,8 +45,9 @@ public class QuestionAuthoringController {
             @RequestParam(value = "chapterId", required = false) UUID chapterId,
             @RequestParam(value = "topicId", required = false) UUID topicId,
             @RequestParam(value = "search", required = false) String search,
+            @RequestHeader(value = TenantAuthorizationService.TENANT_HEADER, required = false) String tenantHeader,
             @PageableDefault(sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
-        return questions.list(new QuestionSearchCriteria(questionType, difficulty, workflowStatus,
+        return questions.list(tenantAuthorization.tenantId(tenantHeader), new QuestionSearchCriteria(questionType, difficulty, workflowStatus,
                 workflowStatuses, taxonomyNodeId, includeDescendants, curriculumId, editionId, gradeId, subjectId, chapterId, topicId, search), pageable);
     }
 
@@ -63,31 +67,41 @@ public class QuestionAuthoringController {
             @RequestParam(value = "topicId", required = false) UUID topicId,
             @RequestParam(value = "search", required = false) String search,
             @RequestParam(value = "cursor", required = false) String cursor,
+            @RequestHeader(value = TenantAuthorizationService.TENANT_HEADER, required = false) String tenantHeader,
             @RequestParam(value = "size", defaultValue = "25") int size) {
-        return questions.listCursor(new QuestionSearchCriteria(questionType, difficulty, workflowStatus,
+        return questions.listCursor(tenantAuthorization.tenantId(tenantHeader), new QuestionSearchCriteria(questionType, difficulty, workflowStatus,
                 workflowStatuses, taxonomyNodeId, includeDescendants, curriculumId, editionId, gradeId, subjectId, chapterId, topicId, search),
                 cursor, size);
     }
 
     @GetMapping("/{id}")
-    public QuestionAdminRecord get(@PathVariable("id") UUID id) {
-        return questions.get(id);
+    public QuestionAdminRecord get(
+            @PathVariable("id") UUID id,
+            @RequestHeader(value = TenantAuthorizationService.TENANT_HEADER, required = false) String tenantHeader) {
+        return questions.get(tenantAuthorization.tenantId(tenantHeader), id);
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public CreatedQuestionResponse create(@RequestBody CreateQuestionRequest request) {
-        return questions.create(request);
+    public CreatedQuestionResponse create(
+            @RequestBody CreateQuestionRequest request,
+            @RequestHeader(value = TenantAuthorizationService.TENANT_HEADER, required = false) String tenantHeader) {
+        return questions.create(tenantAuthorization.tenantId(tenantHeader), request);
     }
 
     @PutMapping("/{id}")
-    public QuestionAdminRecord update(@PathVariable("id") UUID id, @RequestBody CreateQuestionRequest request) {
-        return questions.update(id, request);
+    public QuestionAdminRecord update(
+            @PathVariable("id") UUID id,
+            @RequestBody CreateQuestionRequest request,
+            @RequestHeader(value = TenantAuthorizationService.TENANT_HEADER, required = false) String tenantHeader) {
+        return questions.update(tenantAuthorization.tenantId(tenantHeader), id, request);
     }
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void delete(@PathVariable("id") UUID id) {
-        questions.delete(id);
+    public void delete(
+            @PathVariable("id") UUID id,
+            @RequestHeader(value = TenantAuthorizationService.TENANT_HEADER, required = false) String tenantHeader) {
+        questions.delete(tenantAuthorization.tenantId(tenantHeader), id);
     }
 }

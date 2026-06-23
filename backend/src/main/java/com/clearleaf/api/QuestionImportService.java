@@ -1,5 +1,7 @@
 package com.clearleaf.api;
 
+import com.clearleaf.api.entity.TaxonomyNodeEntity;
+import com.clearleaf.api.repository.TaxonomyNodeRepository;
 import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.List;
@@ -15,11 +17,13 @@ import org.springframework.web.server.ResponseStatusException;
 public class QuestionImportService {
     private final MinioStorageService storage;
     private final QuestionAuthoringService authoring;
+    private final TaxonomyNodeRepository taxonomyNodes;
     private final QuestionValidator validator = new QuestionValidator();
 
-    public QuestionImportService(MinioStorageService storage, QuestionAuthoringService authoring) {
+    public QuestionImportService(MinioStorageService storage, QuestionAuthoringService authoring, TaxonomyNodeRepository taxonomyNodes) {
         this.storage = storage;
         this.authoring = authoring;
+        this.taxonomyNodes = taxonomyNodes;
     }
 
     public CsvPreviewResponse preview(String objectKey) {
@@ -49,7 +53,9 @@ public class QuestionImportService {
                     row.sourceReference(),
                     row.licenseCategory(),
                     row.options().stream().map(option -> new QuestionOption(option.key(), option.text(), null, null, option.correct())).toList());
-            authoring.create(new CreateQuestionRequest(row.taxonomyNodeId(), row.actor(), draft));
+            TaxonomyNodeEntity taxonomyNode = taxonomyNodes.findById(row.taxonomyNodeId())
+                    .orElseThrow(() -> new IllegalArgumentException("Unknown taxonomy node: " + row.taxonomyNodeId()));
+            authoring.create(taxonomyNode.getTenantId(), new CreateQuestionRequest(row.taxonomyNodeId(), row.actor(), draft));
             imported++;
         }
         return new CsvImportSummary(objectKey, imported, rows.size() - imported, rows);

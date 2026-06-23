@@ -14,12 +14,19 @@ import org.springframework.data.repository.query.Param;
 public interface QuestionRepository extends JpaRepository<QuestionEntity, UUID>, JpaSpecificationExecutor<QuestionEntity> {
     Optional<QuestionEntity> findByExternalKey(String externalKey);
 
-    Optional<QuestionEntity> findByRootTaxonomyNode_IdAndChildTaxonomyNode_IdAndNormalizedQuestionText(
+    Optional<QuestionEntity> findByExternalKeyAndTenantId(String externalKey, UUID tenantId);
+
+    Optional<QuestionEntity> findByIdAndTenantId(UUID id, UUID tenantId);
+
+    Optional<QuestionEntity> findByRootTaxonomyNode_IdAndChildTaxonomyNode_IdAndNormalizedQuestionTextAndTenantId(
             UUID rootTaxonomyNodeId,
             UUID childTaxonomyNodeId,
-            String normalizedQuestionText);
+            String normalizedQuestionText,
+            UUID tenantId);
 
     boolean existsByTaxonomyAssignments_TaxonomyNode_Id(UUID taxonomyNodeId);
+
+    boolean existsByTaxonomyAssignments_TaxonomyNode_IdAndTenantId(UUID taxonomyNodeId, UUID tenantId);
 
     @Query("""
             select question
@@ -31,12 +38,14 @@ public interface QuestionRepository extends JpaRepository<QuestionEntity, UUID>,
             )
               and upper(question.difficulty) = :difficulty
               and upper(question.workflowStatus) in :workflowStatuses
+              and question.tenantId = :tenantId
             order by function('random')
             """)
     List<QuestionEntity> findRandomEligibleForTest(
             @Param("taxonomyNodeIds") Collection<UUID> taxonomyNodeIds,
             @Param("difficulty") String difficulty,
             @Param("workflowStatuses") Collection<String> workflowStatuses,
+            @Param("tenantId") UUID tenantId,
             Pageable pageable);
 
     @Query("""
@@ -49,12 +58,14 @@ public interface QuestionRepository extends JpaRepository<QuestionEntity, UUID>,
             )
               and upper(question.difficulty) in :difficulties
               and upper(question.workflowStatus) in :workflowStatuses
+              and question.tenantId = :tenantId
             order by function('random')
             """)
     List<QuestionEntity> findRandomEligibleForTestDifficulties(
             @Param("taxonomyNodeIds") Collection<UUID> taxonomyNodeIds,
             @Param("difficulties") Collection<String> difficulties,
             @Param("workflowStatuses") Collection<String> workflowStatuses,
+            @Param("tenantId") UUID tenantId,
             Pageable pageable);
 
     @Query("""
@@ -66,8 +77,10 @@ public interface QuestionRepository extends JpaRepository<QuestionEntity, UUID>,
                 where assignment.taxonomyNode.id in :taxonomyNodeIds
             )
               and upper(question.workflowStatus) in :workflowStatuses
+              and question.tenantId = :tenantId
             """)
     long countTestableByTaxonomyNodeIds(
             @Param("taxonomyNodeIds") Collection<UUID> taxonomyNodeIds,
-            @Param("workflowStatuses") Collection<String> workflowStatuses);
+            @Param("workflowStatuses") Collection<String> workflowStatuses,
+            @Param("tenantId") UUID tenantId);
 }

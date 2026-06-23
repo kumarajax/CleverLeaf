@@ -14,6 +14,9 @@ public class AssignedTestImportJobEntity {
     @Id
     private UUID id;
 
+    @Column(name = "tenant_id", nullable = false)
+    private UUID tenantId;
+
     @Column(name = "object_key", nullable = false)
     private String objectKey;
 
@@ -54,6 +57,8 @@ public class AssignedTestImportJobEntity {
 
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
+    public UUID getTenantId() { return tenantId; }
+    public void setTenantId(UUID tenantId) { this.tenantId = tenantId; }
     public String getObjectKey() { return objectKey; }
     public void setObjectKey(String objectKey) { this.objectKey = objectKey; }
     public String getActorSubject() { return actorSubject; }

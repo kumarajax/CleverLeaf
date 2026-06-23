@@ -23,6 +23,9 @@ public class TestAttemptEntity {
     @Id
     private UUID id;
 
+    @Column(name = "tenant_id", nullable = false)
+    private UUID tenantId;
+
     @Column(name = "student_subject", nullable = false, length = 256)
     private String studentSubject;
 
@@ -73,6 +76,13 @@ public class TestAttemptEntity {
 
     @PrePersist
     void onCreate() {
+        if (tenantId == null) {
+            if (assignment != null) {
+                tenantId = assignment.getTenantId();
+            } else if (taxonomyNode != null) {
+                tenantId = taxonomyNode.getTenantId();
+            }
+        }
         Instant now = Instant.now();
         if (createdAt == null) createdAt = now;
         updatedAt = now;
@@ -85,6 +95,8 @@ public class TestAttemptEntity {
 
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
+    public UUID getTenantId() { return tenantId; }
+    public void setTenantId(UUID tenantId) { this.tenantId = tenantId; }
     public String getStudentSubject() { return studentSubject; }
     public void setStudentSubject(String studentSubject) { this.studentSubject = studentSubject; }
     public String getTestName() { return testName; }
