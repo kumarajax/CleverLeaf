@@ -1999,8 +1999,43 @@ h1 {
 }
 
 .selected-question-list span {
+  align-items: center;
   color: #374151;
+  display: flex;
   font-size: 13px;
+  gap: 6px;
+  justify-content: space-between;
+}
+
+.inline-remove-button {
+  align-items: center;
+  background: #fff5f5;
+  border: 1px solid #e5b8b8;
+  border-radius: 50%;
+  color: #9b2929;
+  cursor: pointer;
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: 11px;
+  font-weight: 700;
+  height: 18px;
+  justify-content: center;
+  line-height: 1;
+  padding: 0;
+  width: 18px;
+}
+
+.inline-remove-button:hover {
+  background: #ffe8e8;
+}
+
+.compact-config-table input {
+  border: 1px solid #b9ccc0;
+  border-radius: 7px;
+  font: inherit;
+  min-width: 150px;
+  padding: 7px 8px;
+  width: 100%;
 }
 
 .selectable-question-row {
@@ -2038,6 +2073,73 @@ h1 {
 .admin-result-question span {
   color: #4b5563;
   font-size: 13px;
+}
+
+.compact-data-table {
+  font-size: 12px;
+}
+
+.compact-data-table th,
+.compact-data-table td {
+  line-height: 1.25;
+  padding: 5px 7px;
+  vertical-align: middle;
+}
+
+.compact-data-table th {
+  font-size: 11px;
+  letter-spacing: .02em;
+}
+
+.compact-data-table small {
+  font-size: 11px;
+}
+
+.compact-data-table input[type="radio"] {
+  height: 14px;
+  margin: 0;
+  width: 14px;
+}
+
+.result-action-bar {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0 4px;
+}
+
+.admin-shell .icon-action-button {
+  border-radius: 6px;
+  display: inline-flex;
+  font-size: 12px;
+  gap: 4px;
+  line-height: 1.1;
+  min-height: 26px;
+  padding: 4px 7px;
+  white-space: nowrap;
+}
+
+.admin-shell .primary-button:disabled,
+.admin-shell .secondary-button:disabled,
+.admin-shell .icon-action-button:disabled {
+  background: #edf0ed;
+  border-color: #d4ddd6;
+  color: #94a39a;
+  cursor: not-allowed;
+  opacity: 1;
+}
+
+.admin-shell .danger-action-button:not(:disabled) {
+  border-color: #e0b4b4;
+  color: #9b2929;
+}
+
+.table-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
 }
 
 @media (max-width: 900px) {

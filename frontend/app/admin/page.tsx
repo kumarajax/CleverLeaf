@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, Fragment, ReactNode, useEffect, useMemo, useState } from "react";
+import { FormEvent, Fragment, ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useApplicationConfig } from "../useApplicationConfig";
 
@@ -120,6 +120,10 @@ type AdminAssignedTestSummary = {
   publishedCount?: number;
   latestResultsPublishedAt?: string | null;
   createdAt: string;
+};
+
+type AdminAssignedTestDetail = Omit<AdminAssignedTestSummary, "questionCount" | "assignedCount" | "submittedCount" | "publishedCount" | "latestResultsPublishedAt" | "createdAt"> & {
+  questions: AdminQuestion[];
 };
 
 type AdminAssignedTestResult = {
@@ -577,6 +581,7 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [status, setStatus] = useState("");
+  const statusTimerRef = useRef<number | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [me, setMe] = useState<MeResponse | null>(null);
   const [roles, setRoles] = useState<string[]>([]);
@@ -690,11 +695,13 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
   const [assignedTestResults, setAssignedTestResults] = useState<AdminAssignedTestResult[]>([]);
   const [assignedTestResultDetails, setAssignedTestResultDetails] = useState<Record<string, AdminAssignedTestResult>>({});
   const [expandedAssignedResultId, setExpandedAssignedResultId] = useState("");
+  const [selectedAssignedResultId, setSelectedAssignedResultId] = useState("");
   const [assignedTestRows, setAssignedTestRows] = useState<AssignedTestImportRow[]>([]);
   const [selectedAssignedTestVersionId, setSelectedAssignedTestVersionId] = useState("");
   const [assignedTestImportFile, setAssignedTestImportFile] = useState<File | null>(null);
   const [assignedTestImportJob, setAssignedTestImportJob] = useState<AssignedTestImportJob | null>(null);
   const [creatingAssignedTest, setCreatingAssignedTest] = useState(false);
+  const [draftTestFormOpen, setDraftTestFormOpen] = useState(false);
   const [assignedTestError, setAssignedTestError] = useState("");
   const [testQuestionResults, setTestQuestionResults] = useState<AdminQuestion[]>([]);
   const [testQuestionLoading, setTestQuestionLoading] = useState(false);
@@ -703,6 +710,8 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
   const [testQuestionNextCursor, setTestQuestionNextCursor] = useState<string | null>(null);
   const [testQuestionHasNext, setTestQuestionHasNext] = useState(false);
   const [manualAssignmentStudentSubject, setManualAssignmentStudentSubject] = useState("");
+  const [currentDraftTest, setCurrentDraftTest] = useState<AdminAssignedTestDetail | null>(null);
+  const [draftQuestionIds, setDraftQuestionIds] = useState<string[]>([]);
   const [assignedTestForm, setAssignedTestForm] = useState({
     publicKey: "",
     name: "",
@@ -710,7 +719,7 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
     availableFrom: "",
     availableUntil: "",
   });
-  const [selectedAssignedQuestionIds, setSelectedAssignedQuestionIds] = useState<string[]>([]);
+  const currentDraftQuestionIds = draftQuestionIds;
 
   const currentToken = session?.accessToken ?? "";
   const aiConnectionSignature = `${aiConnectionProvider}|${aiConnectionModel.trim()}|${aiConnectionApiKey.trim()}`;
@@ -731,6 +740,17 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
   const selectedRootTaxonomyNode = selectedTaxonomyNode
     ? getAncestorChain(selectedTaxonomyNode.id)[0] ?? null
     : null;
+
+  function showStatus(message: string, durationMs = 2000) {
+    if (statusTimerRef.current) {
+      window.clearTimeout(statusTimerRef.current);
+    }
+    setStatus(message);
+    statusTimerRef.current = window.setTimeout(() => {
+      setStatus((current) => (current === message ? "" : current));
+      statusTimerRef.current = null;
+    }, durationMs);
+  }
   const leafNodeIds = useMemo(() => {
     const parentIds = new Set(allNodes.map((node) => node.parentId).filter((id): id is string => Boolean(id)));
     return new Set(allNodes.filter((node) => !parentIds.has(node.id)).map((node) => node.id));
@@ -805,12 +825,19 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
     }));
   }, [groupedQuestions, questionCardNodes]);
   const selectedAssignedQuestions = useMemo(() => {
-    const byId = new Map([...questions, ...testQuestionResults].map((question) => [question.id, question]));
-    return selectedAssignedQuestionIds
+    const byId = new Map([...(currentDraftTest?.questions ?? []), ...questions, ...testQuestionResults].map((question) => [question.id, question]));
+    return draftQuestionIds
       .map((id) => byId.get(id))
       .filter((question): question is AdminQuestion => Boolean(question));
-  }, [questions, testQuestionResults, selectedAssignedQuestionIds]);
+  }, [currentDraftTest?.questions, draftQuestionIds, questions, testQuestionResults]);
   const submittedAssignedTestResults = useMemo(() => assignedTestResults.filter((result) => result.status === "SUBMITTED"), [assignedTestResults]);
+  const selectedAssignedResult = useMemo(
+    () => assignedTestResults.find((result) => result.assignmentId === selectedAssignedResultId) ?? null,
+    [assignedTestResults, selectedAssignedResultId]
+  );
+  const selectedResultCanReview = Boolean(selectedAssignedResult?.attemptId);
+  const selectedResultCanPublish = Boolean(selectedAssignedResult && selectedAssignedResult.status === "SUBMITTED" && !selectedAssignedResult.resultsPublishedAt);
+  const selectedResultCanReassign = Boolean(selectedAssignedResult && ["STARTED", "SUBMITTED"].includes(selectedAssignedResult.status) && !selectedAssignedResult.resultsPublishedAt);
   const adminTestStatusMeaningByCode = useMemo(() => new Map(adminTestStatusLookups.map((lookup) => [lookup.lookupCode, lookup.lookupMeaning])), [adminTestStatusLookups]);
   const assignableAssignedTests = useMemo(() => assignedTests.filter((test) => ["ACTIVE", "PUBLISHED"].includes(displayAdminTestStatus(test))), [assignedTests]);
   const resultEligibleAssignedTests = useMemo(() => assignedTests.filter((test) => ["PUBLISHED", "COMPLETED", "EXPIRED"].includes(displayAdminTestStatus(test))), [assignedTests]);
@@ -959,7 +986,22 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
     if (!response.ok) {
       throw new Error(body.error || `Request failed with ${response.status}`);
     }
-    setStatus(`Activated ${test.publicKey}.`);
+    showStatus(`Activated ${test.publicKey}.`);
+    await loadAssignedTests();
+  }
+
+  async function expireAssignedTest(test: AdminAssignedTestSummary) {
+    setAssignedTestError("");
+    const response = await fetch(`${apiBaseUrl}/api/admin/assigned-tests/${test.versionId}/expire`, {
+      method: "POST",
+      headers: authHeaders(),
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(body.error || `Request failed with ${response.status}`);
+    }
+    showStatus(`Expired ${test.publicKey}.`);
+    setSelectedAssignedTestVersionId((current) => current === test.versionId ? "" : current);
     await loadAssignedTests();
   }
 
@@ -973,7 +1015,7 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
       const body = await response.json().catch(() => ({}));
       throw new Error(body.error || `Request failed with ${response.status}`);
     }
-    setStatus(`Deleted ${test.publicKey}.`);
+    showStatus(`Deleted ${test.publicKey}.`);
     setSelectedAssignedTestVersionId((current) => current === test.versionId ? "" : current);
     await loadAssignedTests();
   }
@@ -1040,7 +1082,9 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
     if (!response.ok) {
       throw new Error(body.error || `Request failed with ${response.status}`);
     }
-    setAssignedTestResults(Array.isArray(body) ? body : []);
+    const rows = Array.isArray(body) ? body : [];
+    setAssignedTestResults(rows);
+    setSelectedAssignedResultId((current) => rows.some((row: AdminAssignedTestResult) => row.assignmentId === current) ? current : rows[0]?.assignmentId || "");
     setAssignedTestResultDetails({});
     setExpandedAssignedResultId("");
   }
@@ -1066,10 +1110,6 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
   async function createAssignedTest(event: FormEvent) {
     event.preventDefault();
     setAssignedTestError("");
-    if (selectedAssignedQuestionIds.length === 0) {
-      setAssignedTestError("Select at least one question before creating the test.");
-      return;
-    }
     setCreatingAssignedTest(true);
     try {
       const response = await fetch(`${apiBaseUrl}/api/admin/assigned-tests`, {
@@ -1079,21 +1119,24 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
           ...authHeaders(),
         },
         body: JSON.stringify({
-          publicKey: assignedTestForm.publicKey,
-          name: assignedTestForm.name,
+          publicKey: assignedTestForm.publicKey.trim() || null,
+          name: assignedTestForm.name.trim(),
           timeAllowedSeconds: Math.max(1, assignedTestForm.timeAllowedMinutes) * 60,
           availableFrom: assignedTestForm.availableFrom ? new Date(assignedTestForm.availableFrom).toISOString() : null,
           availableUntil: assignedTestForm.availableUntil ? new Date(assignedTestForm.availableUntil).toISOString() : null,
-          questionIds: selectedAssignedQuestionIds,
+          questionIds: [],
         }),
       });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) {
         throw new Error(body.error || `Request failed with ${response.status}`);
       }
-      setStatus("Draft test created.");
+      showStatus("Draft test created.");
       setAssignedTestForm({ publicKey: "", name: "", timeAllowedMinutes: 30, availableFrom: "", availableUntil: "" });
-      setSelectedAssignedQuestionIds([]);
+      setDraftTestFormOpen(false);
+      const detail = body as AdminAssignedTestDetail;
+      setCurrentDraftTest(detail);
+      setDraftQuestionIds(detail.questions.map((question) => question.id));
       await loadAssignedTests();
     } catch (exception) {
       setAssignedTestError(exception instanceof Error ? exception.message : "Unable to create assigned test.");
@@ -1103,11 +1146,58 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
   }
 
   function toggleAssignedQuestion(questionId: string) {
-    setSelectedAssignedQuestionIds((current) => (
-      current.includes(questionId)
-        ? current.filter((id) => id !== questionId)
-        : [...current, questionId]
-    ));
+    if (!currentDraftTest) {
+      setAssignedTestError("Create a draft test before adding questions.");
+      return;
+    }
+    const nextQuestionIds = currentDraftQuestionIds.includes(questionId)
+      ? currentDraftQuestionIds.filter((id) => id !== questionId)
+      : [...currentDraftQuestionIds, questionId];
+    setDraftQuestionIds(nextQuestionIds);
+  }
+
+  async function saveDraftQuestions(questionIds: string[]) {
+    if (!currentDraftTest) return;
+    setAssignedTestError("");
+    const response = await fetch(`${apiBaseUrl}/api/admin/assigned-tests/${currentDraftTest.versionId}/questions`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeaders(),
+      },
+      body: JSON.stringify({ questionIds }),
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(body.error || `Request failed with ${response.status}`);
+    }
+    const detail = body as AdminAssignedTestDetail;
+    setCurrentDraftTest(detail);
+    setDraftQuestionIds(detail.questions.map((question) => question.id));
+    showStatus("Test questions saved.");
+    await loadAssignedTests();
+  }
+
+  async function activateCurrentDraftTest() {
+    if (!currentDraftTest) return;
+    await saveDraftQuestions(draftQuestionIds);
+    const summary: AdminAssignedTestSummary = {
+      testId: currentDraftTest.testId,
+      versionId: currentDraftTest.versionId,
+      publicKey: currentDraftTest.publicKey,
+      name: currentDraftTest.name,
+      status: currentDraftTest.status,
+      questionCount: currentDraftTest.questions.length,
+      timeAllowedSeconds: currentDraftTest.timeAllowedSeconds,
+      availableFrom: currentDraftTest.availableFrom,
+      availableUntil: currentDraftTest.availableUntil,
+      resultsPublishedAt: currentDraftTest.resultsPublishedAt,
+      assignedCount: 0,
+      submittedCount: 0,
+      createdAt: new Date().toISOString(),
+    };
+    await activateAssignedTest(summary);
+    setCurrentDraftTest({ ...currentDraftTest, status: "ACTIVE" });
   }
 
   async function importAssignedTestAssignments() {
@@ -1133,7 +1223,7 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
       throw new Error(importBody.error || `Request failed with ${importResponse.status}`);
     }
     setAssignedTestImportJob(importBody);
-    setStatus("Assignment import started.");
+    showStatus("Assignment import started.");
   }
 
   async function refreshAssignedTestImportJob() {
@@ -1181,7 +1271,7 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
       throw new Error(body.error || `Request failed with ${response.status}`);
     }
     setManualAssignmentStudentSubject("");
-    setStatus("Test assigned to student.");
+    showStatus("Test assigned to student.");
     await Promise.all([loadAssignedTests(), loadAssignedTestResults(selectedAssignedTestVersionId)]);
   }
 
@@ -1196,7 +1286,7 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
     if (!response.ok) {
       throw new Error(body.error || `Request failed with ${response.status}`);
     }
-    setStatus("Results published.");
+    showStatus("Results published.");
     await Promise.all([loadAssignedTests(), loadAssignedTestResults(versionId)]);
   }
 
@@ -1211,7 +1301,7 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
     if (!response.ok) {
       throw new Error(body.error || `Request failed with ${response.status}`);
     }
-    setStatus(`Published result for ${result.studentSubject}.`);
+    showStatus(`Published result for ${result.studentSubject}.`);
     await loadAssignedTestResults(selectedAssignedTestVersionId);
   }
 
@@ -1230,7 +1320,7 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
     }
     setExpandedAssignedResultId("");
     setAssignedTestResultDetails({});
-    setStatus(`Re-assigned test to ${result.studentSubject}.`);
+    showStatus(`Re-assigned test to ${result.studentSubject}.`);
     await Promise.all([loadAssignedTests(), loadAssignedTestResults(selectedAssignedTestVersionId)]);
   }
 
@@ -1407,6 +1497,14 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, currentToken, tenantResolved, selectedTenantId]);
+
+  useEffect(() => {
+    return () => {
+      if (statusTimerRef.current) {
+        window.clearTimeout(statusTimerRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const maxPageIndex = Math.max(0, Math.ceil(aiJobs.length / aiJobPageSize) - 1);
@@ -1670,7 +1768,7 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
         questionMediaObjectKey: uploaded.objectKey,
         questionMediaContentType: uploaded.contentType,
       }));
-      setStatus("Question image uploaded.");
+      showStatus("Question image uploaded.");
     } catch (exception) {
       setError(exception instanceof Error ? exception.message : "Unable to upload image.");
     }
@@ -1690,7 +1788,7 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
         };
         return { ...current, options: next };
       });
-      setStatus("Option image uploaded.");
+      showStatus("Option image uploaded.");
     } catch (exception) {
       setError(exception instanceof Error ? exception.message : "Unable to upload image.");
     }
@@ -1706,7 +1804,7 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
         answerMediaObjectKey: uploaded.objectKey,
         answerMediaContentType: uploaded.contentType,
       }));
-      setStatus("Answer image uploaded.");
+      showStatus("Answer image uploaded.");
     } catch (exception) {
       setError(exception instanceof Error ? exception.message : "Unable to upload image.");
     }
@@ -1729,7 +1827,7 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
         resetQuestionForm(selectedTaxonomyNodeId);
         setQuestionFormVisible(false);
       }
-      setStatus("Question deleted.");
+      showStatus("Question deleted.");
       await loadQuestions();
     } catch (exception) {
       setError(exception instanceof Error ? exception.message : "Unable to delete question.");
@@ -1754,7 +1852,7 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
         resetTaxonomyForm();
       }
       setExpandedTaxonomyIds((current) => current.filter((id) => id !== node.id));
-      setStatus("Taxonomy node deleted.");
+      showStatus("Taxonomy node deleted.");
       await Promise.all([loadAllTaxonomy(), loadTaxonomy(taxonomyFilter)]);
     } catch (exception) {
       setError(exception instanceof Error ? exception.message : "Unable to delete taxonomy node.");
@@ -1842,7 +1940,7 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
       if (!response.ok) {
         throw new Error(body.error || `Request failed with ${response.status}`);
       }
-      setStatus(taxonomyForm.id ? "Taxonomy updated." : "Taxonomy created.");
+      showStatus(taxonomyForm.id ? "Taxonomy updated." : "Taxonomy created.");
       resetTaxonomyForm();
       await Promise.all([loadAllTaxonomy(), loadTaxonomy(taxonomyFilter), loadQuestions()]);
     } catch (exception) {
@@ -1927,7 +2025,7 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
       if (!response.ok) {
         throw new Error(body.error || `Request failed with ${response.status}`);
       }
-      setStatus(questionForm.id ? "Question updated." : "Question created.");
+      showStatus(questionForm.id ? "Question updated." : "Question created.");
       resetQuestionForm(questionForm.taxonomyNodeId);
       setQuestionFormVisible(false);
       await loadQuestions();
@@ -1998,7 +2096,7 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
       throw new Error(body.error || `Request failed with ${response.status}`);
     }
     setImportSummaries((current) => ({ ...current, [stepCode]: body }));
-    setStatus(`Imported ${body.importedRows} row(s) for ${stepCode}.`);
+    showStatus(`Imported ${body.importedRows} row(s) for ${stepCode}.`);
     if (stepCode === "TAXONOMIES") {
       await Promise.all([loadAllTaxonomy(), loadTaxonomy(taxonomyFilter)]);
     }
@@ -2182,7 +2280,7 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
       setSelectedAiJob(generatedJob);
       setSelectedAiJobId(generatedJob.id);
       await loadAiJobs();
-      setStatus("AI questions generated. Review and approve the generated questions.");
+      showStatus("AI questions generated. Review and approve the generated questions.");
     } catch (exception) {
       setAiError(exception instanceof Error ? exception.message : "Unable to create AI job.");
     } finally {
@@ -3008,9 +3106,9 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
 
             <div className="account-tabs import-tabs admin-secondary-tabs" role="tablist" aria-label="Assigned test administration">
               <button type="button" role="tab" aria-selected={testTab === "create"} className={testTab === "create" ? "tab active" : "tab"} onClick={() => setTestTab("create")}>Create Tests</button>
-              <button type="button" role="tab" aria-selected={testTab === "history"} className={testTab === "history" ? "tab active" : "tab"} onClick={() => setTestTab("history")}>Manage Tests</button>
-              <button type="button" role="tab" aria-selected={testTab === "assign"} className={testTab === "assign" ? "tab active" : "tab"} onClick={() => setTestTab("assign")}>Assign Test(s)</button>
-              <button type="button" role="tab" aria-selected={testTab === "results"} className={testTab === "results" ? "tab active" : "tab"} onClick={() => setTestTab("results")}>Results</button>
+              <button type="button" role="tab" aria-selected={testTab === "history"} className={testTab === "history" ? "tab active" : "tab"} onClick={() => { setDraftTestFormOpen(false); setTestTab("history"); }}>Manage Tests</button>
+              <button type="button" role="tab" aria-selected={testTab === "assign"} className={testTab === "assign" ? "tab active" : "tab"} onClick={() => { setDraftTestFormOpen(false); setTestTab("assign"); }}>Assign Test(s)</button>
+              <button type="button" role="tab" aria-selected={testTab === "results"} className={testTab === "results" ? "tab active" : "tab"} onClick={() => { setDraftTestFormOpen(false); setTestTab("results"); }}>Results</button>
             </div>
 
             {testTab === "history" ? (
@@ -3023,13 +3121,14 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
                 <button type="button" className="secondary-button compact-button" onClick={() => loadAssignedTests().catch((exception) => setAssignedTestError(exception instanceof Error ? exception.message : "Unable to load tests."))}>Refresh</button>
               </div>
               <div className="table-wrap">
-                <table className="data-table">
+                <table className="data-table compact-data-table">
                   <thead><tr><th>Public key</th><th>Name</th><th>Test status</th><th>Availability</th><th>Questions</th><th>Assigned</th><th>Submitted</th><th>Result publication</th><th>Created</th><th>Actions</th></tr></thead>
                   <tbody>
                     {assignedTests.map((test) => {
                       const displayStatus = displayAdminTestStatus(test);
                       const statusLabel = adminTestStatusMeaningByCode.get(displayStatus) ?? displayStatus;
                       const canActivate = test.status === "DRAFT";
+                      const canExpire = ["ACTIVE", "PUBLISHED"].includes(test.status) && !["COMPLETED", "EXPIRED"].includes(displayStatus);
                       const canDelete = test.status === "DRAFT" || test.status === "ACTIVE";
                       return (
                         <tr key={test.versionId}>
@@ -3044,12 +3143,15 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
                           <td>{formatDateTime(test.createdAt)}</td>
                           <td>
                             <div className="table-actions">
-                              {canActivate ? (
-                                <button type="button" className="secondary-button compact-button" onClick={() => activateAssignedTest(test).catch((exception) => setAssignedTestError(exception instanceof Error ? exception.message : "Unable to activate test."))}>Activate</button>
-                              ) : null}
-                              {canDelete ? (
-                                <button type="button" className="secondary-button compact-button" onClick={() => deleteAssignedTest(test).catch((exception) => setAssignedTestError(exception instanceof Error ? exception.message : "Unable to delete test."))}>Delete</button>
-                              ) : <span className="muted">Locked</span>}
+                              <button type="button" className="secondary-button icon-action-button" disabled={!canActivate} title={canActivate ? "Activate test" : "Only draft tests can be activated"} onClick={() => activateAssignedTest(test).catch((exception) => setAssignedTestError(exception instanceof Error ? exception.message : "Unable to activate test."))}>
+                                <span aria-hidden="true">✓</span> Activate
+                              </button>
+                              <button type="button" className="secondary-button icon-action-button" disabled={!canExpire} title={canExpire ? "Expire test" : "Only active or published tests can be expired"} onClick={() => expireAssignedTest(test).catch((exception) => setAssignedTestError(exception instanceof Error ? exception.message : "Unable to expire test."))}>
+                                <span aria-hidden="true">⏱</span> Expire
+                              </button>
+                              <button type="button" className="secondary-button icon-action-button danger-action-button" disabled={!canDelete} title={canDelete ? "Delete test" : "Locked tests cannot be deleted"} onClick={() => deleteAssignedTest(test).catch((exception) => setAssignedTestError(exception instanceof Error ? exception.message : "Unable to delete test."))}>
+                                <span aria-hidden="true">×</span> Delete
+                              </button>
                             </div>
                           </td>
                         </tr>
@@ -3066,139 +3168,200 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
 
             {testTab === "create" ? (
               <>
-            <form className="card account-form" onSubmit={createAssignedTest}>
-              <div className="section-header compact-section-header">
-                <h3>Create draft test</h3>
-                <p>{selectedAssignedQuestionIds.length} selected question(s). Activate the draft before assigning it.</p>
-              </div>
-              <div className="form-grid">
-                <label>
-                  Test public key
-                  <input
-                    value={assignedTestForm.publicKey}
-                    onChange={(event) => setAssignedTestForm((current) => ({ ...current, publicKey: event.target.value.toUpperCase() }))}
-                    placeholder="GRADE5_MATH_TEST_001"
-                    required
-                  />
-                </label>
-                <label>
-                  Test name
-                  <input
-                    value={assignedTestForm.name}
-                    onChange={(event) => setAssignedTestForm((current) => ({ ...current, name: event.target.value }))}
-                    placeholder="Grade 5 Maths Baseline"
-                    required
-                  />
-                </label>
-                <label>
-                  Time allowed (minutes)
-                  <input
-                    type="number"
-                    min="1"
-                    value={assignedTestForm.timeAllowedMinutes}
-                    onChange={(event) => setAssignedTestForm((current) => ({ ...current, timeAllowedMinutes: Number(event.target.value) }))}
-                  />
-                </label>
-                <label>
-                  Available from
-                  <input
-                    type="datetime-local"
-                    value={assignedTestForm.availableFrom}
-                    onChange={(event) => setAssignedTestForm((current) => ({ ...current, availableFrom: event.target.value }))}
-                  />
-                </label>
-                <label>
-                  Available until
-                  <input
-                    type="datetime-local"
-                    value={assignedTestForm.availableUntil}
-                    onChange={(event) => setAssignedTestForm((current) => ({ ...current, availableUntil: event.target.value }))}
-                  />
-                </label>
-              </div>
-              <div className="dashboard-actions">
-                <button type="submit" className="primary-button compact-button" disabled={creatingAssignedTest}>
-                  {creatingAssignedTest ? "Creating..." : "Create draft"}
-                </button>
-                <button type="button" className="secondary-button compact-button" onClick={() => setSelectedAssignedQuestionIds([])}>Clear selected</button>
-              </div>
-              {selectedAssignedQuestions.length > 0 ? (
-                <div className="selected-question-list">
-                  {selectedAssignedQuestions.map((question, index) => (
-                    <span key={question.id}>{index + 1}. {questionTitle(question)}</span>
-                  ))}
+                <div className="dashboard-actions">
+                  <button
+                    type="button"
+                    className="primary-button compact-button"
+                    onClick={() => {
+                      setAssignedTestError("");
+                      setDraftTestFormOpen(true);
+                      setCurrentDraftTest(null);
+                    }}
+                  >
+                    Create Test
+                  </button>
                 </div>
-              ) : null}
-            </form>
 
-            <div className="dashboard-actions">
-              <label className="inline-select">
-                Search
-                <input value={questionSearch} onChange={(event) => {
-                  resetTestQuestionCursor();
-                  setQuestionSearch(event.target.value);
-                }} placeholder="Search questions" />
-              </label>
-              <label className="inline-select">
-                Node filter
-                <select value={questionNodeFilterId} onChange={(event) => {
-                  resetTestQuestionCursor();
-                  setQuestionNodeFilterId(event.target.value);
-                }}>
-                  <option value="">All active taxonomy</option>
-                  {[...allNodes]
-                    .filter((node) => isActiveTaxonomyBranch(node.id))
-                    .sort((left, right) => left.displayName.localeCompare(right.displayName))
-                    .map((node) => (
-                    <option key={node.id} value={node.id}>{node.displayName}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="inline-select">
-                Difficulty
-                <select value={questionDifficultyFilter} onChange={(event) => {
-                  resetTestQuestionCursor();
-                  setQuestionDifficultyFilter(event.target.value);
-                }}>
-                  {difficultyLookups.map((lookup) => <option key={lookup.id} value={lookup.lookupCode === "ALL" ? "" : lookup.lookupCode}>{lookup.lookupMeaning}</option>)}
-                </select>
-              </label>
-              <label className="inline-select">
-                Workflow
-                <span className="muted">Active, Approved, Practice</span>
-              </label>
-            </div>
-
-            <div className="card table-card">
-              <h3>Pick questions</h3>
-              {testQuestionLoading ? <p className="muted">Searching questions...</p> : null}
-              <div className="question-list">
-                {testQuestionResults.map((question) => (
-                  <label className="question-row-card selectable-question-row" key={question.id}>
-                    <input
-                      type="checkbox"
-                      checked={selectedAssignedQuestionIds.includes(question.id)}
-                      onChange={() => toggleAssignedQuestion(question.id)}
-                    />
-                    <span>
-                      <span className="question-summary-text">{questionTitle(question)}</span>
-                      <small>{question.taxonomyNodeLabel}</small>
-                    </span>
-                    <small>{question.difficulty} | {question.questionType}</small>
-                  </label>
-                ))}
-                {!testQuestionLoading && testQuestionResults.length === 0 ? (
-                  <p className="notice warning">No matching questions found.</p>
+                {draftTestFormOpen ? (
+                  <form className="card account-form" onSubmit={createAssignedTest}>
+                    <div className="section-header compact-section-header">
+                      <h3>New test draft</h3>
+                    </div>
+                    <div className="table-wrap">
+                      <table className="data-table compact-config-table">
+                        <thead>
+                          <tr><th>Test name</th><th>Key</th><th>Time allowed</th><th>Available from</th><th>Available until</th></tr>
+                        </thead>
+                        <tbody>
+                          <tr>
+                            <td>
+                              <input
+                                value={assignedTestForm.name}
+                                onChange={(event) => setAssignedTestForm((current) => ({ ...current, name: event.target.value }))}
+                                placeholder="Grade 5 Maths Baseline"
+                                required
+                              />
+                            </td>
+                            <td>
+                              <input
+                                value={assignedTestForm.publicKey}
+                                onChange={(event) => setAssignedTestForm((current) => ({ ...current, publicKey: event.target.value.toUpperCase() }))}
+                                placeholder="Auto generated"
+                              />
+                            </td>
+                            <td>
+                              <input
+                                type="number"
+                                min="1"
+                                value={assignedTestForm.timeAllowedMinutes}
+                                onChange={(event) => setAssignedTestForm((current) => ({ ...current, timeAllowedMinutes: Number(event.target.value) }))}
+                              />
+                            </td>
+                            <td>
+                              <input
+                                type="datetime-local"
+                                value={assignedTestForm.availableFrom}
+                                onChange={(event) => setAssignedTestForm((current) => ({ ...current, availableFrom: event.target.value }))}
+                              />
+                            </td>
+                            <td>
+                              <input
+                                type="datetime-local"
+                                value={assignedTestForm.availableUntil}
+                                onChange={(event) => setAssignedTestForm((current) => ({ ...current, availableUntil: event.target.value }))}
+                              />
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="dashboard-actions">
+                      <button type="submit" className="primary-button compact-button" disabled={creatingAssignedTest}>
+                        {creatingAssignedTest ? "Creating..." : "Create draft"}
+                      </button>
+                      <button type="button" className="secondary-button compact-button" onClick={() => setDraftTestFormOpen(false)}>Cancel</button>
+                    </div>
+                  </form>
                 ) : null}
-              </div>
-              <div className="pagination-bar">
-                <span>Page {testQuestionCursorIndex + 1}</span>
-                <div className="pagination-actions">
-                  <button type="button" className="secondary-button compact-button" disabled={testQuestionCursorIndex <= 0 || testQuestionLoading} onClick={() => loadTestQuestionPage(testQuestionCursorIndex - 1)}>Previous</button>
-                  <button type="button" className="secondary-button compact-button" disabled={!testQuestionHasNext || !testQuestionNextCursor || testQuestionLoading} onClick={() => loadTestQuestionPage(testQuestionCursorIndex + 1)}>Next</button>
+
+                {currentDraftTest ? (
+                  <div className="card table-card">
+                    <div className="section-header compact-section-header">
+                      <h3>{currentDraftTest.name}</h3>
+                      <p>{currentDraftTest.publicKey} | {currentDraftTest.status} | {selectedAssignedQuestions.length} question(s)</p>
+                    </div>
+                    <div className="dashboard-actions">
+                      <button
+                        type="button"
+                        className="secondary-button compact-button"
+                        disabled={currentDraftTest.status !== "DRAFT"}
+                        onClick={() => saveDraftQuestions(draftQuestionIds).catch((exception) => setAssignedTestError(exception instanceof Error ? exception.message : "Unable to save test."))}
+                      >
+                        Save Test
+                      </button>
+                      <button
+                        type="button"
+                        className="primary-button compact-button"
+                        disabled={currentDraftTest.status !== "DRAFT" || selectedAssignedQuestions.length === 0}
+                        onClick={() => activateCurrentDraftTest().catch((exception) => setAssignedTestError(exception instanceof Error ? exception.message : "Unable to activate test."))}
+                      >
+                        Activate Test
+                      </button>
+                    </div>
+                    {selectedAssignedQuestions.length > 0 ? (
+                      <div className="selected-question-list">
+                        {selectedAssignedQuestions.map((question, index) => (
+                          <span key={question.id}>
+                            {index + 1}. {questionTitle(question)}
+                            <button
+                              type="button"
+                              className="inline-remove-button"
+                              aria-label={`Remove ${questionTitle(question)}`}
+                              onClick={() => setDraftQuestionIds(currentDraftQuestionIds.filter((id) => id !== question.id))}
+                            >
+                              x
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="notice warning">No questions saved on this draft yet.</p>
+                    )}
+                  </div>
+                ) : null}
+
+                <div className="dashboard-actions">
+                  <label className="inline-select">
+                    Search
+                    <input value={questionSearch} onChange={(event) => {
+                      resetTestQuestionCursor();
+                      setQuestionSearch(event.target.value);
+                    }} placeholder="Search questions" />
+                  </label>
+                  <label className="inline-select">
+                    Taxonomy
+                    <select value={questionNodeFilterId} onChange={(event) => {
+                      resetTestQuestionCursor();
+                      setQuestionNodeFilterId(event.target.value);
+                    }}>
+                      <option value="">All active taxonomy</option>
+                      {[...allNodes]
+                        .filter((node) => isActiveTaxonomyBranch(node.id))
+                        .sort((left, right) => left.displayName.localeCompare(right.displayName))
+                        .map((node) => (
+                        <option key={node.id} value={node.id}>{node.displayName}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="inline-select">
+                    Difficulty
+                    <select value={questionDifficultyFilter} onChange={(event) => {
+                      resetTestQuestionCursor();
+                      setQuestionDifficultyFilter(event.target.value);
+                    }}>
+                      {difficultyLookups.map((lookup) => <option key={lookup.id} value={lookup.lookupCode === "ALL" ? "" : lookup.lookupCode}>{lookup.lookupMeaning}</option>)}
+                    </select>
+                  </label>
+                  <label className="inline-select">
+                    Workflow
+                    <span className="muted">Active, Approved, Practice</span>
+                  </label>
                 </div>
-              </div>
-            </div>
+
+                <div className="card table-card">
+                  <div className="section-header compact-section-header">
+                    <h3>Question picker</h3>
+                    <p>{currentDraftTest ? "Select questions to save on the current draft." : "Create a draft test before adding questions."}</p>
+                  </div>
+                  {testQuestionLoading ? <p className="muted">Searching questions...</p> : null}
+                  <div className="question-list">
+                    {testQuestionResults.map((question) => (
+                      <label className="question-row-card selectable-question-row" key={question.id}>
+                        <input
+                          type="checkbox"
+                          disabled={!currentDraftTest || currentDraftTest.status !== "DRAFT"}
+                          checked={currentDraftQuestionIds.includes(question.id)}
+                          onChange={() => toggleAssignedQuestion(question.id)}
+                        />
+                        <span>
+                          <span className="question-summary-text">{questionTitle(question)}</span>
+                          <small>{question.taxonomyNodeLabel}</small>
+                        </span>
+                        <small>{question.difficulty} | {question.questionType}</small>
+                      </label>
+                    ))}
+                    {!testQuestionLoading && testQuestionResults.length === 0 ? (
+                      <p className="notice warning">No matching questions found.</p>
+                    ) : null}
+                  </div>
+                  <div className="pagination-bar">
+                    <span>Page {testQuestionCursorIndex + 1}</span>
+                    <div className="pagination-actions">
+                      <button type="button" className="secondary-button compact-button" disabled={testQuestionCursorIndex <= 0 || testQuestionLoading} onClick={() => loadTestQuestionPage(testQuestionCursorIndex - 1)}>Previous</button>
+                      <button type="button" className="secondary-button compact-button" disabled={!testQuestionHasNext || !testQuestionNextCursor || testQuestionLoading} onClick={() => loadTestQuestionPage(testQuestionCursorIndex + 1)}>Next</button>
+                    </div>
+                  </div>
+                </div>
               </>
             ) : null}
 
@@ -3211,7 +3374,13 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
               <div className="dashboard-actions import-actions">
                 <label className="inline-select">
                   Test
-                  <select value={selectedAssignedTestVersionId} onChange={(event) => setSelectedAssignedTestVersionId(event.target.value)}>
+                  <select value={selectedAssignedTestVersionId} onChange={(event) => {
+                    setSelectedAssignedTestVersionId(event.target.value);
+                    setSelectedAssignedResultId("");
+                    setAssignedTestResults([]);
+                    setAssignedTestResultDetails({});
+                    setExpandedAssignedResultId("");
+                  }}>
                     <option value="">Select active test</option>
                     {assignableAssignedTests.map((test) => (
                       <option key={test.versionId} value={test.versionId}>{test.publicKey} - {test.name}</option>
@@ -3309,32 +3478,58 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
                 <button type="button" className="secondary-button compact-button" onClick={() => loadAssignedTests().catch((exception) => setAssignedTestError(exception instanceof Error ? exception.message : "Unable to load tests."))}>Refresh</button>
                 <button type="button" className="primary-button compact-button" disabled={!selectedAssignedTestVersionId || submittedAssignedTestResults.length === 0} onClick={() => publishAssignedTestResults().catch((exception) => setAssignedTestError(exception instanceof Error ? exception.message : "Unable to publish results."))}>Publish all submitted</button>
               </div>
+              <div className="result-action-bar">
+                <span className="muted">{selectedAssignedResult ? `Selected: ${selectedAssignedResult.studentSubject}` : "Select a student row"}</span>
+                <button
+                  type="button"
+                  className="secondary-button icon-action-button"
+                  disabled={!selectedAssignedResult || !selectedResultCanReview}
+                  title={!selectedAssignedResult ? "Select a student result first" : selectedResultCanReview ? "Review or edit result details" : "No submitted attempt is available to review"}
+                  onClick={() => selectedAssignedResult && loadAssignedTestResultDetail(selectedAssignedResult).catch((exception) => setAssignedTestError(exception instanceof Error ? exception.message : "Unable to load result detail."))}
+                >
+                  <span aria-hidden="true">✎</span> {selectedAssignedResult && expandedAssignedResultId === selectedAssignedResult.assignmentId ? "Hide" : "Edit result"}
+                </button>
+                <button
+                  type="button"
+                  className="primary-button icon-action-button"
+                  disabled={!selectedAssignedResult || !selectedResultCanPublish}
+                  title={!selectedAssignedResult ? "Select a student result first" : selectedResultCanPublish ? "Publish this student result" : "Only unpublished submitted results can be published"}
+                  onClick={() => selectedAssignedResult && publishAssignedTestStudentResult(selectedAssignedResult).catch((exception) => setAssignedTestError(exception instanceof Error ? exception.message : "Unable to publish student result."))}
+                >
+                  <span aria-hidden="true">↑</span> Publish
+                </button>
+                <button
+                  type="button"
+                  className="secondary-button icon-action-button"
+                  disabled={!selectedAssignedResult || !selectedResultCanReassign}
+                  title={!selectedAssignedResult ? "Select a student result first" : selectedResultCanReassign ? "Re-assign this test" : "Only unpublished started or submitted tests can be re-assigned"}
+                  onClick={() => selectedAssignedResult && reassignAssignedTestStudent(selectedAssignedResult).catch((exception) => setAssignedTestError(exception instanceof Error ? exception.message : "Unable to re-assign test."))}
+                >
+                  <span aria-hidden="true">↻</span> Re-assign
+                </button>
+              </div>
               <div className="table-wrap">
-                <table className="data-table">
-                  <thead><tr><th>Student</th><th>Status</th><th>Assigned</th><th>Submitted</th><th>Score</th><th>Published</th><th>Actions</th></tr></thead>
+                <table className="data-table compact-data-table">
+                  <thead><tr><th>Select</th><th>Student</th><th>Status</th><th>Assigned</th><th>Submitted</th><th>Score</th><th>Published</th></tr></thead>
                   <tbody>
                     {assignedTestResults.map((result) => (
                       <Fragment key={result.assignmentId}>
-                        <tr>
+                        <tr className={selectedAssignedResultId === result.assignmentId ? "selected-row" : ""}>
+                          <td>
+                            <input
+                              type="radio"
+                              name="selected-assigned-result"
+                              aria-label={`Select result for ${result.studentSubject}`}
+                              checked={selectedAssignedResultId === result.assignmentId}
+                              onChange={() => setSelectedAssignedResultId(result.assignmentId)}
+                            />
+                          </td>
                           <td>{result.studentSubject}</td>
                           <td>{result.status}</td>
                           <td>{formatDateTime(result.assignedAt)}</td>
                           <td>{formatDateTime(result.submittedAt)}</td>
                           <td>{result.scorePoints ?? 0} / {result.maxPoints}</td>
                           <td>{result.resultsPublishedAt ? formatDateTime(result.resultsPublishedAt) : "Not published"}</td>
-                          <td>
-                            <div className="dashboard-actions compact-result-actions">
-                              <button type="button" className="secondary-button compact-button" disabled={result.status !== "SUBMITTED"} onClick={() => loadAssignedTestResultDetail(result).catch((exception) => setAssignedTestError(exception instanceof Error ? exception.message : "Unable to load result detail."))}>
-                                {expandedAssignedResultId === result.assignmentId ? "Hide" : "Edit result"}
-                              </button>
-                              <button type="button" className="primary-button compact-button" disabled={result.status !== "SUBMITTED" || Boolean(result.resultsPublishedAt)} onClick={() => publishAssignedTestStudentResult(result).catch((exception) => setAssignedTestError(exception instanceof Error ? exception.message : "Unable to publish student result."))}>
-                                Publish
-                              </button>
-                              <button type="button" className="secondary-button compact-button" disabled={!["STARTED", "SUBMITTED"].includes(result.status) || Boolean(result.resultsPublishedAt)} onClick={() => reassignAssignedTestStudent(result).catch((exception) => setAssignedTestError(exception instanceof Error ? exception.message : "Unable to re-assign test."))}>
-                                Re-assign
-                              </button>
-                            </div>
-                          </td>
                         </tr>
                         {expandedAssignedResultId === result.assignmentId && assignedTestResultDetails[result.assignmentId]?.attempt?.questions?.length ? (
                           <tr key={`${result.assignmentId}-review`}>

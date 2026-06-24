@@ -100,21 +100,19 @@ public class AssignedTestService {
     @Transactional
     public AdminAssignedTestDetail createAdminTest(UUID tenantId, String creatorSubject, CreateAdminAssignedTestRequest request) {
         String subject = requireSubject(creatorSubject);
-        String publicKey = requireText(request.publicKey(), "publicKey").toUpperCase(Locale.ROOT);
+        String testName = requireText(request.name(), "name");
+        String publicKey = resolvePublicKey(tenantId, request.publicKey(), testName);
         if (adminTests.findByPublicKeyIgnoreCaseAndTenantId(publicKey, tenantId).isPresent()) {
             throw new IllegalArgumentException("Test publicKey already exists: " + publicKey);
         }
         List<UUID> questionIds = request.questionIds() == null ? List.of() : request.questionIds().stream().distinct().toList();
-        if (questionIds.isEmpty()) {
-            throw new IllegalArgumentException("At least one question is required");
-        }
         int timeAllowedSeconds = request.timeAllowedSeconds() <= 0 ? 1800 : request.timeAllowedSeconds();
 
         AdminTestEntity test = new AdminTestEntity();
         test.setId(UUID.randomUUID());
         test.setTenantId(tenantId);
         test.setPublicKey(publicKey);
-        test.setName(requireText(request.name(), "name"));
+        test.setName(testName);
         test.setCreatorSubject(subject);
         test.setStatus(TEST_STATUS_DRAFT);
 
@@ -128,6 +126,28 @@ public class AssignedTestService {
         version.setAvailableUntil(request.availableUntil());
         test.getVersions().add(version);
 
+        replaceDraftQuestions(tenantId, version, questionIds);
+        adminTests.save(test);
+        return toDetail(version);
+    }
+
+    @Transactional
+    public AdminAssignedTestDetail updateDraftQuestions(UUID tenantId, String creatorSubject, UUID versionId, UpdateAdminAssignedTestQuestionsRequest request) {
+        AdminTestVersionEntity version = requireCreatorVersion(tenantId, creatorSubject, versionId);
+        if (!TEST_STATUS_DRAFT.equals(version.getTest().getStatus())) {
+            throw new IllegalStateException("Only draft tests can be edited");
+        }
+        List<UUID> questionIds = request == null || request.questionIds() == null
+                ? List.of()
+                : request.questionIds().stream().distinct().toList();
+        replaceDraftQuestions(tenantId, version, questionIds);
+        versions.save(version);
+        return toDetail(version);
+    }
+
+    private void replaceDraftQuestions(UUID tenantId, AdminTestVersionEntity version, List<UUID> questionIds) {
+        version.getQuestions().clear();
+        versions.flush();
         for (int index = 0; index < questionIds.size(); index++) {
             UUID questionId = questionIds.get(index);
             QuestionEntity question = questions.findByIdAndTenantId(questionId, tenantId)
@@ -141,8 +161,31 @@ public class AssignedTestService {
             versionQuestion.setQuestionOrder(index + 1);
             version.getQuestions().add(versionQuestion);
         }
-        adminTests.save(test);
-        return toDetail(version);
+    }
+
+    private String resolvePublicKey(UUID tenantId, String requestedPublicKey, String testName) {
+        String normalized = requestedPublicKey == null ? "" : requestedPublicKey.trim();
+        if (!normalized.isBlank()) {
+            return normalized.toUpperCase(Locale.ROOT);
+        }
+        String base = testName.trim()
+                .toUpperCase(Locale.ROOT)
+                .replaceAll("[^A-Z0-9]+", "_")
+                .replaceAll("^_+|_+$", "");
+        if (base.isBlank()) {
+            base = "TEST";
+        }
+        if (base.length() > 80) {
+            base = base.substring(0, 80).replaceAll("_+$", "");
+        }
+        for (int attempt = 0; attempt < 20; attempt++) {
+            String suffix = UUID.randomUUID().toString().substring(0, 8).toUpperCase(Locale.ROOT);
+            String candidate = base + "_" + suffix;
+            if (adminTests.findByPublicKeyIgnoreCaseAndTenantId(candidate, tenantId).isEmpty()) {
+                return candidate;
+            }
+        }
+        throw new IllegalStateException("Unable to generate a unique test public key");
     }
 
     @Transactional(readOnly = true)
@@ -162,6 +205,18 @@ public class AssignedTestService {
         }
         test.setStatus(TEST_STATUS_ACTIVE);
         adminTests.save(test);
+        return toSummary(version);
+    }
+
+    @Transactional
+    public AdminAssignedTestSummary expireTest(UUID tenantId, String creatorSubject, UUID versionId) {
+        AdminTestVersionEntity version = requireCreatorVersion(tenantId, creatorSubject, versionId);
+        String status = version.getTest().getStatus();
+        if (!Set.of(TEST_STATUS_ACTIVE, TEST_STATUS_PUBLISHED).contains(status)) {
+            throw new IllegalStateException("Only active or published tests can be expired");
+        }
+        version.setAvailableUntil(Instant.now());
+        versions.save(version);
         return toSummary(version);
     }
 
