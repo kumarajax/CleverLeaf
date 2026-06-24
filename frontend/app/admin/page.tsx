@@ -695,9 +695,12 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
   const [assignedTestResults, setAssignedTestResults] = useState<AdminAssignedTestResult[]>([]);
   const [assignedTestResultDetails, setAssignedTestResultDetails] = useState<Record<string, AdminAssignedTestResult>>({});
   const [expandedAssignedResultId, setExpandedAssignedResultId] = useState("");
-  const [selectedAssignedResultId, setSelectedAssignedResultId] = useState("");
+  const [selectedAssignedResultIds, setSelectedAssignedResultIds] = useState<string[]>([]);
   const [assignedTestRows, setAssignedTestRows] = useState<AssignedTestImportRow[]>([]);
   const [selectedAssignedTestVersionId, setSelectedAssignedTestVersionId] = useState("");
+  const [resultTestSearch, setResultTestSearch] = useState("");
+  const [resultTestOptions, setResultTestOptions] = useState<AdminAssignedTestSummary[]>([]);
+  const [resultTestOptionsLoading, setResultTestOptionsLoading] = useState(false);
   const [assignedTestImportFile, setAssignedTestImportFile] = useState<File | null>(null);
   const [assignedTestImportJob, setAssignedTestImportJob] = useState<AssignedTestImportJob | null>(null);
   const [creatingAssignedTest, setCreatingAssignedTest] = useState(false);
@@ -750,6 +753,18 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
       setStatus((current) => (current === message ? "" : current));
       statusTimerRef.current = null;
     }, durationMs);
+  }
+
+  function resultTestChoiceLabel(test: AdminAssignedTestSummary) {
+    return `${test.publicKey} - ${test.name} - ${formatDateTime(test.createdAt)} - ${displayAdminTestStatus(test)}`;
+  }
+
+  function selectAssignedTestVersion(versionId: string) {
+    setSelectedAssignedTestVersionId(versionId);
+    setSelectedAssignedResultIds([]);
+    setAssignedTestResults([]);
+    setAssignedTestResultDetails({});
+    setExpandedAssignedResultId("");
   }
   const leafNodeIds = useMemo(() => {
     const parentIds = new Set(allNodes.map((node) => node.parentId).filter((id): id is string => Boolean(id)));
@@ -831,16 +846,21 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
       .filter((question): question is AdminQuestion => Boolean(question));
   }, [currentDraftTest?.questions, draftQuestionIds, questions, testQuestionResults]);
   const submittedAssignedTestResults = useMemo(() => assignedTestResults.filter((result) => result.status === "SUBMITTED"), [assignedTestResults]);
-  const selectedAssignedResult = useMemo(
-    () => assignedTestResults.find((result) => result.assignmentId === selectedAssignedResultId) ?? null,
-    [assignedTestResults, selectedAssignedResultId]
+  const selectedAssignedResults = useMemo(
+    () => assignedTestResults.filter((result) => selectedAssignedResultIds.includes(result.assignmentId)),
+    [assignedTestResults, selectedAssignedResultIds]
   );
+  const selectedAssignedResult = selectedAssignedResults.length === 1 ? selectedAssignedResults[0] : null;
+  const publishableSelectedAssignedResults = useMemo(
+    () => selectedAssignedResults.filter((result) => result.status === "SUBMITTED" && !result.resultsPublishedAt),
+    [selectedAssignedResults]
+  );
+  const allAssignedResultsSelected = assignedTestResults.length > 0 && selectedAssignedResultIds.length === assignedTestResults.length;
   const selectedResultCanReview = Boolean(selectedAssignedResult?.attemptId);
-  const selectedResultCanPublish = Boolean(selectedAssignedResult && selectedAssignedResult.status === "SUBMITTED" && !selectedAssignedResult.resultsPublishedAt);
+  const selectedResultCanPublish = publishableSelectedAssignedResults.length > 0 && publishableSelectedAssignedResults.length === selectedAssignedResults.length;
   const selectedResultCanReassign = Boolean(selectedAssignedResult && ["STARTED", "SUBMITTED"].includes(selectedAssignedResult.status) && !selectedAssignedResult.resultsPublishedAt);
   const adminTestStatusMeaningByCode = useMemo(() => new Map(adminTestStatusLookups.map((lookup) => [lookup.lookupCode, lookup.lookupMeaning])), [adminTestStatusLookups]);
   const assignableAssignedTests = useMemo(() => assignedTests.filter((test) => ["ACTIVE", "PUBLISHED"].includes(displayAdminTestStatus(test))), [assignedTests]);
-  const resultEligibleAssignedTests = useMemo(() => assignedTests.filter((test) => ["PUBLISHED", "COMPLETED", "EXPIRED"].includes(displayAdminTestStatus(test))), [assignedTests]);
 
   function authHeaders(token = currentToken, tenantId = selectedTenantId): Record<string, string> {
     const resolvedTenantId = tenantId || defaultTenantId;
@@ -976,6 +996,26 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
     setSelectedAssignedTestVersionId((current) => rows.some((row: AdminAssignedTestSummary) => row.versionId === current) ? current : rows[0]?.versionId || "");
   }
 
+  async function loadResultTestOptions(query = resultTestSearch, token = currentToken) {
+    setResultTestOptionsLoading(true);
+    try {
+      const parameters = new URLSearchParams({
+        q: query.trim(),
+        limit: "20",
+      });
+      const response = await fetch(`${apiBaseUrl}/api/admin/assigned-tests/search?${parameters.toString()}`, {
+        headers: authHeaders(token),
+      });
+      const body = await response.json().catch(() => []);
+      if (!response.ok) {
+        throw new Error(body.error || `Request failed with ${response.status}`);
+      }
+      setResultTestOptions(Array.isArray(body) ? body : []);
+    } finally {
+      setResultTestOptionsLoading(false);
+    }
+  }
+
   async function activateAssignedTest(test: AdminAssignedTestSummary) {
     setAssignedTestError("");
     const response = await fetch(`${apiBaseUrl}/api/admin/assigned-tests/${test.versionId}/activate`, {
@@ -1084,7 +1124,7 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
     }
     const rows = Array.isArray(body) ? body : [];
     setAssignedTestResults(rows);
-    setSelectedAssignedResultId((current) => rows.some((row: AdminAssignedTestResult) => row.assignmentId === current) ? current : rows[0]?.assignmentId || "");
+    setSelectedAssignedResultIds((current) => current.filter((id) => rows.some((row: AdminAssignedTestResult) => row.assignmentId === id)));
     setAssignedTestResultDetails({});
     setExpandedAssignedResultId("");
   }
@@ -1305,6 +1345,23 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
     await loadAssignedTestResults(selectedAssignedTestVersionId);
   }
 
+  async function publishSelectedAssignedTestResults() {
+    if (!selectedAssignedTestVersionId || publishableSelectedAssignedResults.length === 0) return;
+    setAssignedTestError("");
+    for (const result of publishableSelectedAssignedResults) {
+      const response = await fetch(`${apiBaseUrl}/api/admin/assigned-tests/${selectedAssignedTestVersionId}/results/${result.assignmentId}/publish`, {
+        method: "POST",
+        headers: authHeaders(),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(body.error || `Request failed with ${response.status}`);
+      }
+    }
+    showStatus(`Published ${publishableSelectedAssignedResults.length} result(s).`);
+    await Promise.all([loadAssignedTests(), loadAssignedTestResults(selectedAssignedTestVersionId)]);
+  }
+
   async function reassignAssignedTestStudent(result: AdminAssignedTestResult) {
     if (!selectedAssignedTestVersionId) return;
     const confirmed = window.confirm(`Re-assign this test to ${result.studentSubject}? The current attempt will be kept as reassigned history and a new assignment will be created.`);
@@ -1322,6 +1379,18 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
     setAssignedTestResultDetails({});
     showStatus(`Re-assigned test to ${result.studentSubject}.`);
     await Promise.all([loadAssignedTests(), loadAssignedTestResults(selectedAssignedTestVersionId)]);
+  }
+
+  function toggleAssignedResultSelection(assignmentId: string) {
+    setSelectedAssignedResultIds((current) => (
+      current.includes(assignmentId)
+        ? current.filter((id) => id !== assignmentId)
+        : [...current, assignmentId]
+    ));
+  }
+
+  function toggleAllAssignedResultSelection(checked: boolean) {
+    setSelectedAssignedResultIds(checked ? assignedTestResults.map((result) => result.assignmentId) : []);
   }
 
   function loadQuestionCardPage(taxonomyNodeId: string, cursorIndex: number) {
@@ -1481,6 +1550,17 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, selectedAssignedTestVersionId, tenantResolved, selectedTenantId]);
+
+  useEffect(() => {
+    if (activeTab !== "tests" || testTab !== "results" || !currentToken || !tenantResolved) return;
+    const timeout = window.setTimeout(() => {
+      loadResultTestOptions(resultTestSearch, currentToken).catch((exception) =>
+        setAssignedTestError(exception instanceof Error ? exception.message : "Unable to search tests.")
+      );
+    }, 250);
+    return () => window.clearTimeout(timeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, testTab, resultTestSearch, currentToken, tenantResolved, selectedTenantId]);
 
   useEffect(() => {
     if (activeTab !== "import" || !currentToken || !tenantResolved || importMetadata.length > 0) return;
@@ -3376,7 +3456,7 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
                   Test
                   <select value={selectedAssignedTestVersionId} onChange={(event) => {
                     setSelectedAssignedTestVersionId(event.target.value);
-                    setSelectedAssignedResultId("");
+                    setSelectedAssignedResultIds([]);
                     setAssignedTestResults([]);
                     setAssignedTestResultDetails({});
                     setExpandedAssignedResultId("");
@@ -3466,25 +3546,40 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
                 <p>{submittedAssignedTestResults.length} submitted of {assignedTestResults.length} assigned student(s)</p>
               </div>
               <div className="dashboard-actions">
-                <label className="inline-select">
+                <label className="inline-select result-test-combobox">
                   Test
-                  <select value={selectedAssignedTestVersionId} onChange={(event) => setSelectedAssignedTestVersionId(event.target.value)}>
-                    <option value="">Select test</option>
-                    {resultEligibleAssignedTests.map((test) => (
-                      <option key={test.versionId} value={test.versionId}>{test.publicKey} - {test.name}</option>
+                  <input
+                    list="result-test-options"
+                    value={resultTestSearch}
+                    onChange={(event) => {
+                      const nextValue = event.target.value;
+                      setResultTestSearch(nextValue);
+                      if (!nextValue.trim()) {
+                        selectAssignedTestVersion("");
+                        return;
+                      }
+                      const matchedTest = resultTestOptions.find((test) => resultTestChoiceLabel(test) === nextValue);
+                      if (matchedTest) {
+                        selectAssignedTestVersion(matchedTest.versionId);
+                      }
+                    }}
+                    placeholder="Type test name, key, date, or status"
+                  />
+                  <datalist id="result-test-options">
+                    {resultTestOptions.map((test) => (
+                      <option key={test.versionId} value={resultTestChoiceLabel(test)} />
                     ))}
-                  </select>
+                  </datalist>
+                  {resultTestOptionsLoading ? <span className="muted">Searching tests...</span> : null}
                 </label>
-                <button type="button" className="secondary-button compact-button" onClick={() => loadAssignedTests().catch((exception) => setAssignedTestError(exception instanceof Error ? exception.message : "Unable to load tests."))}>Refresh</button>
-                <button type="button" className="primary-button compact-button" disabled={!selectedAssignedTestVersionId || submittedAssignedTestResults.length === 0} onClick={() => publishAssignedTestResults().catch((exception) => setAssignedTestError(exception instanceof Error ? exception.message : "Unable to publish results."))}>Publish all submitted</button>
               </div>
               <div className="result-action-bar">
-                <span className="muted">{selectedAssignedResult ? `Selected: ${selectedAssignedResult.studentSubject}` : "Select a student row"}</span>
+                <span className="muted">{selectedAssignedResultIds.length ? `${selectedAssignedResultIds.length} selected` : "Select student row(s)"}</span>
                 <button
                   type="button"
                   className="secondary-button icon-action-button"
                   disabled={!selectedAssignedResult || !selectedResultCanReview}
-                  title={!selectedAssignedResult ? "Select a student result first" : selectedResultCanReview ? "Review or edit result details" : "No submitted attempt is available to review"}
+                  title={selectedAssignedResultIds.length > 1 ? "Edit result is available for one selected row at a time" : !selectedAssignedResult ? "Select a student result first" : selectedResultCanReview ? "Review or edit result details" : "No submitted attempt is available to review"}
                   onClick={() => selectedAssignedResult && loadAssignedTestResultDetail(selectedAssignedResult).catch((exception) => setAssignedTestError(exception instanceof Error ? exception.message : "Unable to load result detail."))}
                 >
                   <span aria-hidden="true">✎</span> {selectedAssignedResult && expandedAssignedResultId === selectedAssignedResult.assignmentId ? "Hide" : "Edit result"}
@@ -3492,9 +3587,9 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
                 <button
                   type="button"
                   className="primary-button icon-action-button"
-                  disabled={!selectedAssignedResult || !selectedResultCanPublish}
-                  title={!selectedAssignedResult ? "Select a student result first" : selectedResultCanPublish ? "Publish this student result" : "Only unpublished submitted results can be published"}
-                  onClick={() => selectedAssignedResult && publishAssignedTestStudentResult(selectedAssignedResult).catch((exception) => setAssignedTestError(exception instanceof Error ? exception.message : "Unable to publish student result."))}
+                  disabled={!selectedResultCanPublish}
+                  title={!selectedAssignedResultIds.length ? "Select one or more student results first" : selectedResultCanPublish ? "Publish selected student result(s)" : "Only unpublished submitted results can be published"}
+                  onClick={() => publishSelectedAssignedTestResults().catch((exception) => setAssignedTestError(exception instanceof Error ? exception.message : "Unable to publish selected results."))}
                 >
                   <span aria-hidden="true">↑</span> Publish
                 </button>
@@ -3502,7 +3597,7 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
                   type="button"
                   className="secondary-button icon-action-button"
                   disabled={!selectedAssignedResult || !selectedResultCanReassign}
-                  title={!selectedAssignedResult ? "Select a student result first" : selectedResultCanReassign ? "Re-assign this test" : "Only unpublished started or submitted tests can be re-assigned"}
+                  title={selectedAssignedResultIds.length > 1 ? "Re-assign is available for one selected row at a time" : !selectedAssignedResult ? "Select a student result first" : selectedResultCanReassign ? "Re-assign this test" : "Only unpublished started or submitted tests can be re-assigned"}
                   onClick={() => selectedAssignedResult && reassignAssignedTestStudent(selectedAssignedResult).catch((exception) => setAssignedTestError(exception instanceof Error ? exception.message : "Unable to re-assign test."))}
                 >
                   <span aria-hidden="true">↻</span> Re-assign
@@ -3510,18 +3605,17 @@ export function AdminConsole({ embedded = false, tenantId: controlledTenantId = 
               </div>
               <div className="table-wrap">
                 <table className="data-table compact-data-table">
-                  <thead><tr><th>Select</th><th>Student</th><th>Status</th><th>Assigned</th><th>Submitted</th><th>Score</th><th>Published</th></tr></thead>
+                  <thead><tr><th><input type="checkbox" aria-label="Select all results" checked={allAssignedResultsSelected} onChange={(event) => toggleAllAssignedResultSelection(event.target.checked)} /></th><th>Student</th><th>Status</th><th>Assigned</th><th>Submitted</th><th>Score</th><th>Published</th></tr></thead>
                   <tbody>
                     {assignedTestResults.map((result) => (
                       <Fragment key={result.assignmentId}>
-                        <tr className={selectedAssignedResultId === result.assignmentId ? "selected-row" : ""}>
+                        <tr className={selectedAssignedResultIds.includes(result.assignmentId) ? "selected-row" : ""}>
                           <td>
                             <input
-                              type="radio"
-                              name="selected-assigned-result"
+                              type="checkbox"
                               aria-label={`Select result for ${result.studentSubject}`}
-                              checked={selectedAssignedResultId === result.assignmentId}
-                              onChange={() => setSelectedAssignedResultId(result.assignmentId)}
+                              checked={selectedAssignedResultIds.includes(result.assignmentId)}
+                              onChange={() => toggleAssignedResultSelection(result.assignmentId)}
                             />
                           </td>
                           <td>{result.studentSubject}</td>

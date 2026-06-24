@@ -2095,6 +2095,7 @@ h1 {
   font-size: 11px;
 }
 
+.compact-data-table input[type="checkbox"],
 .compact-data-table input[type="radio"] {
   height: 14px;
   margin: 0;
@@ -2107,6 +2108,14 @@ h1 {
   flex-wrap: wrap;
   gap: 6px;
   margin: 8px 0 4px;
+}
+
+.result-test-combobox {
+  min-width: min(100%, 520px);
+}
+
+.result-test-combobox input {
+  min-width: min(100%, 520px);
 }
 
 .admin-shell .icon-action-button {

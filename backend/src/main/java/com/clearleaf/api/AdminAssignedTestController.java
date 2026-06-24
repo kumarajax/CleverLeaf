@@ -35,6 +35,15 @@ public class AdminAssignedTestController {
         return tests.adminTests(tenantAuthorization.tenantId(tenantHeader), jwt.getSubject());
     }
 
+    @GetMapping("/search")
+    public List<AdminAssignedTestSummary> search(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestParam(value = "q", defaultValue = "") String query,
+            @RequestParam(value = "limit", defaultValue = "20") int limit,
+            @RequestHeader(value = TenantAuthorizationService.TENANT_HEADER, required = false) String tenantHeader) {
+        return tests.searchResultEligibleAdminTests(tenantAuthorization.tenantId(tenantHeader), jwt.getSubject(), query, limit);
+    }
+
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public AdminAssignedTestDetail create(

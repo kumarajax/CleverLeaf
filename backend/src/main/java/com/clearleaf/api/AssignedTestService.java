@@ -97,6 +97,20 @@ public class AssignedTestService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public List<AdminAssignedTestSummary> searchResultEligibleAdminTests(UUID tenantId, String creatorSubject, String query, int limit) {
+        String normalizedQuery = query == null ? "" : query.trim().toLowerCase(Locale.ROOT);
+        int boundedLimit = Math.min(Math.max(limit, 1), 50);
+        String databaseQuery = Set.of("published", "completed", "expired").contains(normalizedQuery) ? "" : normalizedQuery;
+        return versions.searchLatestForCreator(tenantId, requireSubject(creatorSubject), databaseQuery, boundedLimit * 10)
+                .stream()
+                .map(this::toSummary)
+                .filter(this::isResultEligible)
+                .filter(test -> matchesResultSearch(test, normalizedQuery))
+                .limit(boundedLimit)
+                .toList();
+    }
+
     @Transactional
     public AdminAssignedTestDetail createAdminTest(UUID tenantId, String creatorSubject, CreateAdminAssignedTestRequest request) {
         String subject = requireSubject(creatorSubject);
@@ -687,6 +701,36 @@ public class AssignedTestService {
                 assignments.countPublishedByVersionId(version.getId(), version.getTenantId(), ASSIGNMENT_STATUS_REASSIGNED),
                 assignments.latestResultsPublishedAtByVersionId(version.getId(), version.getTenantId(), ASSIGNMENT_STATUS_REASSIGNED),
                 test.getCreatedAt());
+    }
+
+    private boolean isResultEligible(AdminAssignedTestSummary test) {
+        String displayStatus = displayAdminTestStatus(test);
+        return Set.of("PUBLISHED", "COMPLETED", "EXPIRED").contains(displayStatus);
+    }
+
+    private String displayAdminTestStatus(AdminAssignedTestSummary test) {
+        Instant now = Instant.now();
+        if (test.assignedCount() > 0 && test.submittedCount() >= test.assignedCount()) {
+            return "COMPLETED";
+        }
+        if (test.availableUntil() != null && test.availableUntil().isBefore(now) && !TEST_STATUS_DRAFT.equals(test.status())) {
+            return "EXPIRED";
+        }
+        return test.status();
+    }
+
+    private boolean matchesResultSearch(AdminAssignedTestSummary test, String query) {
+        if (query == null || query.isBlank()) {
+            return true;
+        }
+        return List.of(
+                test.publicKey(),
+                test.name(),
+                test.createdAt() == null ? "" : test.createdAt().toString(),
+                displayAdminTestStatus(test))
+                .stream()
+                .map(value -> value.toLowerCase(Locale.ROOT))
+                .anyMatch(value -> value.contains(query));
     }
 
     private AdminAssignedTestDetail toDetail(AdminTestVersionEntity version) {
